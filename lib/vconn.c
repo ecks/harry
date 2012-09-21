@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
@@ -30,6 +31,10 @@ static struct vconn_class *vconn_classes[] = {
     &tcp_vconn_class,
 };
 
+static struct pvconn_class *pvconn_classes[] = {
+   &ptcp_pvconn_class,
+};
+
 static int do_recv(struct vconn *, struct rfpbuf **);
 static int do_send(struct vconn *, struct rfpbuf *);
 
@@ -44,13 +49,27 @@ check_vconn_classes(void)
         struct vconn_class *class = vconn_classes[i];
         assert(class->name != NULL);
         assert(class->open != NULL);
-//        if (class->close || class->recv || class->send
-//            || class->run || class->run_wait || class->wait) {
-          if (class->run || class->run_wait || class->wait) {
+        if (class->close || class->recv || class->send
+            || class->run) {
+// || class->run_wait || class->wait) {
             assert(class->close != NULL);
-//            assert(class->recv != NULL);
-//            assert(class->send != NULL);
-            assert(class->wait != NULL);
+            assert(class->recv != NULL);
+            assert(class->send != NULL);
+//            assert(class->wait != NULL);
+        } else {
+            /* This class delegates to another one. */
+        }
+    }
+
+    for(i = 0; i < ARRAY_SIZE(pvconn_classes); i++) {
+    	struct pvconn_class *class = pvconn_classes[i];
+        assert(class->name != NULL);
+        assert(class->listen != NULL);
+        if (class->close || class->accept) {
+// || class->wait) {
+            assert(class->close != NULL);
+            assert(class->accept != NULL);
+//            assert(class->wait != NULL);
         } else {
             /* This class delegates to another one. */
         }
@@ -332,6 +351,129 @@ vconn_close(struct vconn *vconn)
     }
 }
 
+/* Allows 'vconn' to perform maintenance activities, such as flushing output
+ * buffers. */
+void
+vconn_run(struct vconn *vconn)
+{
+    if (vconn->state == VCS_CONNECTING ||
+        vconn->state == VCS_SEND_HELLO ||
+        vconn->state == VCS_RECV_HELLO) {
+        vconn_connect(vconn);
+    }
+
+    if (vconn->class->run) {
+        (vconn->class->run)(vconn);
+    }
+}
+
+/* Given 'name', a connection name in the form "TYPE:ARGS", stores the class
+ * named "TYPE" into '*classp' and returns 0.  Returns EAFNOSUPPORT and stores
+ * a null pointer into '*classp' if 'name' is in the wrong form or if no such
+ * class exists. */
+static int
+pvconn_lookup_class(const char *name, struct pvconn_class **classp)
+{
+    size_t prefix_len;
+
+    prefix_len = strcspn(name, ":");
+    if (name[prefix_len] != '\0') {
+        size_t i;
+        for (i = 0; i < ARRAY_SIZE(pvconn_classes); i++) {            
+            struct pvconn_class *class = pvconn_classes[i];
+            if (strlen(class->name) == prefix_len                
+                && !memcmp(class->name, name, prefix_len)) {
+                *classp = class;                 
+                return 0;
+            }
+        }
+    }
+
+    *classp = NULL;
+    return EAFNOSUPPORT;
+}
+
+/* Attempts to start listening for OpenFlow connections.  'name' is a
+ * connection name in the form "TYPE:ARGS", where TYPE is an passive vconn
+ * class's name and ARGS are vconn class-specific.
+ *
+ * Returns 0 if successful, otherwise a positive errno value.  If successful,
+ * stores a pointer to the new connection in '*pvconnp', otherwise a null
+ * pointer.  */
+int
+pvconn_open(const char *name, struct pvconn **pvconnp, uint8_t dscp)
+{
+    struct pvconn_class *class;
+    struct pvconn *pvconn;
+    char *suffix_copy;
+    int error;
+
+    check_vconn_classes();
+
+    /* Look up the class. */
+    error = pvconn_lookup_class(name, &class);
+    if (!class) {
+        goto error;
+    }
+
+    /* Call class's "open" function. */
+    suffix_copy = xstrdup(strchr(name, ':') + 1);
+    error = class->listen(name, suffix_copy, &pvconn, dscp);
+    free(suffix_copy);
+    if (error) {
+        goto error;
+    }
+
+    /* Success. */
+    *pvconnp = pvconn;
+    return 0;
+
+error:
+    *pvconnp = NULL;
+    return error;
+}
+
+/* Closes 'pvconn'. */
+void
+pvconn_close(struct pvconn *pvconn)
+{
+    if (pvconn != NULL) {
+        char *name = pvconn->name;
+        (pvconn->class->close)(pvconn);
+        free(name);
+    }
+}
+
+/* Tries to accept a new connection on 'pvconn'.  If successful, stores the new
+ * connection in '*new_vconn' and returns 0.  Otherwise, returns a positive
+ * errno value.
+ *
+ * The new vconn will automatically negotiate an OpenFlow protocol version
+ * acceptable to both peers on the connection.  The version negotiated will be
+ * no lower than 'min_version' and no higher than OFP_VERSION.
+ *
+ * pvconn_accept() will not block waiting for a connection.  If no connection
+ * is ready to be accepted, it returns EAGAIN immediately. */
+int
+pvconn_accept(struct pvconn *pvconn, int min_version, struct vconn **new_vconn)
+{
+    int retval = (pvconn->class->accept)(pvconn, new_vconn);
+    if (retval) {
+        *new_vconn = NULL;
+    } else {
+        assert((*new_vconn)->state != VCS_CONNECTING
+               || (*new_vconn)->class->connect);
+        (*new_vconn)->min_version = min_version;
+    }
+    return retval;
+}
+
+void
+pvconn_wait(struct pvconn *pvconn)
+{
+    (pvconn->class->wait)(pvconn);
+}
+
 /* Initializes 'vconn' as a new vconn named 'name', implemented via 'class'.
  * The initial connection status, supplied as 'connect_status', is interpreted
  * as follows:
@@ -368,18 +510,10 @@ vconn_init(struct vconn *vconn, struct vconn_class *class, int connect_status,
     assert(vconn->state != VCS_CONNECTING || class->connect);
 }
 
-/* Allows 'vconn' to perform maintenance activities, such as flushing output
- * buffers. */
 void
-vconn_run(struct vconn *vconn)
+pvconn_init(struct pvconn *pvconn, struct pvconn_class *class,
+            const char *name)
 {
-    if (vconn->state == VCS_CONNECTING ||
-        vconn->state == VCS_SEND_HELLO ||
-        vconn->state == VCS_RECV_HELLO) {
-        vconn_connect(vconn);
-    }
-
-    if (vconn->class->run) {
-        (vconn->class->run)(vconn);
-    }
+    pvconn->class = class;
+    pvconn->name = xstrdup(name);
 }

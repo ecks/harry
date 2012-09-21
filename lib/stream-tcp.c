@@ -1,9 +1,13 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <inttypes.h>
 #include <errno.h>
 
 #include "util.h"
+#include "packets.h"
 #include "stream-provider.h"
 #include "stream-fd.h"
 
@@ -64,4 +68,50 @@ const struct stream_class tcp_stream_class = {
     NULL,                       /* run */
     NULL,                       /* run_wait */
     NULL,                       /* wait */
+};
+
+static int ptcp_accept(int fd, const struct sockaddr *sa, size_t sa_len,
+                       struct stream **streamp);
+
+static int
+ptcp_open(const char *name, char *suffix, struct pstream **pstreamp,
+          uint8_t dscp)
+{
+  char bound_name[128];
+  int fd;
+  struct sockaddr_in sin;
+
+  fd = inet_open_passive(SOCK_STREAM, suffix, -1, &sin, dscp);
+  if (fd < 0) {
+      return -fd;
+  }
+
+  sprintf(bound_name, "ptcp%"PRIu16":"IP_FMT,
+            ntohs(sin.sin_port), IP_ARGS(&sin.sin_addr.s_addr));
+  return new_fd_pstream(bound_name, fd, ptcp_accept, NULL, pstreamp);
+}
+
+static int
+ptcp_accept(int fd, const struct sockaddr *sa, size_t sa_len,
+            struct stream **streamp)
+{
+    const struct sockaddr_in *sin = (const struct sockaddr_in *) sa;
+    char name[128];
+
+    if (sa_len == sizeof(struct sockaddr_in) && sin->sin_family == AF_INET) {
+        sprintf(name, "tcp:"IP_FMT, IP_ARGS(&sin->sin_addr));
+        sprintf(strchr(name, '\0'), ":%"PRIu16, ntohs(sin->sin_port));
+    } else {
+        strcpy(name, "tcp");
+    }
+    return new_tcp_stream(name, fd, 0, sin, streamp);
+}
+
+const struct pstream_class ptcp_pstream_class = {
+    "ptcp",
+    true,
+    ptcp_open,
+    NULL,
+    NULL,
+    NULL
 };

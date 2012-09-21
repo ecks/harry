@@ -119,11 +119,71 @@ struct stream_class {
     void (*wait)(struct stream *stream, enum stream_wait_type type);
 };
 
+/* Passive listener for incoming stream connections.
+ *
+ * This structure should be treated as opaque by stream implementations. */
+struct pstream {
+    const struct pstream_class *class;
+    char *name;
+};
+
+static inline void pstream_assert_class(const struct pstream *pstream,
+                                        const struct pstream_class *class)
+{
+    assert(pstream->class == class);
+}
+
+struct pstream_class {
+    /* Prefix for connection names, e.g. "ptcp", "pssl", "punix". */
+    const char *name;
+
+    /* True if this pstream needs periodic probes to verify connectivity.  For
+     * pstreams which need probes, it can take a long time to notice the
+     * connection was dropped. */
+    bool needs_probes;
+
+    /* Attempts to start listening for stream connections.  'name' is the full
+     * connection name provided by the user, e.g. "ptcp:1234".  This name is
+     * useful for error messages but must not be modified.
+     *
+     * 'suffix' is a copy of 'name' following the colon and may be modified.
+     * 'dscp' is the DSCP value that the new connection should use in the IP
+     * packets it sends.
+     *
+     * Returns 0 if successful, otherwise a positive errno value.  If
+     * successful, stores a pointer to the new connection in '*pstreamp'.
+     *
+     * The listen function must not block.  If the connection cannot be
+     * completed immediately, it should return EAGAIN (not EINPROGRESS, as
+     * returned by the connect system call) and continue the connection in the
+     * background. */
+    int (*listen)(const char *name, char *suffix, struct pstream **pstreamp,
+                  uint8_t dscp);
+
+    /* Closes 'pstream' and frees associated memory. */
+    void (*close)(struct pstream *pstream);
+
+    /* Tries to accept a new connection on 'pstream'.  If successful, stores
+     * the new connection in '*new_streamp' and returns 0.  Otherwise, returns
+     * a positive errno value.
+     *
+     * The accept function must not block waiting for a connection.  If no
+     * connection is ready to be accepted, it should return EAGAIN. */
+    int (*accept)(struct pstream *pstream, struct stream **new_streamp);
+
+    /* Arranges for the poll loop to wake up when a connection is ready to be
+     * accepted on 'pstream'. */
+    void (*wait)(struct pstream *pstream);
+};
+
 /* Active and passive stream classes. */
 extern const struct stream_class tcp_stream_class;
+extern const struct pstream_class ptcp_pstream_class;
 extern const struct stream_class unix_stream_class;
+extern const struct pstream_class punix_pstream_class;
 #ifdef HAVE_OPENSSL
 extern const struct stream_class ssl_stream_class;
+extern const struct pstream_class pssl_pstream_class;
 #endif
 
 #endif

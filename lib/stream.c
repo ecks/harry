@@ -20,6 +20,10 @@ static const struct stream_class *stream_classes[] = {
     &tcp_stream_class,
 };
 
+static const struct pstream_class *pstream_classes[] = {
+    &ptcp_pstream_class,
+};
+
 /* Closes 'stream'. */
 void
 stream_close(struct stream *stream)
@@ -339,4 +343,137 @@ stream_open_with_default_ports(const char *name_,
     free(name);
 
     return error;
+}
+
+/* Returns the name that was used to open 'pstream'.  The caller must not
+ * modify or free the name. */
+const char *
+pstream_get_name(const struct pstream *pstream)
+{
+    return pstream->name;
+}
+
+/* Given 'name', a pstream name in the form "TYPE:ARGS", stores the class
+ * named "TYPE" into '*classp' and returns 0.  Returns EAFNOSUPPORT and stores
+ * a null pointer into '*classp' if 'name' is in the wrong form or if no such
+ * class exists. */
+static int
+pstream_lookup_class(const char *name, const struct pstream_class **classp)
+{
+    size_t prefix_len;
+    size_t i;
+
+    check_stream_classes();
+
+    *classp = NULL;
+    prefix_len = strcspn(name, ":");
+    if (name[prefix_len] == '\0') {
+        return EAFNOSUPPORT;
+    }
+    for (i = 0; i < ARRAY_SIZE(pstream_classes); i++) {
+        const struct pstream_class *class = pstream_classes[i];
+        if (strlen(class->name) == prefix_len
+            && !memcmp(class->name, name, prefix_len)) {
+            *classp = class;
+            return 0;
+        }
+    }
+    return EAFNOSUPPORT;
+}
+
+/* Attempts to start listening for remote stream connections.  'name' is a
+ * connection name in the form "TYPE:ARGS", where TYPE is an passive stream
+ * class's name and ARGS are stream class-specific.
+ *
+ * Returns 0 if successful, otherwise a positive errno value.  If successful,
+ * stores a pointer to the new connection in '*pstreamp', otherwise a null
+ * pointer.  */
+int
+pstream_open(const char *name, struct pstream **pstreamp, uint8_t dscp)
+{
+  const struct pstream_class *class;
+  struct pstream *pstream;
+  char * suffix_copy;
+  int error;
+
+  /* Look up the class. */
+  error = pstream_lookup_class(name, &class);
+  if (!class) {
+      goto error;
+  }
+
+  /* Call class's "open" function. */
+  suffix_copy = xstrdup(strchr(name, ':') + 1);
+  error = class->listen(name, suffix_copy, &pstream, dscp);
+  free(suffix_copy);
+  if (error) {
+      goto error;
+  }
+
+  /* Success. */
+  *pstreamp = pstream;
+  return 0;
+
+error:
+  *pstreamp = NULL;
+  return error;
+}
+
+void
+pstream_init(struct pstream *pstream, const struct pstream_class *class,
+            const char *name)
+{
+    pstream->class = class;
+    pstream->name = xstrdup(name);
+}
+
+/* Like pstream_open(), but for ptcp streams the port defaults to
+ * 'default_ptcp_port' if no port number is given and for passive SSL streams
+ * the port defaults to 'default_pssl_port' if no port number is given. */
+int
+pstream_open_with_default_ports(const char *name_,
+                                uint16_t default_ptcp_port,
+                                uint16_t default_pssl_port,
+                                struct pstream **pstreamp,
+                                uint8_t dscp)
+{
+    char *name;
+    int error;
+
+    if (!strncmp(name_, "ptcp:", 5) && count_fields(name_) < 2) {
+        name = xasprintf("%s%d", name_, default_ptcp_port);
+    } else if (!strncmp(name_, "pssl:", 5) && count_fields(name_) < 2) {
+        name = xasprintf("%s%d", name_, default_pssl_port);
+    } else {
+        name = xstrdup(name_);
+    }
+    error = pstream_open(name, pstreamp, dscp);
+    free(name);
+
+    return error;
+}
+
+/* Tries to accept a new connection on 'pstream'.  If successful, stores the
+ * new connection in '*new_stream' and returns 0.  Otherwise, returns a
+ * positive errno value.
+ *
+ * pstream_accept() will not block waiting for a connection.  If no connection
+ * is ready to be accepted, it returns EAGAIN immediately. */
+int
+pstream_accept(struct pstream *pstream, struct stream **new_stream)
+{
+    int retval = (pstream->class->accept)(pstream, new_stream);
+    if (retval) {
+        *new_stream = NULL;
+    } else {
+        assert((*new_stream)->state != SCS_CONNECTING
+               || (*new_stream)->class->connect);
+    }
+    return retval;
+}
+
+void
+pstream_wait(struct pstream *pstream)
+{
+    (pstream->class->wait)(pstream);
 }

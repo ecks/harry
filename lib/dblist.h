@@ -7,6 +7,8 @@ struct list {
     struct list *next;     /* Next list element. */
 };
 
+#define LIST_INITIALIZER(LIST) { LIST, LIST }
+
 void list_init(struct list *);
 void list_poison(struct list *);
 

@@ -3,7 +3,7 @@
 
 struct vconn;
 
-struct rconn *rconn_create();
+struct rconn * rconn_create();
 void rconn_disconnect(struct rconn *);
 void rconn_destroy(struct rconn *);
 void rconn_run(struct rconn *);

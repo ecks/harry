@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #include "util.h"
 
@@ -64,4 +66,30 @@ xasprintf(const char *format, ...)
     va_end(args);
 
     return s;
+}
+
+bool
+str_to_int(const char *s, int base, int *i)
+{
+    long long ll;
+    bool ok = str_to_llong(s, base, &ll);
+    *i = ll;
+    return ok;
+}
+
+bool
+str_to_llong(const char *s, int base, long long *x)
+{
+    int save_errno = errno;
+    char *tail;
+    errno = 0;
+    *x = strtoll(s, &tail, base);
+    if (errno == EINVAL || errno == ERANGE || tail == s || *tail != '\0') {
+        errno = save_errno;
+        *x = 0;
+        return false;
+    } else {
+        errno = save_errno;
+        return true;
+    }
 }

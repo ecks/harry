@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -ggdb
 EXECUTABLE = zebralite
-API_OBJECTS = api.o netlink.o listener.o Class.o list.o RouteV4.o vconn.o vconn-stream.o stream.o stream-fd.o stream-tcp.o util.o socket-util.o rfp-msgs.o rfpbuf.o dblist.o datapath.o rconn.o
+API_OBJECTS = api.o netlink.o listener.o Class.o list.o RouteV4.o vconn.o vconn-stream.o stream.o stream-fd.o stream-tcp.o util.o socket-util.o rfp-msgs.o rfpbuf.o dblist.o datapath.o rconn.o poll-loop.o timeval.o fatal-signal.o
 LIBS = -lrt
 
 all: $(EXECUTABLE)
@@ -53,6 +53,16 @@ datapath.o:
 
 rconn.o:
 	$(CC) $(CFLAGS) -c lib/rconn.c
+
+poll-loop.o:
+	$(CC) $(CFLAGS) -c lib/poll-loop.c
+
+timeval.o:
+	$(CC) $(CFLAGS) -c lib/timeval.c
+
+fatal-signal.o:
+	$(CC) $(CFLAGS) -c lib/fatal-signal.c
+
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c
 

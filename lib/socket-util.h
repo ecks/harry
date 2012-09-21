@@ -12,5 +12,8 @@ int lookup_ip(const char *host_name, struct in_addr *address);
 int check_connection_completion(int fd);
 int inet_open_active(int style, const char *target, uint16_t default_port,
                      struct sockaddr_in *sinp, int *fdp, uint8_t dscp);
-
+bool inet_parse_passive(const char *target, int default_port,
+                        struct sockaddr_in *sinp);
+int inet_open_passive(int style, const char *target, int default_port,
+                      struct sockaddr_in *sinp, uint8_t dscp);
 #endif

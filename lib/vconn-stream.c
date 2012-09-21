@@ -215,6 +215,81 @@ vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait)
 
 }
 
+struct pvconn_pstream
+{
+    struct pvconn pvconn;
+    struct pstream *pstream;
+};
+
+static struct pvconn_class pstream_pvconn_class;
+
+static struct pvconn_pstream *
+pvconn_pstream_cast(struct pvconn *pvconn)
+{
+    return CONTAINER_OF(pvconn, struct pvconn_pstream, pvconn);
+}
+
+/* Creates a new pvconn named 'name' that will accept new connections using
+ * pstream_accept() and stores a pointer to the pvconn in '*pvconnp'.
+ *
+ * Returns 0 if successful, otherwise a positive errno value.  (The current
+ * implementation never fails.) */
+static int
+pvconn_pstream_listen(const char *name, char *suffix,
+                      struct pvconn **pvconnp, uint8_t dscp)
+{
+  struct pvconn_pstream *ps;
+  struct pstream * pstream;
+  int error;
+
+  error = pstream_open_with_default_ports(name, RFP_TCP_PORT, RFP_SSL_PORT,
+                                            &pstream, dscp);
+  if (error) {
+      return error;
+  }
+
+  ps = malloc(sizeof *ps);
+  pvconn_init(&ps->pvconn, &pstream_pvconn_class, name);
+  ps->pstream = pstream;
+  *pvconnp = &ps->pvconn;
+  return 0;
+}
+
+static void
+pvconn_pstream_close(struct pvconn *pvconn)
+{
+
+}
+
+static int
+pvconn_pstream_accept(struct pvconn *pvconn, struct vconn **new_vconnp)
+{
+  struct pvconn_pstream *ps = pvconn_pstream_cast(pvconn);
+  struct stream *stream;
+  int error;
+
+  error = pstream_accept(ps->pstream, &stream);
+  if (error) {
+      if (error != EAGAIN) {
+          printf("%s: accept: %s\n",
+                      pstream_get_name(ps->pstream), strerror(error));
+      }
+      printf("pvconn_pstream_accept: %d\n", error);
+      return error;
+  }
+
+  *new_vconnp = vconn_stream_new(stream, 0);
+  return 0;
+}
+
+static void
+pvconn_pstream_wait(struct pvconn *pvconn)
+{
+    struct pvconn_pstream *ps = pvconn_pstream_cast(pvconn);
+    pstream_wait(ps->pstream);
+}
+
+
 /* Stream-based vconns and pvconns. */
 
 #define STREAM_INIT(NAME)                           \
@@ -230,7 +305,17 @@ vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait)
             vconn_stream_wait,                      \
     }
 
+#define PSTREAM_INIT(NAME)                          \
+    {                                               \
+            NAME,                                   \
+            pvconn_pstream_listen,                  \
+            pvconn_pstream_close,                   \
+            pvconn_pstream_accept,                  \
+            pvconn_pstream_wait,                    \
+    }
 
 static struct vconn_class stream_vconn_class = STREAM_INIT("stream");
+static struct pvconn_class pstream_pvconn_class = PSTREAM_INIT("pstream");
 
 struct vconn_class tcp_vconn_class = STREAM_INIT("tcp");
+struct pvconn_class ptcp_pvconn_class = PSTREAM_INIT("ptcp");

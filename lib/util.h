@@ -24,4 +24,7 @@
 char *xasprintf(const char *format, ...) PRINTF_FORMAT(1, 2) MALLOC_LIKE;
 char *xstrdup(const char *) MALLOC_LIKE;
 
+bool str_to_int(const char *, int base, int *);
+bool str_to_llong(const char *, int base, long long *);
+
 #endif

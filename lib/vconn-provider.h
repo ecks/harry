@@ -109,7 +109,56 @@ struct vconn_class {
     void (*wait)(struct vconn *vconn, enum vconn_wait_type type);
 };
 
+/* Passive virtual connection to an OpenFlow device.
+ *
+ * This structure should be treated as opaque by vconn implementations. */
+struct pvconn {
+    struct pvconn_class *class;
+    char *name;
+}; 
+
+void pvconn_init(struct pvconn *, struct pvconn_class *, const char *name);
+
+struct pvconn_class {
+    /* Prefix for connection names, e.g. "ptcp", "pssl". */
+    const char *name;
+
+    /* Attempts to start listening for OpenFlow connections.  'name' is the
+     * full connection name provided by the user, e.g. "ptcp:1234".  This name
+     * is useful for error messages but must not be modified.
+     *
+     * 'suffix' is a copy of 'name' following the colon and may be modified.
+     * 'dscp' is the DSCP value that the new connection should use in the IP
+     * packets it sends.
+     *
+     * Returns 0 if successful, otherwise a positive errno value.  If
+     * successful, stores a pointer to the new connection in '*pvconnp'.
+     *
+     * The listen function must not block.  If the connection cannot be
+     * completed immediately, it should return EAGAIN (not EINPROGRESS, as
+     * returned by the connect system call) and continue the connection in the
+     * background. */
+    int (*listen)(const char *name, char *suffix, struct pvconn **pvconnp,
+                  uint8_t dscp);
+
+    /* Closes 'pvconn' and frees associated memory. */
+    void (*close)(struct pvconn *pvconn);
+
+    /* Tries to accept a new connection on 'pvconn'.  If successful, stores the
+     * new connection in '*new_vconnp' and returns 0.  Otherwise, returns a
+     * positive errno value.
+     *
+     * The accept function must not block waiting for a connection.  If no
+     * connection is ready to be accepted, it should return EAGAIN. */
+    int (*accept)(struct pvconn *pvconn, struct vconn **new_vconnp);
+
+    /* Arranges for the poll loop to wake up when a connection is ready to be
+     * accepted on 'pvconn'. */
+    void (*wait)(struct pvconn *pvconn);
+};
+
 /* Active and passive vconn classes. */
 extern struct vconn_class tcp_vconn_class;
+extern struct pvconn_class ptcp_pvconn_class;
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef VCONN_H
 #define VCONN_H 1
 
+struct pvconn;
 struct vconn;
 
 /* Active vconns: virtual connections to OpenFlow devices. */
@@ -17,6 +18,11 @@ int vconn_connect(struct vconn *);
 int vconn_recv(struct vconn *, struct rfpbuf **);
 int vconn_send(struct vconn *, struct rfpbuf *);
 void vconn_run(struct vconn *);
+
+int pvconn_open(const char *name, struct pvconn **, uint8_t dscp);
+void pvconn_close(struct pvconn *);
+int pvconn_accept(struct pvconn *, int min_version, struct vconn **);
+void pvconn_wait(struct pvconn *);
 
 enum vconn_wait_type {
     WAIT_CONNECT,

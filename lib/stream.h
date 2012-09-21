@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+struct pstream;
 struct stream;
 
 void stream_usage(const char *name, bool active, bool passive, bool bootstrap);
@@ -35,6 +36,11 @@ void stream_connect_wait(struct stream *);
 void stream_recv_wait(struct stream *);
 void stream_send_wait(struct stream *);
 
+int pstream_open(const char *name, struct pstream **, uint8_t dscp);
+const char *pstream_get_name(const struct pstream *);
+int pstream_accept(struct pstream *, struct stream **);
+void pstream_wait(struct pstream *);
+
 /* Convenience functions. */
 
 int stream_open_with_default_ports(const char *name,
@@ -42,6 +48,11 @@ int stream_open_with_default_ports(const char *name,
                                    uint16_t default_ssl_port,
                                    struct stream **,
                                    uint8_t dscp);
+int pstream_open_with_default_ports(const char *name,
+                                    uint16_t default_ptcp_port,
+                                    uint16_t default_pssl_port,
+                                    struct pstream **,
+                                    uint8_t dscp);
 bool stream_parse_target_with_default_ports(const char *target,
                                            uint16_t default_tcp_port,
                                            uint16_t default_ssl_port,
