@@ -157,6 +157,52 @@ stream_send(struct stream *stream, const void *buffer, size_t n)
             : (stream->class->send)(stream, buffer, n));
 }
 
+void
+stream_run_wait(struct stream *stream)
+{
+    if (stream->class->run_wait) {
+        (stream->class->run_wait)(stream);
+    }
+}
+
+/* Arranges for the poll loop to wake up when 'stream' is ready to take an
+ * action of the given 'type'. */
+void
+stream_wait(struct stream *stream, enum stream_wait_type wait)
+{
+    assert(wait == STREAM_CONNECT || wait == STREAM_RECV
+           || wait == STREAM_SEND);
+
+    switch (stream->state) {
+    case SCS_CONNECTING:
+        wait = STREAM_CONNECT;
+        break;
+
+    case SCS_DISCONNECTED:
+//        poll_immediate_wake();
+        return;
+    }
+    (stream->class->wait)(stream, wait);
+}
+
+void
+stream_connect_wait(struct stream *stream)
+{
+    stream_wait(stream, STREAM_CONNECT);
+}
+
+void
+stream_recv_wait(struct stream *stream)
+{
+    stream_wait(stream, STREAM_RECV);
+}
+
+void
+stream_send_wait(struct stream *stream)
+{
+    stream_wait(stream, STREAM_SEND);
+}
+
 /* Initializes 'stream' as a new stream named 'name', implemented via 'class'.
  * The initial connection status, supplied as 'connect_status', is interpreted
  * as follows:

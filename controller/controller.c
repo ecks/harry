@@ -6,6 +6,7 @@
 #include "../lib/rconn.h"
 #include "../lib/socket-util.h"
 #include "../lib/routeflow-common.h"
+#include "../lib/router.h"
 #include "../lib/dblist.h"
 #include "../lib/rfpbuf.h"
 #include "../lib/vconn.h"
@@ -72,6 +73,22 @@ int main(int argc, char *argv[])
       }
     }
 
+    /* Do some switching work. */
+    for(i = 0; i < n_routers; i++)
+    {
+      struct router_ * this = &routers[i];
+      router_run(this->router);
+      if(router_is_alive(this->router))
+      {
+        i++;
+      }
+      else
+      {
+        router_destroy(this->router);
+        routers[i] = routers[--n_routers];
+      }
+    }
+
     /* Wait for something to happen */
     if(n_routers < MAX_ROUTERS)
     {
@@ -79,6 +96,11 @@ int main(int argc, char *argv[])
       {
         pvconn_wait(listeners[i]);
       }
+    }
+    for(i = 0; i < n_routers; i++)
+    {
+      struct router_ * rt = &routers[i];
+      router_wait(rt->router);
     }
 
     poll_block();
@@ -93,5 +115,6 @@ new_router(struct router_ *rt, struct vconn *vconn, const char *name)
     struct rconn * rconn;
   
     rconn = rconn_create();
-    // make a new router
+    rconn_connect_unreliably(rconn, vconn, NULL);
+    rt->router = router_create(rconn);
 }

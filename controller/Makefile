@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -ggdb
 EXECUTABLE = controller
-API_OBJECTS = vconn.o rconn.o vconn-stream.o util.o rfpbuf.o rfp-msgs.o dblist.o stream-fd.o stream.o socket-util.o stream-tcp.o poll-loop.o timeval.o fatal-signal.o
+API_OBJECTS = vconn.o rconn.o vconn-stream.o util.o rfpbuf.o rfp-msgs.o dblist.o stream-fd.o stream.o socket-util.o stream-tcp.o poll-loop.o timeval.o fatal-signal.o router.o
 
 all: $(EXECUTABLE)
 
@@ -46,6 +46,9 @@ poll-loop.o:
 
 timeval.o:
 	$(CC) $(CFLAGS) -c ../lib/timeval.c
+
+router.o:
+	$(CC) $(CFLAGS) -c ../lib/router.c
 
 fatal-signal.o:
 	$(CC) $(CFLAGS) -c ../lib/fatal-signal.c

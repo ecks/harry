@@ -43,3 +43,16 @@ struct list *list_remove(struct list *elem)
     elem->next->prev = elem->prev;
     return elem->next;
 }
+
+/* Returns the number of elements in 'list'.
+   Runs in O(n) in the number of elements. */
+size_t
+list_size(const struct list *list)
+{
+    const struct list *e;
+    size_t cnt = 0;
+
+    for (e = list->next; e != list; e = e->next)
+        cnt++;
+    return cnt;
+}

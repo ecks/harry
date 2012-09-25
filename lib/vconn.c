@@ -38,6 +38,8 @@ static struct pvconn_class *pvconn_classes[] = {
 static int do_recv(struct vconn *, struct rfpbuf **);
 static int do_send(struct vconn *, struct rfpbuf *);
 
+void vconn_connect_wait(struct vconn *vconn);
+
 /* Check the validity of the vconn class structures. */
 static void
 check_vconn_classes(void)
@@ -295,7 +297,8 @@ vconn_recv(struct vconn *vconn, struct rfpbuf **msgp)
     return retval;
 }
 
-/* Tries to queue 'msg' for transmission on 'vconn'.  If successful, returns 0, * in which case ownership of 'msg' is transferred to the vconn.  Success does
+/* Tries to queue 'msg' for transmission on 'vconn'.  If successful, returns 0, 
+ * in which case ownership of 'msg' is transferred to the vconn.  Success does
  * not guarantee that 'msg' has been or ever will be delivered to the peer,
  * only that it has been queued for transmission.
  *
@@ -351,6 +354,13 @@ vconn_close(struct vconn *vconn)
     }
 }
 
+/* Returns the name of 'vconn', that is, the string passed to vconn_open(). */
+const char *
+vconn_get_name(const struct vconn *vconn)
+{
+    return vconn->name;
+}
+
 /* Allows 'vconn' to perform maintenance activities, such as flushing output
  * buffers. */
 void
@@ -365,6 +375,57 @@ vconn_run(struct vconn *vconn)
     if (vconn->class->run) {
         (vconn->class->run)(vconn);
     }
+}
+
+/* Arranges for the poll loop to wake up when 'vconn' needs to perform
+ * maintenance activities. */
+void
+vconn_run_wait(struct vconn *vconn)
+{
+    if (vconn->state == VCS_CONNECTING ||
+        vconn->state == VCS_SEND_HELLO ||
+        vconn->state == VCS_RECV_HELLO) {
+        vconn_connect_wait(vconn);
+    }
+
+    if (vconn->class->run_wait) {
+        (vconn->class->run_wait)(vconn);
+    }
+}
+
+void
+vconn_wait(struct vconn *vconn, enum vconn_wait_type wait)
+{
+    assert(wait == WAIT_CONNECT || wait == WAIT_RECV || wait == WAIT_SEND);
+
+    switch (vconn->state) {
+    case VCS_CONNECTING:
+        wait = WAIT_CONNECT;
+        break;
+
+    case VCS_SEND_HELLO:
+    case VCS_SEND_ERROR:
+        wait = WAIT_SEND;
+        break;
+
+    case VCS_RECV_HELLO:
+        wait = WAIT_RECV;
+        break;
+
+    case VCS_CONNECTED:
+        break;
+
+    case VCS_DISCONNECTED:
+//        poll_immediate_wake();
+        return;
+    }
+    (vconn->class->wait)(vconn, wait);
+}
+
+void
+vconn_connect_wait(struct vconn *vconn)
+{
+    vconn_wait(vconn, WAIT_CONNECT);
 }
 
 /* Given 'name', a connection name in the form "TYPE:ARGS", stores the class

@@ -4,6 +4,7 @@
 #include "stdbool.h"
 #include "errno.h"
 #include "string.h"
+#include "assert.h"
 
 #include "routeflow-common.h"
 #include "socket-util.h"
@@ -69,7 +70,7 @@ struct rconn {
      *
      * "Activity" is defined as either receiving an OpenFlow message from the
      * peer or successfully sending a message that had been in 'txq'. */
-//    int probe_interval;         /* Secs of inactivity before sending probe. */
+    int probe_interval;         /* Secs of inactivity before sending probe. */
 //    time_t last_activity;       /* Last time we saw some activity. */
 
     /* When we create a vconn we obtain these values, to save them past the end
@@ -114,7 +115,7 @@ static bool is_connected_state(enum state);
  * The new rconn is initially unconnected.  Use rconn_connect() or
  * rconn_connect_unreliably() to connect it. */
 struct rconn *
-rconn_create()
+rconn_create(int probe_interval)
 {
     struct rconn *rc = malloc(sizeof *rc);
 
@@ -123,7 +124,21 @@ rconn_create()
     rc->vconn = NULL;
     rc->target = xstrdup("void");
 
+    rconn_set_probe_interval(rc, probe_interval);
+
     return rc;
+}
+
+void
+rconn_set_probe_interval(struct rconn *rc, int probe_interval)
+{
+    rc->probe_interval = probe_interval ? MAX(5, probe_interval) : 0;
+}
+
+int
+rconn_get_probe_interval(const struct rconn *rc)
+{
+    return rc->probe_interval;
 }
 
 /* Drops any existing connection on 'rc', then sets up 'rc' to connect to
@@ -139,6 +154,25 @@ rconn_connect(struct rconn *rc, const char *target)
     rconn_disconnect(rc);
     rconn_set_target__(rc, target);
     reconnect(rc);
+}
+
+/* Drops any existing connection on 'rc', then configures 'rc' to use 
+ * 'vconn'.  If the connection on 'vconn' drops, 'rc' will not reconnect on it
+ * own. 
+ * 
+ * By default, the target obtained from vconn_get_name(vconn) is used in log
+ * messages.  If 'name' is nonnull, then it is used instead.  It should 
+ * presumably give more information to a human reader than the target, but it 
+ * need not be acceptable to vconn_open(). */
+void rconn_connect_unreliably(struct rconn *rc, struct vconn *vconn, const char *name)
+{    
+  assert(vconn != NULL);    
+  rconn_disconnect(rc);
+  rconn_set_target__(rc, vconn_get_name(vconn));    
+//  rc->reliable = false;    
+  rc->vconn = vconn;    
+//  rc->last_connected = time_now();
+  state_transition(rc, S_ACTIVE);
 }
 
 void
@@ -271,6 +305,17 @@ rconn_send(struct rconn *rc, struct rfpbuf *b)
     }
 }
 
+/* Causes the next call to poll_block() to wake up when rconn_run() should be 
+ * called on 'rc'. */
+void
+rconn_run_wait(struct rconn *rc)
+{
+  if(rc->vconn)
+  {
+    vconn_run_wait(rc->vconn);
+  }
+}
+
 /* Attempts to receive a packet from 'rc'.  If successful, returns the packet;
  * otherwise, returns a null pointer.  The caller is responsible for freeing
  * the packet (with ofpbuf_delete()). */
@@ -287,10 +332,21 @@ rconn_recv(struct rconn *rc)
           return buffer;
      } 
      else if (error != EAGAIN) {
-         
+       printf("An error has occured\n");
+       rconn_disconnect(rc);
      }
   }
   return NULL;
+}
+
+/* Causes the next call to poll_block() to wake up when a packet may be ready
+ * to be received by vconn_recv() on 'rc'.  */
+void
+rconn_recv_wait(struct rconn *rc)
+{
+    if (rc->vconn) {
+        vconn_wait(rc->vconn, WAIT_RECV);
+    }
 }
 
 /* Returns 'rc''s target.  This is intended to be a string that may be passed

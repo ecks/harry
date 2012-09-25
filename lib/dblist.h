@@ -17,6 +17,8 @@ void list_push_back(struct list *, struct list *);
 
 struct list *list_remove(struct list *);
 
+size_t list_size(const struct list *);
+
 #define LIST_FOR_EACH(ITER, STRUCT, MEMBER, LIST)                   \
     for (ITER = CONTAINER_OF((LIST)->next, STRUCT, MEMBER);         \
          &(ITER)->MEMBER != (LIST);                                 \

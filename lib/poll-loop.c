@@ -47,7 +47,8 @@ static struct poll_waiter *new_waiter(int fd, short int events,
  * for more information. */
 struct poll_waiter *
 poll_fd_wait(int fd, short int events, const char *where)
-{   
+{
+    printf("Adding new poll waiter...\n");   
     return new_waiter(fd, events, where);
 }
 
@@ -66,6 +67,7 @@ poll_block(void)
     int elapsed;
     int retval;
 
+    n_waiters = list_size(&waiters);
     if (max_pollfds < n_waiters) {
         max_pollfds = n_waiters;
         pollfds = realloc(pollfds, max_pollfds * sizeof *pollfds);
@@ -90,6 +92,8 @@ poll_block(void)
       printf("poll timeout\n");
     }
 
+    printf("waiters size: %d\n", list_size(&waiters));
+
     LIST_FOR_EACH_SAFE(pw, next, struct poll_waiter, node, &waiters)
     {
       if(pw->pollfd->revents)
@@ -98,6 +102,8 @@ poll_block(void)
       }
       poll_cancel(pw);
     }
+
+    printf("waiters size: %d\n", list_size(&waiters));
 
     timeout_when = LLONG_MAX;
 }

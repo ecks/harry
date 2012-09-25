@@ -48,17 +48,17 @@ time_init(void)
     sa.sa_handler = sigalrm_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
-    if (sigaction(SIGALRM, &sa, NULL)) {
-        perror("sigaction(SIGALRM) failed");
-    }
+//    if (sigaction(SIGALRM, &sa, NULL)) {
+//        perror("sigaction(SIGALRM) failed");
+//    }
 
     /* Set up periodic timer. */
     itimer.it_interval.tv_sec = 0;
     itimer.it_interval.tv_usec = TIME_UPDATE_INTERVAL * 1000;
     itimer.it_value = itimer.it_interval;
-    if (setitimer(ITIMER_REAL, &itimer, NULL)) {
-        perror("setitimer failed");
-    }
+//    if (setitimer(ITIMER_REAL, &itimer, NULL)) {
+//        perror("setitimer failed");
+//    }
 }
 /* Forces a refresh of the current time from the kernel.  It is not usually
  * necessary to call this function, since the time will be refreshed
@@ -125,13 +125,13 @@ time_poll(struct pollfd *pollfds, int n_pollfds, long long int timeout_when, int
       }
 
       if (!blocked && deadline == TIME_MIN) {
-          block_sigalrm(&oldsigs);
+//          block_sigalrm(&oldsigs);
           blocked = true;
       }
       time_refresh();
   }
   if (blocked) {
-      unblock_sigalrm(&oldsigs);
+//      unblock_sigalrm(&oldsigs);
   }
   return retval;
 }

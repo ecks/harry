@@ -85,6 +85,25 @@ fd_send(struct stream *stream, const void *buffer, size_t n)
             : -errno);
 }
 
+static void
+fd_wait(struct stream *stream, enum stream_wait_type wait)
+{
+    struct stream_fd *s = stream_fd_cast(stream);
+    switch (wait) {
+    case STREAM_CONNECT:
+    case STREAM_SEND:
+        poll_fd_wait(s->fd, POLLOUT);
+        break;
+
+    case STREAM_RECV:
+        poll_fd_wait(s->fd, POLLIN);
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
 static const struct stream_class stream_fd_class = {
     "fd",                       /* name */
     false,                      /* needs_probes */
@@ -95,8 +114,7 @@ static const struct stream_class stream_fd_class = {
     fd_send,                    /* send */
     NULL,                       /* run */
     NULL,                       /* run_wait */
-    NULL,                    /* wait */
-//    fd_wait,                    /* wait */
+    fd_wait,                    /* wait */
 };
 
 struct fd_pstream
