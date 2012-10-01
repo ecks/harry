@@ -1,67 +1,72 @@
 CC = gcc
 CFLAGS = -ggdb
 EXECUTABLE = zebralite
-API_OBJECTS = api.o netlink.o listener.o Class.o list.o RouteV4.o vconn.o vconn-stream.o stream.o stream-fd.o stream-tcp.o util.o socket-util.o rfp-msgs.o rfpbuf.o dblist.o datapath.o rconn.o poll-loop.o timeval.o fatal-signal.o
+SRCS = api.c netlink.c listener.c list.c vconn.c vconn-stream.c stream.c stream-fd.c stream-tcp.c util.c socket-util.c rfp-msgs.c rfpbuf.c dblist.c datapath.c rconn.o poll-loop.o timeval.c fatal-signal.c Class.c RouteV4.c
+OBJECTS = ${SRCS:.c=.o}
 LIBS = -lrt
+VPATH = lib
 
 all: $(EXECUTABLE)
 
-zebralite: zebralite.o $(API_OBJECTS)
-	$(CC) $(CFLAGS) $(LIBS) -o $@ zebralite.o $(API_OBJECTS)
+zebralite: zebralite.o $(OBJECTS)
+	$(CC) $(CFLAGS) $(LIBS) -o $@ zebralite.o $(OBJECTS)
 
-list.o:
-	$(CC) $(CFLAGS) -c lib/list.c
+Class.o: Class.c
+	$(CC) $(CFLAGS) -c $^
 
-Class.o:
-	$(CC) $(CFLAGS) -c lib/Class.c
+RouteV4.o: RouteV4.c
+	$(CC) $(CFLAGS) -c $^
 
-RouteV4.o:
-	$(CC) $(CFLAGS) -c lib/RouteV4.c
+api.o: api.c
+	$(CC) $(CFLAGS) -c $^
 
-vconn.o:
-	$(CC) $(CFLAGS) -c lib/vconn.c
+list.o: list.c
+	$(CC) $(CFLAGS) -c $^
 
-vconn-stream.o:
-	$(CC) $(CFLAGS) -c lib/vconn-stream.c
+vconn.o: vconn.c
+	$(CC) $(CFLAGS) -c $^
 
-stream.o:
-	$(CC) $(CFLAGS) -c lib/stream.c
+vconn-stream.o: vconn-stream.c
+	$(CC) $(CFLAGS) -c $^
 
-stream-fd.o:
-	$(CC) $(CFLAGS) -c lib/stream-fd.c
+stream.o: stream.c
+	$(CC) $(CFLAGS) -c $^
 
-stream-tcp.o:
-	$(CC) $(CFLAGS) -c lib/stream-tcp.c
+stream-fd.o: stream-fd.c
+	$(CC) $(CFLAGS) -c $^
 
-util.o:
-	$(CC) $(CFLAGS) -c lib/util.c
+stream-tcp.o: stream-tcp.c
+	$(CC) $(CFLAGS) -c $^
 
-socket-util.o:
-	$(CC) $(CFLAGS) -c lib/socket-util.c
+util.o: util.c
+	$(CC) $(CFLAGS) -c $^
 
-rfp-msgs.o:
-	$(CC) $(CFLAGS) -c lib/rfp-msgs.c
+socket-util.o: socket-util.c
+	$(CC) $(CFLAGS) -c $^
 
-rfpbuf.o:
-	$(CC) $(CFLAGS) -c lib/rfpbuf.c
+rfp-msgs.o: rfp-msgs.c
+	$(CC) $(CFLAGS) -c $^
 
-dblist.o:
-	$(CC) $(CFLAGS) -c lib/dblist.c
+rfpbuf.o: rfpbuf.c
+	$(CC) $(CFLAGS) -c $^
 
-datapath.o:
-	$(CC) $(CFLAGS) -c datapath.c
+dblist.o: dblist.c
+	$(CC) $(CFLAGS) -c $^
 
-rconn.o:
-	$(CC) $(CFLAGS) -c lib/rconn.c
+datapath.o: datapath.c
+	$(CC) $(CFLAGS) -c $^
 
-poll-loop.o:
-	$(CC) $(CFLAGS) -c lib/poll-loop.c
+rconn.o: rconn.c
+	$(CC) $(CFLAGS) -c $^
 
-timeval.o:
-	$(CC) $(CFLAGS) -c lib/timeval.c
+poll-loop.o: poll-loop.c
+	$(CC) $(CFLAGS) -c $^
 
-fatal-signal.o:
-	$(CC) $(CFLAGS) -c lib/fatal-signal.c
+timeval.o: timeval.c
+	$(CC) $(CFLAGS) -c $^
+
+fatal-signal.o: fatal-signal.c
+	$(CC) $(CFLAGS) -c $^
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c

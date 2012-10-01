@@ -1,57 +1,59 @@
 CC = gcc
 CFLAGS = -ggdb
 EXECUTABLE = controller
-API_OBJECTS = vconn.o rconn.o vconn-stream.o util.o rfpbuf.o rfp-msgs.o dblist.o stream-fd.o stream.o socket-util.o stream-tcp.o poll-loop.o timeval.o fatal-signal.o router.o
+SRCS = vconn.c rconn.c vconn-stream.c util.c rfpbuf.c rfp-msgs.c dblist.c stream-fd.c stream.c socket-util.c stream-tcp.c poll-loop.c timeval.c fatal-signal.c router.c
+OBJECTS = ${SRCS:.c=.o}
+VPATH = ../lib
 
 all: $(EXECUTABLE)
 
-controller: controller.o $(API_OBJECTS)
-	$(CC) $(CFLAGS) -o $@ controller.o $(API_OBJECTS)
+controller: controller.o $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ controller.o $(OBJECTS)
 
-vconn.o:
-	$(CC) $(CFLAGS) -c ../lib/vconn.c
+vconn.o: vconn.c
+	$(CC) $(CFLAGS) -c $^
 
-rconn.o:
-	$(CC) $(CFLAGS) -c ../lib/rconn.c
+rconn.o: rconn.c
+	$(CC) $(CFLAGS) -c $^
 
-vconn-stream.o:
-	$(CC) $(CFLAGS) -c ../lib/vconn-stream.c
+vconn-stream.o: vconn-stream.c
+	$(CC) $(CFLAGS) -c $^
 
-stream-fd.o:
-	$(CC) $(CFLAGS) -c ../lib/stream-fd.c
+stream-fd.o: stream-fd.c
+	$(CC) $(CFLAGS) -c $^
 
-stream.o:
-	$(CC) $(CFLAGS) -c ../lib/stream.c
+stream.o: stream.c
+	$(CC) $(CFLAGS) -c $^
 
-util.o:
-	$(CC) $(CFLAGS) -c ../lib/util.c
+util.o: util.c
+	$(CC) $(CFLAGS) -c $^
 
-rfpbuf.o:
-	$(CC) $(CFLAGS) -c ../lib/rfpbuf.c
+rfpbuf.o: rfpbuf.c
+	$(CC) $(CFLAGS) -c $^
 
-rfp-msgs.o:
-	$(CC) $(CFLAGS) -c ../lib/rfp-msgs.c
+rfp-msgs.o: rfp-msgs.c
+	$(CC) $(CFLAGS) -c $^
 
-dblist.o:
-	$(CC) $(CFLAGS) -c ../lib/dblist.c
+dblist.o: dblist.c
+	$(CC) $(CFLAGS) -c $^
 
-socket-util.o:
-	$(CC) $(CFLAGS) -c ../lib/socket-util.c
+socket-util.o: socket-util.c
+	$(CC) $(CFLAGS) -c $^
 
-stream-tcp.o:
-	$(CC) $(CFLAGS) -c ../lib/stream-tcp.c
+stream-tcp.o: stream-tcp.c
+	$(CC) $(CFLAGS) -c $^
 
-poll-loop.o:
-	$(CC) $(CFLAGS) -c ../lib/poll-loop.c
+poll-loop.o: poll-loop.c
+	$(CC) $(CFLAGS) -c $^
 
-timeval.o:
-	$(CC) $(CFLAGS) -c ../lib/timeval.c
+timeval.o: timeval.c
+	$(CC) $(CFLAGS) -c $^
 
-router.o:
-	$(CC) $(CFLAGS) -c ../lib/router.c
+router.o: router.c
+	$(CC) $(CFLAGS) -c $^
 
-fatal-signal.o:
-	$(CC) $(CFLAGS) -c ../lib/fatal-signal.c
+fatal-signal.o: fatal-signal.c
+	$(CC) $(CFLAGS) -c $^
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c
 
