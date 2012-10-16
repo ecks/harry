@@ -7,6 +7,8 @@
 #include "string.h"
 #include "arpa/inet.h"
 
+#include "lib/dblist.h"
+#include "lib/prefix.h"
 #include "lib/routeflow-common.h"
 #include "lib/util.h"
 #include "lib/byte-order.h"
@@ -31,6 +33,7 @@ struct rfconn {
 };
 
 void get_ports(struct list * ports);
+void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
 static struct rfconn *rfconn_create(struct datapath *, struct rconn *);
 static void rfconn_run(struct datapath *, struct rfconn *);
 static void rfconn_destroy(struct rfconn *);
@@ -49,8 +52,17 @@ int dp_new(struct datapath **dp_, uint64_t dpid)
 
     list_init(&dp->all_conns);
 
+    list_init(&dp->port_list);
     get_ports(&dp->port_list);
  
+    list_init(&dp->ipv4_rib_routes);
+#ifdef HAVE_IPV6
+    list_init(&dp->ipv6_rib_routes);
+    get_routes(&dp->ipv4_rib_routes, &dp->ipv6_rib_routes);
+#else
+    get_routes(&dp->ipv4_rib_routes, NULL);
+#endif
+
     *dp_ = dp;
     return 0;
 }
@@ -81,10 +93,16 @@ add_controller(struct datapath *dp, const char *target)
 void
 get_ports(struct list * ports)
 {
-  int retval;
+  if(interface_list(ports) != 0)
+  {
+    exit(1);
+  }
+}
 
-  list_init(ports);
-  if(api_add_all_ports(ports) != 0)
+void
+get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
+{
+  if(route_read(ipv4_rib_routes, ipv6_rib_routes) != 0)
   {
     exit(1);
   }
@@ -97,7 +115,7 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
 
   rconn_run(r->rconn);
 
-  for(i = 0; i < 1; i++)
+  for(i = 0; i < 2; i++)
   {
     struct rfpbuf * buffer;
     struct rfp_header * rh;
@@ -197,17 +215,18 @@ fill_port_desc(struct sw_port * p, struct rfp_phy_port * desc)
 {
   desc->port_no = htons(p->port_no);
   strncpy((char *) desc->name, p->hw_name, sizeof desc->name);
+  desc->state = htonl(p->state);
 }
 
 static void
 dp_send_features_reply(struct datapath *dp, const struct sender *sender)
 {
     struct rfpbuf *buffer;
-    struct rfp_switch_features *rfr;
+    struct rfp_router_features *rfr;
     struct sw_port * p;
 
     buffer = make_openflow_reply(RFPT_FEATURES_REPLY, RFP10_VERSION,
-                               sizeof(struct rfp_switch_features), sender);
+                               sizeof(struct rfp_router_features), sender);
     
     rfr = buffer->l2;
     rfr->datapath_id  = htonll(dp->id);
@@ -229,6 +248,48 @@ recv_features_request(struct datapath *dp, const struct sender *sender,
     return 0;
 }
 
+static void
+fill_route_desc(struct route_ipv4 * route, struct rfp_route * desc)
+{
+  desc->type = htons(route->type);
+  desc->flags = htons(route->flags);
+  desc->prefixlen = htons(route->p->prefixlen);
+  memcpy(&desc->p, &route->p->prefix, 4);
+  desc->metric = htons(route->metric);
+  desc->distance = htonl(route->distance);
+  desc->table = htonl(route->vrf_id);
+}
+
+static void
+dp_send_stats_routes_reply(struct datapath * dp, const struct sender * sender)
+{
+  struct rfpbuf * buffer;
+  struct rfp_stats_routes *rsr;
+  struct route_ipv4 * route;
+
+  buffer = make_openflow_reply(RFPT_STATS_ROUTES_REPLY, RFP10_VERSION,
+                                sizeof(struct rfp_stats_routes), sender);
+
+  rsr = buffer->l2;
+ 
+  LIST_FOR_EACH(route, struct route_ipv4, node, &dp->ipv4_rib_routes)
+  {
+    struct rfp_route * rr = rfpbuf_put_uninit(buffer, sizeof(struct rfp_route));
+    memset(rr, 0, sizeof *rr);
+    fill_route_desc(route, rr);
+  }
+ 
+  send_routeflow_buffer(dp, buffer, sender);
+}
+
+static int
+recv_stats_routes_request(struct datapath *dp, const struct sender * sender,
+                          const void * msg)
+{
+  dp_send_stats_routes_reply(dp, sender);
+  return 0;
+}
+
 /* 'msg', which is 'length' bytes long, was received from the control path.
  * Apply it to 'chain'. */
 int
@@ -237,7 +298,6 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
 {
     int (*handler)(struct datapath *, const struct sender *, const void *);
     struct rfp_header * rh;
-    size_t min_size;
 
     /* Check encapsulated length. */
     rh = (struct rfp_header *) msg;
@@ -251,15 +311,18 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
     {
       case RFPT_FEATURES_REQUEST:
         printf("Receiving features request message\n");
-        min_size = sizeof(struct rfp_header);
         handler = recv_features_request;
         break;
+
+      case RFPT_STATS_ROUTES_REQUEST:
+        printf("Receiving stats routes request message\n");
+        handler = recv_stats_routes_request;
+        break;
+
       default:
         return -EINVAL;
     }
 
-        /* Handle it. */
-    if (length < min_size)
-        return -EFAULT;
+    /* Handle it. */
     return handler(dp, sender, msg);
 }

@@ -3,12 +3,14 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <linux/if.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
 #include "lib/dblist.h"
-#include "lib/ip.h"
+#include "lib/prefix.h"
 #include "lib/routeflow-common.h"
 #include "datapath.h"
 #include "netlink.h"
@@ -366,18 +368,19 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 }
 
 static int
-netlink_link (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
+netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 {
   // Convert info
   struct netlink_port_info * real_info = (struct netlink_port_info *)info;
 
   int len;
   struct rtattr *tb[RTA_MAX + 1];
-  struct ifinfomsg * iface;
+  struct ifinfomsg * ifi;
   int index;
+  unsigned int flags;
   char * name = NULL;  
   
-  iface = NLMSG_DATA (h);
+  ifi = NLMSG_DATA (h);
 
   if(h->nlmsg_type != RTM_NEWLINK)
     return 0;
@@ -387,11 +390,14 @@ netlink_link (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
     return -1;
 
   memset (tb, 0, sizeof tb);
-  netlink_parse_rtattr (tb, RTA_MAX, IFLA_RTA (iface), len);
+  netlink_parse_rtattr (tb, RTA_MAX, IFLA_RTA (ifi), len);
 
-  index = iface->ifi_index;
-  if (tb[IFLA_IFNAME])
-    name = RTA_DATA (tb[IFLA_IFNAME]);
+  index = ifi->ifi_index;
+  flags = ifi->ifi_flags;
+
+  if (tb[IFLA_IFNAME] == NULL)
+    return -1;
+  name = (char *) RTA_DATA (tb[IFLA_IFNAME]);
 
   if (h->nlmsg_type == RTM_NEWLINK && real_info->add_port)
   {
@@ -399,6 +405,14 @@ netlink_link (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
     if(port != NULL)
     {
       port->port_no =  index;
+      if(flags & IFF_LOWER_UP && !(flags & IFF_DORMANT))
+      {
+        port->state = RFPPS_FORWARD;
+      }
+      else
+      {
+        port->state = RFPPS_LINK_DOWN;
+      }
       strncpy(port->hw_name, name, strlen(name));
       real_info->add_port(port, real_info->all_ports);
     }
@@ -433,14 +447,14 @@ int netlink_route_read(struct netlink_routing_table_info * info)
   return 0;  
 }
 
-int netlink_link_read(struct netlink_port_info * info)
+int interface_lookup_netlink(struct netlink_port_info * info)
 {
   int ret;
 
   ret = netlink_request(AF_PACKET, RTM_GETLINK, &netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info ( netlink_link, &netlink_cmd, (void*)info);
+  ret = netlink_parse_info ( netlink_interface, &netlink_cmd, (void*)info);
   if (ret < 0)
     return ret;
 

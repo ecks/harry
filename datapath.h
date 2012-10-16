@@ -7,6 +7,7 @@ struct sw_port {
     char hw_name[RFP_MAX_PORT_NAME_LEN];
     struct list node;
     uint16_t port_no;
+    uint32_t state;
 };
 
 struct datapath {
@@ -19,6 +20,10 @@ struct datapath {
     /* Router ports. */
     struct sw_port ports[DP_MAX_PORTS];
     struct list port_list;
+    struct list ipv4_rib_routes;
+#ifdef HAVE_IPV6
+    struct list ipv6_rib_routes;
+#endif
 };
 
 int dp_new(struct datapath **, uint64_t dpid);

@@ -5,11 +5,9 @@
 #include <string.h>
 #include <netinet/in.h>
 
-#include "lib/Class.h"
-#include "lib/RouteV4.h"
 #include "lib/util.h"
 #include "lib/dblist.h"
-#include "lib/ip.h"
+#include "lib/prefix.h"
 #include "netlink.h"
 #include "lib/routeflow-common.h"
 #include "datapath.h"
@@ -27,45 +25,22 @@ void api_init()
   kernel_init();
 }
 
-int api_read_kernel_routes()
+int route_read(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 {
-
-  // IPv4/IPv6 Ribs
-  struct list ipv4_rib_routes;
-
-#ifdef HAVE_IPV6
-  struct list ipv6_rib_routes;
-#endif /* HAVE_IPV6 */
-
-
-  // Set up list of IPv4 rib entries
-//  if (ipv4_rib_routes)
-//    FREE_LINKED_LIST(ipv4_rib_routes);
-
-  list_init(&ipv4_rib_routes);
-
-#ifdef HAVE_IPV6
-  // Set up list of IPv6 rib entries
-//  if (ipv6_rib_routes)
-//    FREE_LINKED_LIST(ipv6_rib_routes);
-
-  list_init(&ipv6_rib_routes);
-#endif /* HAVE_IPV6 */
-
   // Set up callbacks
   struct netlink_routing_table_info info;
   memset(&info, 0, sizeof(info));
   info.rib_add_ipv4_route = rib_add_ipv4;
-  info.ipv4_rib = &ipv4_rib_routes;
+  info.ipv4_rib = ipv4_rib_routes;
   #ifdef HAVE_IPV6
   info.rib_add_ipv6_route = rib_add_ipv6;
-  info.ipv6_rib = &ipv6_rib_routes;
+  info.ipv6_rib = ipv6_rib_routes;
   #endif /* HAVE_IPV6 */
 
   netlink_route_read(&info);
 
   struct route_ipv4 * route;
-  LIST_FOR_EACH(route, struct route_ipv4, node, &ipv4_rib_routes)
+  LIST_FOR_EACH(route, struct route_ipv4, node, ipv4_rib_routes)
   {
     // print route
     char prefix_str[INET_ADDRSTRLEN];
@@ -76,19 +51,27 @@ int api_read_kernel_routes()
   return 0;
 }
 
-int api_add_all_ports(struct list * list)
+int interface_list(struct list * list)
 {
   // set up callbacks
   struct netlink_port_info info;
   memset(&info, 0, sizeof(info));
   info.add_port = iface_add_port;
   info.all_ports = list;
-  netlink_link_read(&info);
+  interface_lookup_netlink(&info);
 
   struct sw_port * port;
   LIST_FOR_EACH(port, struct sw_port, node, list)
   {
     printf("Interface %d: %s\n", port->port_no, port->hw_name);
+    if(port->state == RFPPS_FORWARD)
+    {
+      printf("Link is up!\n");
+    }
+    else
+    {
+      printf("Link is down!\n");
+    }
   }
   return 0;
 }

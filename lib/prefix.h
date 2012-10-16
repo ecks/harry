@@ -1,5 +1,5 @@
-#ifndef IP_H
-#define IP_H
+#ifndef PREFIX_H
+#define PREFIX_H
 
 /* IPv4 prefix structure. */
 struct prefix_ipv4
@@ -69,5 +69,28 @@ struct route_ipv6
         struct list node;
 };
 #endif /* HAVE_IPV6 */
+
+#define IPV4_MAX_BYTELEN    4
+#define IPV4_MAX_PREFIXLEN 32
+
+#define IPV4_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV4_MAX_BYTELEN) == 0)
+
+struct prefix * new_prefix();
+struct prefix_ipv4 * new_prefix_v4();
+#ifdef HAVE_IPV6
+struct prefix_ipv6 * new_prefix_v6();
+#endif
+
+struct route_ipv4 * new_route();
+
+/* Check bit of the prefix. */
+static inline unsigned int
+prefix_bit (const u_char *prefix, const u_char prefixlen)
+{
+  unsigned int offset = prefixlen / 8;
+  unsigned int shift  = 7 - (prefixlen % 8);
+
+  return (prefix[offset] >> shift) & 1;
+}
 
 #endif

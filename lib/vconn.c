@@ -217,7 +217,7 @@ vcs_recv_hello(struct vconn *vconn)
             if (vconn->version < vconn->min_version) {
               vconn->state = VCS_SEND_ERROR;
             } else {
-              printf("Received RouteFlow version 0x%02x\n", rh->version);
+              printf("Received RouteFlow Hello Msg\n");
               vconn->state = VCS_CONNECTED;
             }
             rfpbuf_delete(b);

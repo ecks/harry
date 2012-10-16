@@ -2,6 +2,7 @@
 #define API_H
 
 void api_init();
-int api_add_all_ports(struct list * list);
+int route_read(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
+int interface_list(struct list * list);
 
 #endif

@@ -18,6 +18,8 @@
 #define RFP_TCP_PORT  6633
 #define RFP_SSL_PORT  6633
 
+#define MAX_PORTS 255
+
 #define RFP_ETH_ALEN 6          /* Bytes in an Ethernet address. */
 
 /* Version number:
@@ -41,11 +43,15 @@ enum rfp_type {
     RFPT_VENDOR,              /* Symmetric message */
 
     /* Switch configuration messages. */
-    RFPT_FEATURES_REQUEST,    /* Controller/switch message */
-    RFPT_FEATURES_REPLY,      /* Controller/switch message */
-    RFPT_GET_CONFIG_REQUEST,  /* Controller/switch message */
-    RFPT_GET_CONFIG_REPLY,    /* Controller/switch message */
-    RFPT_SET_CONFIG           /* Controller/switch message */
+    RFPT_FEATURES_REQUEST,        /* Controller/switch message */
+    RFPT_FEATURES_REPLY,          /* Controller/switch message */
+    RFPT_GET_CONFIG_REQUEST,	  /* Controller/switch message */
+    RFPT_GET_CONFIG_REPLY,	  /* Controller/switch message */
+    RFPT_SET_CONFIG,	          /* Controller/switch message */
+    RFPT_STATS_ROUTES_REQUEST,    /* Controller/switch message */
+    RFPT_STATS_ROUTES_REPLY,      /* Controller/switch message */
+    RFPT_REDISTRIBUTE_REQUEST,    /* Sibling/controller message */
+    RFPT_IPV4_ROUTE_ADD           /* Controller/sibling message */
 };
 
 
@@ -66,6 +72,13 @@ struct rfp_hello {
     struct rfp_header header;
 };
 
+enum rfp_port_state
+{
+  RFPPS_LINK_DOWN = 1 << 0,
+  
+  RFPPS_FORWARD = 2 << 8
+};
+
 /* Description of a physical port */
 struct rfp_phy_port {
     uint16_t port_no;
@@ -73,7 +86,7 @@ struct rfp_phy_port {
     char name[RFP_MAX_PORT_NAME_LEN]; /* Null-terminated */
 
 //    uint32_t config;        /* Bitmap of OFPPC_* flags. */
-//    uint32_t state;         /* Bitmap of OFPPS_* flags. */
+    uint32_t state;         /* Bitmap of RFPPS_* flags. */
 
     /* Bitmaps of OFPPF_* that describe features.  All bits zeroed if
      * unsupported or unavailable. */
@@ -85,7 +98,7 @@ struct rfp_phy_port {
 //RFP_ASSERT(sizeof(struct rfp_phy_port) == 48);
 
 /* Switch features. */
-struct rfp_switch_features {
+struct rfp_router_features {
     struct rfp_header header;
     uint64_t datapath_id;   /* Datapath unique ID.  The lower 48-bits are for
                                a MAC address, while the upper 16-bits are
@@ -94,6 +107,36 @@ struct rfp_switch_features {
     struct rfp_phy_port ports[0];  /* Port definitions.  The number of ports
                                       is inferred from the length field in
                                       the header. */
+};
+
+struct rfp_nexthop {
+    uint32_t nexthop;
+    uint16_t ifindex;
+};
+
+struct rfp_route {
+    uint16_t type;
+    uint16_t flags;
+    uint16_t prefixlen;
+    uint32_t p;   // in_addr has size of 8*4 = 32
+    uint32_t num_nexthops;
+    struct rfp_nexthop nexthop[0];
+    uint16_t distance;
+    uint32_t metric;
+    uint32_t table;
+};
+
+/* Routes Reply message */
+struct rfp_stats_routes {
+    struct rfp_header header;
+    struct rfp_route routes[0];
+};
+
+
+struct rfp_ipv4_route {
+  struct rfp_header header;
+  uint16_t prefixlen;
+  uint32_t p;
 };
 
 #endif

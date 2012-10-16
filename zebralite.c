@@ -13,5 +13,8 @@ int main(int argc, char ** argv)
 
 //  listener_read(stream, STREAM_LEN);
 
-  api_read_kernel_routes();
+  // spin forever
+  while(1)
+  {
+  }
 }
