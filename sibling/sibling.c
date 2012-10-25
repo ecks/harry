@@ -15,12 +15,31 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "vconn.h"
+#include "sisis.h"
+#include "sisis_process_types.h"
 
 int main(int argc, char *argv[])
 {
   struct vconn * vconn;
   int retval;
   struct rfpbuf * buffer;
+
+  int sisis_fd;
+  uint64_t host_num = 1;
+
+  if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_SBLING) < 0))
+  {
+    printf("sisis_init error\n");
+    exit(1);
+  }
+
+  unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
+  printf("num of controllers: %d\n", num_of_controllers);
+ 
+  struct in6_addr * ctrl_addr = get_ctrl_addr();
+  char s_addr[INET6_ADDRSTRLEN+1];
+  inet_ntop(AF_INET6, ctrl_addr, s_addr, INET6_ADDRSTRLEN+1);
+  printf("done getting ctrl addr: %s\n", s_addr);
 
   retval = vconn_open("tcp:127.0.0.1:6634", RFP10_VERSION, &vconn, DSCP_DEFAULT);
   
@@ -50,7 +69,7 @@ int main(int argc, char *argv[])
     default:
       break;
   }
-
+/*
   buffer = routeflow_alloc(RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION, sizeof(struct rfp_header));
   retval = vconn_send(vconn, buffer);
 
@@ -79,5 +98,5 @@ int main(int argc, char *argv[])
       default:
         break;
     }
-  }
+  } */
 }

@@ -44,6 +44,16 @@ struct list *list_remove(struct list *elem)
     return elem->next;
 }
 
+/* Removes the front element from 'list' and returns it.  Undefined behavior if
+   'list' is empty before removal. */
+struct list *
+list_pop_front(struct list *list)
+{
+  struct list *front = list->next;
+  list_remove(front);
+  return front;
+}
+
 /* Returns the number of elements in 'list'.
    Runs in O(n) in the number of elements. */
 size_t

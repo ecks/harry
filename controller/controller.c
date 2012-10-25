@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "stdint.h"
 #include "stdbool.h"
+#include "stdlib.h"
 #include "errno.h"
 
 #include "rconn.h"
@@ -11,6 +12,8 @@
 #include "dblist.h"
 #include "rfpbuf.h"
 #include "vconn.h"
+#include "sisis.h"
+#include "sisis_process_types.h"
 
 #define MAX_ROUTERS 16
 #define MAX_LISTENERS 16
@@ -49,9 +52,24 @@ int main(int argc, char *argv[])
   n_routers = 0;
   n_siblings = 0;
 
+  // TODO: set up signal handlers
+//  signal(SIGABRT, );
+//  signal(SIGTERM, );
+//  signal(SIGINT, );
+
   time_init();
   rib_init();
 
+  // initialize internal socket to sisis
+  int sisis_fd;
+  uint64_t host_num = 1;
+
+  if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_CTRL)) < 0)
+  {
+    printf("sisis_init error\n");
+    exit(1);
+  }
+  
   retval = pvconn_open("ptcp:6633", &nb_pvconn, DSCP_DEFAULT);
   if(!retval)
   {
@@ -129,7 +147,7 @@ int main(int argc, char *argv[])
     }
 
     /* Do some switching work. */
-    for(i = 0; i < n_siblings; i++)
+    for(i = 0; i < n_siblings; )
     {
       struct sib_router * sib_router = siblings[i];
       sib_router_run(sib_router);
@@ -145,7 +163,7 @@ int main(int argc, char *argv[])
     }
 
     /* Do some switching work. */
-    for(i = 0; i < n_routers; i++)
+    for(i = 0; i < n_routers; )
     {
       struct router * router = routers[i];
       router_run(router);

@@ -15,7 +15,7 @@ struct netlink_routing_table_info
 
 struct netlink_port_info
 {
-  int (*add_port)();
+  int (*add_port)(int index, unsigned int flags, char * name, struct list * list);
   struct list * all_ports;
 };
 

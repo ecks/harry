@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,11 +11,14 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-#include "lib/dblist.h"
-#include "lib/prefix.h"
-#include "lib/routeflow-common.h"
-#include "datapath.h"
+#include "dblist.h"
+#include "prefix.h"
+#include "routeflow-common.h"
 #include "netlink.h"
+
+#ifndef HAVE_IPV6
+#define HAVE_IPV6
+#endif
 
 /* Socket interface to kernel */
 struct nlsock 
@@ -306,10 +311,10 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
     if ((h->nlmsg_type == RTM_NEWROUTE && real_info->rib_add_ipv4_route) || (h->nlmsg_type == RTM_DELROUTE && real_info->rib_remove_ipv4_route))
     {
 				// Construct route info
-				struct route_ipv4 * route = malloc(sizeof(struct route_ipv4));
+				struct route_ipv4 * route = calloc(1, sizeof(struct route_ipv4));
 				if (route != NULL)
 				{
-					route->p = malloc(sizeof(struct prefix_ipv4));
+					route->p = calloc(1, sizeof(struct prefix_ipv4));
 					if (route->p != NULL)
 					{
 						route->type = 1;	// Means nothing right now
@@ -338,10 +343,10 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 			if ((h->nlmsg_type == RTM_NEWROUTE && real_info->rib_add_ipv6_route) || (h->nlmsg_type == RTM_DELROUTE && real_info->rib_remove_ipv6_route))
 			{
 				// Construct route info
-				struct route_ipv6 * route = malloc(sizeof(struct route_ipv6));
+				struct route_ipv6 * route = calloc(1, sizeof(struct route_ipv6));
 				if (route != NULL)
 				{
-					route->p = malloc(sizeof(struct prefix_ipv6));
+					route->p = calloc(1, sizeof(struct prefix_ipv6));
 					if (route->p != NULL)
 					{
 						route->type = 1;	// Means nothing right now
@@ -401,21 +406,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 
   if (h->nlmsg_type == RTM_NEWLINK && real_info->add_port)
   {
-    struct sw_port * port = malloc(sizeof *port);
-    if(port != NULL)
-    {
-      port->port_no =  index;
-      if(flags & IFF_LOWER_UP && !(flags & IFF_DORMANT))
-      {
-        port->state = RFPPS_FORWARD;
-      }
-      else
-      {
-        port->state = RFPPS_LINK_DOWN;
-      }
-      strncpy(port->hw_name, name, strlen(name));
-      real_info->add_port(port, real_info->all_ports);
-    }
+    real_info->add_port(index, flags, name, real_info->all_ports);
   }
 
   return 0;

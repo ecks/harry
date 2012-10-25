@@ -1,15 +1,19 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <linux/if.h>
 #include <netinet/in.h>
 
-#include "lib/util.h"
-#include "lib/dblist.h"
-#include "lib/prefix.h"
+#include "util.h"
+#include "dblist.h"
+#include "prefix.h"
 #include "netlink.h"
-#include "lib/routeflow-common.h"
+#include "routeflow-common.h"
 #include "datapath.h"
 #include "api.h"
 
@@ -18,7 +22,7 @@ int rib_add_ipv4 (struct route_ipv4 * route, struct list * list);
 int rib_add_ipv6 (struct route_ipv6 * route, struct list * list);
 #endif /* HAVE_IPV6 */
 
-int iface_add_port (struct sw_port * port, struct list * list);
+int iface_add_port (int index, unsigned int flags, char * name, struct list * list);
 
 void api_init()
 {
@@ -85,8 +89,9 @@ int rib_add_ipv4 (struct route_ipv4 * route, struct list * list)
 }
 
 #ifdef HAVE_IPV6
-int rib_add_ipv6 (struct route_ipv6 * route, void * data)
+int rib_add_ipv6 (struct route_ipv6 * route, struct list * list)
 {
+  list_push_back(list, &route->node);
 //	struct list ** rib = &ipv6_rib_routes;
 //	if (data != NULL)
 //		rib = (struct list **)data;
@@ -103,9 +108,23 @@ int rib_add_ipv6 (struct route_ipv6 * route, void * data)
 #endif /* HAVE_IPV6 */
 
 
-int iface_add_port (struct sw_port * port, struct list * list)
+int iface_add_port (int index, unsigned int flags, char * name, struct list * list)
 {
-  list_push_back(list, &port->node);
+  struct sw_port * port = malloc(sizeof *port);
+  if(port != NULL)
+  {
+    port->port_no =  index;
+    if(flags & IFF_LOWER_UP && !(flags & IFF_DORMANT))
+    {
+      port->state = RFPPS_FORWARD;
+    }
+    else
+    {
+      port->state = RFPPS_LINK_DOWN;
+    }
+    strncpy(port->hw_name, name, strlen(name));
+    list_push_back(list, &port->node);
+  } 
 
   return 0;
 }

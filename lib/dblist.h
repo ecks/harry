@@ -16,6 +16,7 @@ void list_insert(struct list *, struct list *);
 void list_push_back(struct list *, struct list *);
 
 struct list *list_remove(struct list *);
+struct list *list_pop_front(struct list *);
 
 size_t list_size(const struct list *);
 
