@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     nb_listeners[n_nb_listeners++] = nb_pvconn;
   }
 
-  retval = pvconn_open("ptcp:6634", &sib_pvconn, DSCP_DEFAULT);
+  retval = pvconn_open("ptcp6:6634", &sib_pvconn, DSCP_DEFAULT);
   if(!retval)
   {
     if(n_sib_listeners >= MAX_LISTENERS)

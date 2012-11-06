@@ -16,4 +16,6 @@ bool inet_parse_passive(const char *target, int default_port,
                         struct sockaddr_in *sinp);
 int inet_open_passive(int style, const char *target, int default_port,
                       struct sockaddr_in *sinp, uint8_t dscp);
+int inet_open_passive6(int style, const char *target, int default_port,
+                       struct sockaddr_in6 *sin6p, uint8_t dscp);
 #endif

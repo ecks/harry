@@ -15,8 +15,10 @@ struct stream {
     int state;
     int error;
     uint32_t remote_ip;
+    uint32_t remote_ip6[4];
     uint16_t remote_port;
     uint32_t local_ip;
+    uint32_t local_ip6[4];
     uint16_t local_port;
     char *name;
 };
@@ -181,6 +183,7 @@ extern const struct stream_class tcp_stream_class;
 extern const struct pstream_class ptcp_pstream_class;
 extern const struct stream_class unix_stream_class;
 extern const struct pstream_class punix_pstream_class;
+extern const struct pstream_class ptcp6_pstream_class;
 #ifdef HAVE_OPENSSL
 extern const struct stream_class ssl_stream_class;
 extern const struct pstream_class pssl_pstream_class;

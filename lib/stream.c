@@ -22,6 +22,7 @@ static const struct stream_class *stream_classes[] = {
 
 static const struct pstream_class *pstream_classes[] = {
     &ptcp_pstream_class,
+    &ptcp6_pstream_class,
 };
 
 /* Closes 'stream'. */
@@ -292,6 +293,14 @@ stream_set_remote_ip(struct stream *stream, uint32_t ip)
     stream->remote_ip = ip;
 }
 
+// TODO
+void
+stream_set_remote_ip6(struct stream *stream, uint32_t ip)
+{
+//    stream->remote_ip = ip;
+}
+
+
 void
 stream_set_remote_port(struct stream *stream, uint16_t port)
 {
@@ -302,6 +311,13 @@ void
 stream_set_local_ip(struct stream *stream, uint32_t ip)
 {
     stream->local_ip = ip;
+}
+
+// TODO
+void
+stream_set_local_ip6(struct stream *stream, uint32_t ip)
+{
+//    stream->local_ip = ip;
 }
 
 void

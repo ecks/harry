@@ -344,3 +344,4 @@ static struct pvconn_class pstream_pvconn_class = PSTREAM_INIT("pstream");
 
 struct vconn_class tcp_vconn_class = STREAM_INIT("tcp");
 struct pvconn_class ptcp_pvconn_class = PSTREAM_INIT("ptcp");
+struct pvconn_class ptcp6_pvconn_class = PSTREAM_INIT("ptcp6");

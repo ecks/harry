@@ -33,6 +33,7 @@ static struct vconn_class *vconn_classes[] = {
 
 static struct pvconn_class *pvconn_classes[] = {
    &ptcp_pvconn_class,
+   &ptcp6_pvconn_class,
 };
 
 static int do_recv(struct vconn *, struct rfpbuf **);

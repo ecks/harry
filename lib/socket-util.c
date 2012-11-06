@@ -100,11 +100,23 @@ check_connection_completion(int fd)
 
 /* Translates 'host_name', which must be a string representation of an IP
  *  * address, into a numeric IP address in '*addr'.  Returns 0 if successful,
- *   * otherwise a positive errno value. */
+ *   * otherwise a positive errno value. Works with IPv4 only */
 int
 lookup_ip(const char *host_name, struct in_addr *addr)
 {
-    if (!inet_aton(host_name, addr)) {
+    if (!inet_pton(AF_INET, host_name, addr)) {
+        return ENOENT;
+    }
+    return 0;
+}
+
+/* Translates 'host_name', which must be a string representation of an IP
+ *  * address, into a numeric IP address in '*addr'.  Returns 0 if successful,
+ *   * otherwise a positive errno value. Works with IPv6 */
+int
+lookup_ip6(const char *host_name, struct in6_addr *addr)
+{
+    if (!inet_pton(AF_INET6, host_name, addr)) {
         return ENOENT;
     }
     return 0;
@@ -367,6 +379,127 @@ inet_open_passive(int style, const char *target, int default_port,
     }
 
     return fd;
+
+error:
+    close(fd);
+    return -error;
+}
+
+
+bool
+inet_parse_passive6(const char *target_, int default_port,
+                   struct sockaddr_in6 *sin6p)
+{
+  char *target = xstrdup(target_);
+  char *string_ptr = target;
+  const char *host_name;
+  const char *port_string;
+  bool ok = false;
+  int port;
+
+  /* Address defaults. */
+  memset(sin6p, 0, sizeof *sin6p);
+  sin6p->sin6_family = AF_INET6;
+  sin6p->sin6_addr = in6addr_any;
+  sin6p->sin6_port = htons(default_port);
+
+  /* Parse optional port number. */
+  port_string = strsep(&string_ptr, ":");
+  if (port_string && str_to_int(port_string, 10, &port)) {
+      sin6p->sin6_port = htons(port);
+  } else if (default_port < 0) {
+      printf("%s: port number must be specified\n", target_);
+      goto exit;
+  }
+
+  /* Parse optional bind IP. */
+  host_name = strsep(&string_ptr, ":");
+  if (host_name && host_name[0] && lookup_ip6(host_name, &sin6p->sin6_addr)) {
+      goto exit;
+  }
+
+  ok = true;
+
+exit:
+    if (!ok) {
+        memset(sin6p, 0, sizeof *sin6p);
+    }
+    free(target);
+    return ok;
+}
+
+int
+inet_open_passive6(int style, const char *target, int default_port,
+                  struct sockaddr_in6 *sin6p, uint8_t dscp)
+{
+  struct sockaddr_in6 sin6;
+  int fd = 0, error;
+  unsigned int yes = 1;
+
+  if (!inet_parse_passive6(target, default_port, &sin6)) {
+      return -EAFNOSUPPORT;
+  }
+
+  /* Create non-blocking socket, set SO_REUSEADDR. */
+  fd = socket(AF_INET6, style, 0);
+  if (fd < 0) {
+      error = errno;
+      printf("%s: socket: %s\n", target, strerror(error));
+      return -error;
+  }
+  error = set_nonblocking(fd);
+  if (error) {
+      goto error;
+  }
+  if (style == SOCK_STREAM
+      && setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
+      error = errno;
+      printf("%s: setsockopt(SO_REUSEADDR): %s\n", target, strerror(error));
+      goto error;
+  }
+
+  /* Bind. */
+  if (bind(fd, (struct sockaddr *) &sin6, sizeof sin6) < 0) {
+      error = errno;
+      printf("%s: bind: %s\n", target, strerror(error));
+      goto error;
+  }
+
+    /* The dscp bits must be configured before connect() to ensure that the TOS
+     * field is set during the connection establishment.  If set after
+     * connect(), the handshake SYN frames will be sent with a TOS of 0. */
+//    error = set_dscp(fd, dscp);
+//    if (error) {
+//        printf("%s: socket: %s\n", target, strerror(error));
+//        goto error;
+//    }
+
+  /* Listen. */
+  if (style == SOCK_STREAM && listen(fd, 10) < 0) 
+  {
+    error = errno;
+    printf("%s: listen: %s\n", target, strerror(error));
+    goto error;
+  }
+
+  if (sin6p) {
+      socklen_t sin6_len = sizeof sin6;
+      if (getsockname(fd, (struct sockaddr *) &sin6, &sin6_len) < 0){
+          error = errno;
+          printf("%s: getsockname: %s\n", target, strerror(error));
+          goto error;
+      }
+      if (sin6.sin6_family != AF_INET6 || sin6_len != sizeof sin6) {
+          error = EAFNOSUPPORT;
+          printf("%s: getsockname: invalid socket name\n", target);
+          goto error;
+      }
+      *sin6p = sin6;
+  }
+
+  return fd;
+
+
 
 error:
     close(fd);

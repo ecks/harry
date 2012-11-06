@@ -15,17 +15,27 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "vconn.h"
+#include "thread.h"
 #include "sisis.h"
 #include "sisis_process_types.h"
+#include "sibling_ctrl.h"
+
+struct thread_master * master;
 
 int main(int argc, char *argv[])
 {
   struct vconn * vconn;
   int retval;
   struct rfpbuf * buffer;
+  struct thread thread;
 
   int sisis_fd;
   uint64_t host_num = 1;
+
+  /* thread master */
+  master = thread_master_create();
+
+  // TODO: signal_init
 
   if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_SBLING) < 0))
   {
@@ -41,6 +51,14 @@ int main(int argc, char *argv[])
   inet_ntop(AF_INET6, ctrl_addr, s_addr, INET6_ADDRSTRLEN+1);
   printf("done getting ctrl addr: %s\n", s_addr);
 
+  sibling_ctrl_init(ctrl_addr);
+
+  /* Start finite state machine, here we go! */
+  while(thread_fetch(master, &thread))
+    thread_call(&thread);
+
+// NOT USED FOR NOW
+/*
   retval = vconn_open("tcp:127.0.0.1:6634", RFP10_VERSION, &vconn, DSCP_DEFAULT);
   
   vconn_run(vconn);
@@ -68,7 +86,7 @@ int main(int argc, char *argv[])
       break;
     default:
       break;
-  }
+  } */
 /*
   buffer = routeflow_alloc(RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION, sizeof(struct rfp_header));
   retval = vconn_send(vconn, buffer);

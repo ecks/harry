@@ -19,7 +19,7 @@ rfpbuf_at_assert(const struct rfpbuf *b, size_t offset, size_t size)
 
 static void
 rfpbuf_use__(struct rfpbuf *b, void *base, size_t allocated,
-             enum rfpbuf_source source)
+             rfpbuf_source source)
 {
     b->base = b->data = base;
     b->allocated = allocated;
@@ -103,6 +103,38 @@ rfpbuf_delete(struct rfpbuf *b)
         rfpbuf_uninit(b);
         free(b);
     }
+}
+
+rfpbuf_status rfpbuf_write(struct rfpbuf * b, int sock_fd)
+{
+  size_t nbytes;
+
+  if((nbytes = write(sock_fd, rfpbuf_at_assert(b, 0, b->size), b->size)) < 0)
+  {
+    perror("Error on write");
+    return RFPBUF_ERROR;
+  }
+
+  if(nbytes < b->size)
+    return RFPBUF_PENDING;
+  else
+    return RFPBUF_EMPTY;
+}
+
+ssize_t rfpbuf_read_try(struct rfpbuf * b, int fd, size_t size)
+{
+  ssize_t nbytes;
+  void * p;
+
+  p = rfpbuf_tail(b);
+
+  if((nbytes = read(fd, p, size)) >= 0)
+  {
+    b->size += nbytes;
+    return nbytes;
+  }
+
+  return -1;
 }
 
 /* Returns the number of bytes of headroom in 'b', that is, the number of bytes
