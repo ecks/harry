@@ -206,6 +206,8 @@ static int ctrl_client_read(struct thread * t)
   int ret;
   size_t already;
   struct rfp_header * rh;
+  uint16_t length;
+  uint8_t type;
   size_t rh_size = sizeof(struct rfp_header);
   struct ctrl_client * ctrl_client = THREAD_ARG(t);
   ctrl_client->t_read = NULL;
@@ -232,11 +234,32 @@ static int ctrl_client_read(struct thread * t)
     return 0;
   }
 
-  already = sizeof(struct rfp_header);
+  already = rh_size;
  
   rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
+  length = ntohs(rh->length);
+  type = rh->type;
+  rfpbuf_prealloc_tailroom(ctrl_client->ibuf, length - already);  // make sure we have enough space for the body
 
-  switch(rh->type)
+  if(already < length)
+  {
+    if(((nbyte = rfpbuf_read_try(ctrl_client->ibuf, ctrl_client->sock, length - already)) == 0) ||
+       (nbyte == -1))
+    {
+      return ctrl_client_failed(ctrl_client);
+    }
+
+    if(nbyte != (ssize_t) length - already)
+    {
+      /* Try again later */
+      ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
+      return 0;
+    }
+  }
+
+  length -= rh_size;
+
+  switch(type)
   {
     case RFPT_HELLO:
       printf("Hello message received\n");
@@ -248,14 +271,14 @@ static int ctrl_client_read(struct thread * t)
       break;
     
     case RFPT_FEATURES_REPLY:
-      ret = ctrl_client->features_reply(ctrl_client);
+      ret = ctrl_client->features_reply(ctrl_client, ctrl_client->ibuf);
       break;
 
     case RFPT_GET_CONFIG_REPLY:
       break;
 
-    case RFPT_STATS_ROUTES_REPLY:
-      ret = ctrl_client->routes_reply(ctrl_client);
+    case RFPT_IPV4_ROUTE_ADD:
+      ret = ctrl_client->routes_reply(ctrl_client, ctrl_client->ibuf);
       break;
   }
 
@@ -273,7 +296,7 @@ static int ctrl_client_connected(struct thread * t)
 
   retval = ctrl_message_send(ctrl_client, RFPT_FEATURES_REQUEST, RFP10_VERSION);
   
-//  retval = ctrl_message_send(ctrl_client, RFPT_STATS_ROUTES_REQUEST, RFP10_VERSION);
+  retval = ctrl_message_send(ctrl_client, RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION);
 
   return 0;
 }

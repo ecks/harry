@@ -20,8 +20,8 @@ struct ctrl_client
   int state; 
 
   /* Pointer to the callback functions */
-  int (*features_reply) (struct ctrl_client *);
-  int (*routes_reply) (struct ctrl_client *);
+  int (*features_reply) (struct ctrl_client *, struct rfpbuf *);
+  int (*routes_reply) (struct ctrl_client *, struct rfpbuf *);
 };
 
 extern struct ctrl_client * ctrl_client_new();
