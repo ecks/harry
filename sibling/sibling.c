@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
   printf("num of controllers: %d\n", num_of_controllers);
  
-  struct in6_addr * ctrl_addr = get_ctrl_addr();
+  struct in6_addr * ctrl_addr = get_ctrl_addrs();
   char s_addr[INET6_ADDRSTRLEN+1];
   inet_ntop(AF_INET6, ctrl_addr, s_addr, INET6_ADDRSTRLEN+1);
   printf("done getting ctrl addr: %s\n", s_addr);

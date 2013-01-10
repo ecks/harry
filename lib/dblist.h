@@ -19,6 +19,7 @@ struct list *list_remove(struct list *);
 struct list *list_pop_front(struct list *);
 
 size_t list_size(const struct list *);
+bool list_empty(const struct list *);
 
 #define LIST_FOR_EACH(ITER, STRUCT, MEMBER, LIST)                   \
     for (ITER = CONTAINER_OF((LIST)->next, STRUCT, MEMBER);         \

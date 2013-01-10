@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdbool.h>
 
 #include "dblist.h"
 
@@ -65,4 +66,10 @@ list_size(const struct list *list)
     for (e = list->next; e != list; e = e->next)
         cnt++;
     return cnt;
+}
+
+bool 
+list_empty(const struct list *list)
+{
+  return list_size(list) == 0;
 }

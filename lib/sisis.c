@@ -27,13 +27,13 @@ int sisis_init(uint64_t host_num, uint64_t ptype)
   return sockfd;
 }
 
-struct in6_addr * get_ctrl_addr(void)
+struct in6_addr * get_ctrl_addrs(void)
 {
   char ctrl_addr[INET6_ADDRSTRLEN+1];
   sisis_create_addr(ctrl_addr, (uint64_t)SISIS_PTYPE_CTRL, (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0);
   struct prefix_ipv6 ctrl_prefix = sisis_make_ipv6_prefix(ctrl_addr, 37);
   struct list * ctrl_addrs = get_sisis_addrs_for_prefix(&ctrl_prefix);
-  if(list_size(ctrl_addrs) == 1)
+  if(!list_empty(ctrl_addrs))
   {
     struct route_ipv6 * route = CONTAINER_OF(list_pop_front(ctrl_addrs), struct route_ipv6, node); 
     return (struct in6_addr *)&route->p->prefix;
