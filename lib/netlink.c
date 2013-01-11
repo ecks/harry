@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <linux/if.h>

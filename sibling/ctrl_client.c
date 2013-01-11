@@ -2,6 +2,7 @@
 #include "stdlib.h"
 #include "stdint.h"
 #include "string.h"
+#include <stdbool.h>
 #include "netdb.h"
 #include "netinet/in.h"
 #include "sys/socket.h"

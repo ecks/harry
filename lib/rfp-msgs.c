@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <string.h>
+#include <stdbool.h>
 #include <assert.h>
 
 #include "routeflow-common.h"
