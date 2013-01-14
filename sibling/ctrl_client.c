@@ -205,7 +205,7 @@ static int ctrl_client_connect(struct thread * t)
 static int ctrl_client_read(struct thread * t)
 {
   int ret;
-  size_t already;
+  size_t already = 0;
   struct rfp_header * rh;
   uint16_t length;
   uint8_t type;
