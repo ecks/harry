@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <netinet/in.h>
 
 #include "lib/dblist.h"
