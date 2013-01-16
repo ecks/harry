@@ -25,7 +25,7 @@ char msg[MSGLEN];
 static struct datapath *dp;
 static uint64_t dpid = UINT64_MAX;
 
-void listener_init()
+void listener_init(const char * name)
 {
 //  int retval;
 //  int i;
@@ -33,7 +33,7 @@ void listener_init()
 
   error = dp_new(&dp, dpid);
 
-  add_controller(dp, "tcp:0.0.0.0");
+  add_controller(dp, name);
 
   dp_run(dp);
 //  retval = vconn_open("tcp:0.0.0.0", RFP10_VERSION, &vconn, DSCP_DEFAULT);
