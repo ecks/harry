@@ -374,6 +374,53 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 }
 
 static int
+netlink_address (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
+{
+  struct netlink_addrs_info * addrs_info = (struct netlink_addrs_info *)info;
+  struct ifaddrmsg * ifa;
+  struct rtattr *tb[RTA_MAX + 1]; 
+  int index;
+  void * address;
+  int len;
+
+  ifa = NLMSG_DATA(h);
+
+  if(h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
+    return 0;
+
+  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
+  if (len < 0)
+    return -1;
+
+  memset (tb, 0, sizeof tb);
+  netlink_parse_rtattr (tb, RTA_MAX, IFA_RTA (ifa), len);
+
+  index = ifa->ifa_index;
+
+  if(tb[IFA_ADDRESS])
+    address = RTA_DATA(tb[IFA_ADDRESS]);
+
+  if (ifa->ifa_family == AF_INET)
+  {
+    // check for callback
+    if((h->nlmsg_type == RTM_NEWADDR && addrs_info->add_ipv4_addr ) || (h->nlmsg_type == RTM_DELADDR && addrs_info->remove_ipv4_addr ))
+    {
+      (h->nlmsg_type == RTM_NEWADDR) ? addrs_info->add_ipv4_addr(index, address, ifa->ifa_prefixlen, addrs_info->ipv4_addrs) : addrs_info->remove_ipv4_addr(index, addrs_info->ipv4_addrs);
+    }
+  }
+#ifdef HAVE_IPV6
+  if (ifa->ifa_family == AF_INET6)
+  {
+    // check for callback
+    if((h->nlmsg_type == RTM_NEWADDR && addrs_info->add_ipv6_addr ) || (h->nlmsg_type == RTM_DELADDR && addrs_info->remove_ipv6_addr ))
+    {
+      (h->nlmsg_type == RTM_NEWADDR) ? addrs_info->add_ipv6_addr(index, address, ifa->ifa_prefixlen, addrs_info->ipv6_addrs) : addrs_info->remove_ipv6_addr(index, addrs_info->ipv6_addrs);
+    }
+  }
+#endif
+}
+
+static int
 netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 {
   // Convert info
@@ -382,7 +429,8 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
   int len;
   struct rtattr *tb[RTA_MAX + 1];
   struct ifinfomsg * ifi;
-  int index;
+  unsigned int index;
+  unsigned int mtu;
   unsigned int flags;
   char * name = NULL;  
   
@@ -405,9 +453,10 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
     return -1;
   name = (char *) RTA_DATA (tb[IFLA_IFNAME]);
 
+  mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
   if (h->nlmsg_type == RTM_NEWLINK && real_info->add_port)
   {
-    real_info->add_port(index, flags, name, real_info->all_ports);
+    real_info->add_port(index, flags, mtu, name, real_info->all_ports);
   }
 
   return 0;
@@ -439,7 +488,22 @@ int netlink_route_read(struct netlink_routing_table_info * info)
   return 0;  
 }
 
-int interface_lookup_netlink(struct netlink_port_info * info)
+int netlink_addr_read(struct netlink_addrs_info * info)
+{
+  int ret;
+
+  ret = netlink_request(AF_PACKET, RTM_GETADDR, &netlink_cmd);
+  if (ret < 0)
+    return ret;
+  ret = netlink_parse_info( netlink_address, &netlink_cmd, (void*)info);
+  if (ret < 0)
+    return ret;
+
+  return 0;
+}
+
+/* find all interfaces that are connected */
+int netlink_link_read(struct netlink_port_info * info)
 {
   int ret;
 

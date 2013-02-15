@@ -8,6 +8,7 @@
 #include "errno.h"
 #include "string.h"
 #include "arpa/inet.h"
+#include "linux/if.h"
 
 #include "lib/dblist.h"
 #include "lib/prefix.h"
@@ -92,19 +93,56 @@ add_controller(struct datapath *dp, const char *target)
   rconn_connect(rfconn->rconn, target);
 }
 
+int iface_add_port (unsigned int index, unsigned int flags, unsigned int mtu, char * name, struct list * list)
+{
+  struct sw_port * port = malloc(sizeof *port);
+  if(port != NULL)
+  {
+    port->port_no =  index;
+    port->mtu = mtu;
+    if(flags & IFF_LOWER_UP && !(flags & IFF_DORMANT))
+    {
+      port->state = RFPPS_FORWARD;
+    }
+    else
+    {
+      port->state = RFPPS_LINK_DOWN;
+    }
+    strncpy(port->hw_name, name, strlen(name));
+    list_push_back(list, &port->node);
+  } 
+
+  return 0;
+}
+
 void
 get_ports(struct list * ports)
 {
-  if(interface_list(ports) != 0)
+  if(interface_list(ports, iface_add_port) != 0)
   {
     exit(1);
   }
+
+  struct sw_port * port;
+  LIST_FOR_EACH(port, struct sw_port, node, ports)
+  {
+    printf("Interface %d: %s\n", port->port_no, port->hw_name);
+    if(port->state == RFPPS_FORWARD)
+    {
+      printf("Link is up!\n");
+    }
+    else
+    {
+      printf("Link is down!\n");
+    }
+  }
+  
 }
 
 void
 get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 {
-  if(route_read(ipv4_rib_routes, ipv6_rib_routes) != 0)
+  if(routes_list(ipv4_rib_routes, ipv6_rib_routes) != 0)
   {
     exit(1);
   }

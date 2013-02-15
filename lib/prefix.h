@@ -55,6 +55,13 @@ struct route_ipv4
         struct list node;
 };
 
+struct addr_ipv4
+{
+  struct prefix_ipv4 *p;
+  unsigned int ifindex;
+  struct list node;
+};
+
 #ifdef HAVE_IPV6
 struct route_ipv6
 {
@@ -67,6 +74,13 @@ struct route_ipv6
 	u_int32_t metric;
 	u_char distance;
         struct list node;
+};
+
+struct addr_ipv6
+{
+  struct prefix_ipv6 *p;
+  unsigned int ifindex;
+  struct list node;
 };
 #endif /* HAVE_IPV6 */
 

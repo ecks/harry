@@ -1,12 +1,16 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "util.h"
 #include "dblist.h"
 #include "rfpbuf.h"
+
+size_t rfpbuf_tailroom(const struct rfpbuf *b);
 
 /* Returns a pointer to byte 'offset' in 'b', which must contain at least
  * 'offset + size' bytes of data. */
@@ -135,6 +139,36 @@ ssize_t rfpbuf_read_try(struct rfpbuf * b, int fd, size_t size)
   }
 
   return -1;
+}
+
+ssize_t rfpbuf_recvmsg(struct rfpbuf * b, int fd, struct msghdr * msgh, int flags, 
+                       size_t size)
+{
+  int nbytes;
+  struct iovec * iov;
+
+  assert(msgh->msg_iovlen > 0);
+  
+  if(rfpbuf_tailroom(b) < size)
+  {
+    fprintf(stderr, "Not enough room");
+    return -1;
+  }
+
+  iov = &(msgh->msg_iov[0]);
+  iov->iov_base = rfpbuf_tail(b);
+  iov->iov_len = size;
+
+  nbytes = recvmsg(fd, msgh, flags);
+
+  if(nbytes > 0)
+  {
+    b->size =+ nbytes;
+  }
+
+  printf("%d bytes received!\n", nbytes);
+
+  return nbytes;
 }
 
 /* Returns the number of bytes of headroom in 'b', that is, the number of bytes

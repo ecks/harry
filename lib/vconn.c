@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/socket.h>
 
 #include "util.h"
 #include "dblist.h"

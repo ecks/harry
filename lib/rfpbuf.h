@@ -44,7 +44,10 @@ void rfpbuf_prealloc_tailroom(struct rfpbuf *, size_t);
 
 struct rfpbuf *rfpbuf_new(size_t);
 void rfpbuf_delete(struct rfpbuf *);
+
 rfpbuf_status rfpbuf_write(struct rfpbuf *, int);
+ssize_t rfpbuf_read_try(struct rfpbuf * b, int fd, size_t size);
+ssize_t rfpbuf_recvmsg(struct rfpbuf * b, int fd, struct msghdr * msgh, int flags, size_t size);
 
 void *rfpbuf_at_assert(const struct rfpbuf *, size_t offset, size_t size);
 

@@ -236,6 +236,7 @@ static int thread_process_fd(struct thread_list * list, fd_set * fdset, fd_set *
 /* Fetch next ready thread. */
 struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
 {
+  printf("inside thread_fetch\n");
   struct thread * thread;
   fd_set readfd;
   fd_set writefd;
@@ -262,7 +263,9 @@ struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
     writefd = m->writefd;
     exceptfd = m->exceptfd;
 
+    printf("about to call select\n");
     num = select(FD_SETSIZE, &readfd, &writefd, &exceptfd, NULL);
+    printf("called select\n");
 
     if(num < 0)
     {

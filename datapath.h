@@ -7,6 +7,7 @@ struct sw_port {
     char hw_name[RFP_MAX_PORT_NAME_LEN];
     struct list node;
     uint16_t port_no;
+    unsigned int mtu;
     uint32_t state;
 };
 

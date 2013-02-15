@@ -14,7 +14,6 @@
 #include "prefix.h"
 #include "netlink.h"
 #include "routeflow-common.h"
-#include "datapath.h"
 #include "api.h"
 
 int rib_add_ipv4 (struct route_ipv4 * route, struct list * list);
@@ -22,14 +21,12 @@ int rib_add_ipv4 (struct route_ipv4 * route, struct list * list);
 int rib_add_ipv6 (struct route_ipv6 * route, struct list * list);
 #endif /* HAVE_IPV6 */
 
-int iface_add_port (int index, unsigned int flags, char * name, struct list * list);
-
 void api_init()
 {
   kernel_init();
 }
 
-int route_read(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
+int routes_list(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 {
   // Set up callbacks
   struct netlink_routing_table_info info;
@@ -55,28 +52,32 @@ int route_read(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
   return 0;
 }
 
-int interface_list(struct list * list)
+int addrs_list(struct list * ipv4_addrs, struct list * ipv6_addrs, int (*add_ipv4_addr)(int index, void * address, u_char prefixlen, struct list * list), int (*remove_ipv4_addr)(int index, struct list * list),
+                                                                   int (*add_ipv6_addr)(int index, void * address, u_char prefixlen, struct list * list), int (*remove_ipv6_addr)(int index, struct list * list))
+{
+  struct netlink_addrs_info info;
+  memset(&info, 0, sizeof(info));
+  info.ipv4_addrs = ipv4_addrs;
+  info.add_ipv4_addr = add_ipv4_addr;
+  info.remove_ipv4_addr = remove_ipv4_addr;
+  #ifdef HAVE_IPV6
+  info.ipv6_addrs = ipv6_addrs;
+  info.add_ipv6_addr = add_ipv6_addr;
+  info.remove_ipv6_addr = remove_ipv6_addr;
+  #endif 
+ 
+  netlink_addr_read(&info);
+}
+
+int interface_list(struct list * list, int (*add_port)(int index, unsigned int flags, unsigned int mtu, char * name, struct list * list))
 {
   // set up callbacks
   struct netlink_port_info info;
   memset(&info, 0, sizeof(info));
-  info.add_port = iface_add_port;
+  info.add_port = add_port;
   info.all_ports = list;
-  interface_lookup_netlink(&info);
+  netlink_link_read(&info);
 
-  struct sw_port * port;
-  LIST_FOR_EACH(port, struct sw_port, node, list)
-  {
-    printf("Interface %d: %s\n", port->port_no, port->hw_name);
-    if(port->state == RFPPS_FORWARD)
-    {
-      printf("Link is up!\n");
-    }
-    else
-    {
-      printf("Link is down!\n");
-    }
-  }
   return 0;
 }
 
@@ -92,39 +93,6 @@ int rib_add_ipv4 (struct route_ipv4 * route, struct list * list)
 int rib_add_ipv6 (struct route_ipv6 * route, struct list * list)
 {
   list_push_back(list, &route->node);
-//	struct list ** rib = &ipv6_rib_routes;
-//	if (data != NULL)
-//		rib = (struct list **)data;
-	
-//	struct listnode * node = malloc(sizeof(struct listnode));
-//	if (*rib != NULL && node != NULL)
-//	{
-//		node->data = (void *)route;
-//		LIST_APPEND((*rib), node);
-//	}
-	
-	return 0;
-}
-#endif /* HAVE_IPV6 */
-
-
-int iface_add_port (int index, unsigned int flags, char * name, struct list * list)
-{
-  struct sw_port * port = malloc(sizeof *port);
-  if(port != NULL)
-  {
-    port->port_no =  index;
-    if(flags & IFF_LOWER_UP && !(flags & IFF_DORMANT))
-    {
-      port->state = RFPPS_FORWARD;
-    }
-    else
-    {
-      port->state = RFPPS_LINK_DOWN;
-    }
-    strncpy(port->hw_name, name, strlen(name));
-    list_push_back(list, &port->node);
-  } 
-
   return 0;
 }
+#endif /* HAVE_IPV6 */

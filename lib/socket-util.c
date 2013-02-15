@@ -1,3 +1,4 @@
+#include "config.h"
 #include <errno.h>
 #include <string.h>
 #include <poll.h>
@@ -7,6 +8,9 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #include "util.h"
 #include "socket-util.h"
@@ -504,4 +508,102 @@ inet_open_passive6(int style, const char *target, int default_port,
 error:
     close(fd);
     return -error;
+}
+
+struct addrinfo *
+host_addrinfo(const char *host, const char *serv, int family, int socktype)
+{
+        int n;  
+        struct addrinfo hints, *res;
+
+        bzero(&hints, sizeof(struct addrinfo));
+        hints.ai_flags = AI_CANONNAME;  /* always return canonical name */
+        hints.ai_family = family;               /* 0, AF_INET, AF_INET6, etc. */
+        hints.ai_socktype = socktype;   /* 0, SOCK_STREAM, SOCK_DGRAM, etc. */
+
+        if ( (n = getaddrinfo(host, serv, &hints, &res)) != 0)
+                printf("host_serv error for %s, %s\n",
+                                 (host == NULL) ? "(no hostname)" : host,
+                                 (serv == NULL) ? "(no service name)" : serv);
+
+        return(res);    /* return pointer to first on linked list */
+}
+
+static int
+setsockopt_ipv4_ifindex (int sock, int val)
+{
+  int ret;
+
+#if defined (IP_PKTINFO)
+  if ((ret = setsockopt (sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof (val))) < 0)
+    fprintf(stderr, "Can't set IP_PKTINFO option for fd %d to %d: %s",
+               sock,val,strerror(errno));
+#elif defined (IP_RECVIF)
+  if ((ret = setsockopt (sock, IPPROTO_IP, IP_RECVIF, &val, sizeof (val))) < 0)
+    zlog_warn ("Can't set IP_RECVIF option for fd %d to %d: %s",
+               sock,val,safe_strerror(errno));
+#else
+#warning "Neither IP_PKTINFO nor IP_RECVIF is available."
+#warning "Will not be able to receive link info."
+#warning "Things might be seriously broken.."
+  ret = -1;
+#endif
+  return ret;
+}
+
+#ifdef HAVE_IPV6
+/* Set IPv6 packet info to the socket. */
+static int
+setsockopt_ipv6_pktinfo (int sock, int val)
+{
+  int ret;
+
+#ifdef IPV6_RECVPKTINFO         /*2292bis-01*/
+  ret = setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &val, sizeof(val));
+  if (ret < 0)
+    fprintf (stderr, "can't setsockopt IPV6_RECVPKTINFO : %s", strerror (errno));
+#else   /*RFC2292*/
+  ret = setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &val, sizeof(val));
+  if (ret < 0)
+    fprintf (stderr, "can't setsockopt IPV6_PKTINFO : %s", strerror (errno));
+#endif /* INIA_IPV6 */
+  return ret;
+}
+#endif
+
+int
+setsockopt_ifindex (int af, int sock, int val)
+{
+  int ret = -1; 
+  
+  switch (af)
+    {   
+      case AF_INET:
+        ret = setsockopt_ipv4_ifindex (sock, val);
+        break;
+#ifdef HAVE_IPV6
+      case AF_INET6:
+        ret = setsockopt_ipv6_pktinfo (sock, val);
+        break;
+#endif
+      default:
+        fprintf (stderr, "setsockopt_ifindex: unknown address family %d", af);
+    }   
+  return ret;
+}
+
+int
+sockopt_reuseaddr (int sock)
+{
+  int ret;
+  int on = 1;
+
+  ret = setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, 
+                    (void *) &on, sizeof (on));
+  if (ret < 0)
+    {   
+      fprintf (stderr, "can't set sockopt SO_REUSEADDR to socket %d", sock);
+      return -1; 
+    }   
+  return 0;
 }
