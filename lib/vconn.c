@@ -30,6 +30,7 @@ enum vconn_state {
 
 static struct vconn_class *vconn_classes[] = {
     &tcp_vconn_class,
+    &tcp6_vconn_class,
 };
 
 static struct pvconn_class *pvconn_classes[] = {
@@ -90,7 +91,7 @@ vconn_lookup_class(const char *name, struct vconn_class **classp)
 {
     size_t prefix_len;
 
-    prefix_len = strcspn(name, ":");
+    prefix_len = strcspn(name, "-");
     if (name[prefix_len] != '\0') {
         size_t i;
 

@@ -159,6 +159,8 @@ struct pvconn_class {
 
 /* Active and passive vconn classes. */
 extern struct vconn_class tcp_vconn_class;
+extern struct vconn_class tcp6_vconn_class;
+
 extern struct pvconn_class ptcp_pvconn_class;
 extern struct pvconn_class ptcp6_pvconn_class;
 

@@ -18,6 +18,7 @@ enum stream_state {
 
 static const struct stream_class *stream_classes[] = {
     &tcp_stream_class,
+    &tcp6_stream_class,
 };
 
 static const struct pstream_class *pstream_classes[] = {
@@ -272,7 +273,7 @@ stream_lookup_class(const char *name, const struct stream_class **classp)
     check_stream_classes();
 
     *classp = NULL;
-    prefix_len = strcspn(name, ":");
+    prefix_len = strcspn(name, "-");
     if (name[prefix_len] == '\0') {
         return EAFNOSUPPORT;
     }
@@ -334,13 +335,31 @@ count_fields(const char *s_)
 
     save_ptr = NULL;
     s = xstrdup(s_);
-    for (field = strtok_r(s, ":", &save_ptr); field != NULL;
-         field = strtok_r(NULL, ":", &save_ptr)) {
+    for (field = strtok_r(s, "-", &save_ptr); field != NULL;
+         field = strtok_r(NULL, "-", &save_ptr)) {
         n++;
     }
     free(s);
 
     return n;
+}
+
+static int
+count_fields6(const char *s_)
+{
+  char *s, *field, *save_ptr;
+  int n = 0;
+
+  save_ptr = NULL;
+  s = xstrdup(s_);
+  for(field = strtok_r(s, "-", &save_ptr); field != NULL;
+      field = strtok_r(NULL, "-", &save_ptr)) 
+  {
+    n++;
+  }
+  free(s);
+ 
+  return n;
 }
 
 /* Attempts to connect a stream to a remote peer.  'name' is a connection name
@@ -365,7 +384,7 @@ stream_open(const char *name, struct stream **streamp, uint8_t dscp)
     }
 
     /* Call class's "open" function. */
-    suffix_copy = xstrdup(strchr(name, ':') + 1);
+    suffix_copy = xstrdup(strchr(name, '-') + 1);
     error = class->open(name, suffix_copy, &stream, dscp);
     free(suffix_copy);
     if (error) {
@@ -398,6 +417,8 @@ stream_open_with_default_ports(const char *name_,
         name = xasprintf("%s:%d", name_, default_tcp_port);
     } else if (!strncmp(name_, "ssl:", 4) && count_fields(name_) < 3) {
         name = xasprintf("%s:%d", name_, default_ssl_port);
+    } else if(!strncmp(name_, "tcp6-", 5) && count_fields6(name_) < 3) {
+       name = xasprintf("%s-%d", name_, default_tcp_port);
     } else {
         name = xstrdup(name_);
     }

@@ -226,7 +226,7 @@ inet_open_active(int style, const char *target, uint16_t default_port,
     // dont set dscp for now
 
     /* Connect. */
-    error = connect(fd, (struct sockaddr *) &sin, sizeof sin) == 0 ? 0 : errno;
+    error = connect(fd, (struct sockaddr *)&sin, sizeof sin) == 0 ? 0 : errno;
     if (error == EINPROGRESS) {
         error = EAGAIN;
     }
@@ -241,6 +241,112 @@ exit:
     }
     *fdp = fd;
     return error;
+}
+
+bool
+inet_parse_active6(const char *target_, int default_port,
+                   struct addrinfo * hints, struct addrinfo ** addr)
+{
+  char *target = xstrdup(target_);
+  char *string_ptr = target;
+  char *save_ptr = NULL;
+  const char *host_name;
+  const char *port_string;
+  bool ok = false;
+  int port;
+  int status;
+
+  /* Defaults. */
+  memset(hints, 0, sizeof(*hints));
+  hints->ai_family = AF_INET6;
+  hints->ai_socktype = SOCK_STREAM;
+
+  /* Tokenize. */
+  host_name = strtok_r(target, "-", &save_ptr);
+  port_string = strtok_r(NULL, "-", &save_ptr);
+  if(!host_name) 
+  {
+    goto exit;
+  }
+
+  if((status = getaddrinfo(host_name, port_string, hints, addr)) != 0)
+  {
+    goto exit;
+  }
+
+//  if(port_string && atoi(port_string)) {
+//    sin6p->sin6_port = htons(atoi(port_string));
+//  } else if (!default_port) {
+//    goto exit;
+//  }
+
+  /* Parse optional bind IP. */
+//  host_name = strsep(&string_ptr, ":");
+//  if (host_name && host_name[0] && lookup_ip6(host_name, &sin6p->sin_addr)) {
+//      goto exit;
+//  }
+
+
+  ok = true;
+
+exit:
+  if(!ok)
+  {
+//    memset(addr, 0, sizeof *sin6p);
+  }
+  free(target);
+  return ok;
+}
+
+int 
+inet_open_active6(int style, const char *target, uint16_t default_port,
+                  struct sockaddr_in6 *sin6p, int *fdp, uint8_t dscp)
+{
+  struct addrinfo hints, *addr;
+  int fd = -1;
+  int error;
+
+  /* Parse. */
+  if(!inet_parse_active6(target, default_port, &hints, &addr))
+  {
+    return -EAFNOSUPPORT;
+  }
+
+  fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+  if(fd < 0)
+  {
+    error = errno;
+    printf("%s: socket: %s\n", target, strerror(error));
+    return -error;
+  }
+//  error = set_nonblocking(fd);
+//  if(error) {
+//    goto error;
+//  }
+
+  // dont set dscp for now
+
+  /* Connect. */
+  error = connect(fd, addr->ai_addr, addr->ai_addrlen) == 0 ? 0 : errno;
+  if(error == EINPROGRESS) 
+  {
+    error = EAGAIN;
+  }
+
+exit:
+  if(!error || error == EAGAIN)
+  {
+//    if(sin6p)
+//    {
+//      *sin6p = sin6;
+//    }
+  }
+  else if(fd >= 0)
+  {
+    close(fd);
+  }
+  *fdp = fd;
+  return error;
 }
 
 /* Parses 'target', which should be a string in the format "[<port>][:<ip>]":

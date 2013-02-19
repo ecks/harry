@@ -180,6 +180,7 @@ struct pstream_class {
 
 /* Active and passive stream classes. */
 extern const struct stream_class tcp_stream_class;
+extern const struct stream_class tcp6_stream_class;
 extern const struct pstream_class ptcp_pstream_class;
 extern const struct stream_class unix_stream_class;
 extern const struct pstream_class punix_pstream_class;

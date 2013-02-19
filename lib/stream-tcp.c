@@ -102,6 +102,36 @@ const struct stream_class tcp_stream_class = {
     NULL,                       /* wait */
 };
 
+static int
+tcp6_open(const char *name, char *suffix, struct stream **streamp, uint8_t dscp)
+{
+  struct sockaddr_in6 sin6;
+  int fd, error;
+
+  error = inet_open_active6(SOCK_STREAM, suffix, 0, &sin6, &fd, dscp);
+  if(fd >= 0)
+  {
+    return new_tcp6_stream(name, fd, error, &sin6, streamp);
+  }
+  else
+  {
+    return error;
+  }
+}
+
+const struct stream_class tcp6_stream_class = {
+    "tcp6",			/* name */
+    true,			/* needs_probes */
+    tcp6_open,  		/* open */
+    NULL,			/* close */
+    NULL,                       /* connect */
+    NULL,                       /* recv */
+    NULL,                       /* send */
+    NULL,                       /* run */
+    NULL,                       /* run_wait */
+    NULL,                       /* wait */
+};
+ 
 static int ptcp_accept(int fd, const struct sockaddr *sa, size_t sa_len,
                        struct stream **streamp);
 
