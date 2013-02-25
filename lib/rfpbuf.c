@@ -90,6 +90,23 @@ rfpbuf_put_uninit(struct rfpbuf *b, size_t size)
     return p;
 }
 
+/* Appends data to end of tail
+ */
+void * 
+rfpbuf_put_init(struct rfpbuf *b, void * data, size_t size)
+{
+  void *p;
+  rfpbuf_prealloc_tailroom(b, size);
+  p = rfpbuf_tail(b);
+  if(memcpy(p, data, size) == p)
+  {
+    b->size+=size;
+    return p;
+  }
+
+  return NULL;
+}
+
 /* Frees memory that 'b' points to. */
 void
 rfpbuf_uninit(struct rfpbuf *b)

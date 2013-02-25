@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
   if(optind != argc-1)
   {
-    printf("usage: listener <hostname>\n");
+    printf("usage: punter <hostname>\n");
     exit(1);
   }
   

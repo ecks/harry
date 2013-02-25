@@ -52,6 +52,9 @@ void ext_client_init(struct ext_client * ext_client, char * host, struct punter_
   ext_client->mtu = ext_client_mtu(ext_client->punter_ctrl->port_list, ext_client->ifindex);
   ext_client_iobuf_size(ext_client->mtu);
 
+  ext_client->ibuf = rfpbuf_new(ext_client->mtu);
+  rfpbuf_init(ext_client->ibuf, ext_client->mtu);
+
   ext_client_event(EXT_CLIENT_SCHEDULE, ext_client);
 }
 
@@ -103,7 +106,6 @@ static int ext_client_read(struct thread * t)
   printf("read triggered!\n");
 
   struct ext_client * ext_client = THREAD_ARG(t);
-  struct iovec iov[2];
   char buf[BUFSIZE];
   struct msghdr msgh;
   struct ip * ip;
@@ -114,11 +116,16 @@ static int ext_client_read(struct thread * t)
 
   ext_client_event(EXT_CLIENT_READ, ext_client);
 
-  nbytes = ext_client_recvmsg(ext_client, iov);
+  nbytes = ext_client_recvmsg(ext_client);
   if(nbytes < 0)
   {
-    perror("rfpbuf_recvmsg error");
+    perror("ext_client_recvmsg error");
   }
+
+  // copy data over
+  ext_client_iobuf_cpy(ext_client->ibuf, nbytes); 
+
+  punter_forward_msg(); // punt the message over to zebralite
 
   return 0;
 }
@@ -126,12 +133,16 @@ static int ext_client_read(struct thread * t)
 static void ext_client_event(enum event event, struct ext_client * ext_client)
 {
   switch(event)
-  {
+  { 
     case EXT_CLIENT_SCHEDULE:
       ext_client->t_connect = thread_add_event(master, ext_client_connect, ext_client, 0);
       break;
+
     case EXT_CLIENT_READ:
       ext_client->t_read = thread_add_read(master, ext_client_read, ext_client, ext_client->sockfd);
+      break;
+
+    default:
       break;
   }
 }

@@ -245,7 +245,7 @@ exit:
 
 bool
 inet_parse_active6(const char *target_, int default_port,
-                   struct addrinfo * hints, struct addrinfo ** addr)
+                   struct sockaddr_in6 * sin6p /*struct addrinfo * hints, struct addrinfo ** addr*/)
 {
   char *target = xstrdup(target_);
   char *string_ptr = target;
@@ -257,9 +257,13 @@ inet_parse_active6(const char *target_, int default_port,
   int status;
 
   /* Defaults. */
-  memset(hints, 0, sizeof(*hints));
-  hints->ai_family = AF_INET6;
-  hints->ai_socktype = SOCK_STREAM;
+  sin6p->sin6_family = AF_INET6;
+  sin6p->sin6_port = htons(default_port);
+  sin6p->sin6_scope_id = 4;
+
+//  memset(hints, 0, sizeof(*hints));
+//  hints->ai_family = AF_INET6;
+//  hints->ai_socktype = SOCK_STREAM;
 
   /* Tokenize. */
   host_name = strtok_r(target, "-", &save_ptr);
@@ -269,16 +273,22 @@ inet_parse_active6(const char *target_, int default_port,
     goto exit;
   }
 
-  if((status = getaddrinfo(host_name, port_string, hints, addr)) != 0)
-  {
+  /* Look up IP, port. */
+  if(lookup_ip6(host_name, &sin6p->sin6_addr))
+  { 
     goto exit;
   }
 
-//  if(port_string && atoi(port_string)) {
-//    sin6p->sin6_port = htons(atoi(port_string));
-//  } else if (!default_port) {
+//  if((status = getaddrinfo(host_name, port_string, hints, addr)) != 0)
+//  {
 //    goto exit;
 //  }
+
+  if(port_string && atoi(port_string)) {
+    sin6p->sin6_port = htons(atoi(port_string));
+  } else if (!default_port) {
+    goto exit;
+  }
 
   /* Parse optional bind IP. */
 //  host_name = strsep(&string_ptr, ":");
@@ -292,7 +302,7 @@ inet_parse_active6(const char *target_, int default_port,
 exit:
   if(!ok)
   {
-//    memset(addr, 0, sizeof *sin6p);
+    memset(sin6p, 0, sizeof *sin6p);
   }
   free(target);
   return ok;
@@ -302,17 +312,19 @@ int
 inet_open_active6(int style, const char *target, uint16_t default_port,
                   struct sockaddr_in6 *sin6p, int *fdp, uint8_t dscp)
 {
-  struct addrinfo hints, *addr;
+//  struct addrinfo hints, *addr;
+  struct sockaddr_in6 sin6;
   int fd = -1;
   int error;
 
   /* Parse. */
-  if(!inet_parse_active6(target, default_port, &hints, &addr))
+  if(!inet_parse_active6(target, default_port, &sin6))
   {
     return -EAFNOSUPPORT;
+    goto exit;
   }
 
-  fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+  fd = socket(AF_INET6, style, 0);
   if(fd < 0)
   {
     error = errno;
@@ -327,7 +339,7 @@ inet_open_active6(int style, const char *target, uint16_t default_port,
   // dont set dscp for now
 
   /* Connect. */
-  error = connect(fd, addr->ai_addr, addr->ai_addrlen) == 0 ? 0 : errno;
+  error = connect(fd, (struct sockaddr *)&sin6, sizeof sin6) == 0 ? 0 : errno;
   if(error == EINPROGRESS) 
   {
     error = EAGAIN;
@@ -336,10 +348,10 @@ inet_open_active6(int style, const char *target, uint16_t default_port,
 exit:
   if(!error || error == EAGAIN)
   {
-//    if(sin6p)
-//    {
-//      *sin6p = sin6;
-//    }
+    if(sin6p)
+    {
+      *sin6p = sin6;
+    }
   }
   else if(fd >= 0)
   {

@@ -194,6 +194,11 @@ int ext_client_iobuf_size(unsigned int size)
   return iobuflen; 
 }
 
+int ext_client_iobuf_cpy(struct rfpbuf * rfpbuf, unsigned int size)
+{
+  return rfpbuf_put_init(rfpbuf, recvbuf, size);
+}
+
 static int 
 iov_count (struct iovec *iov)
 {
@@ -203,7 +208,7 @@ iov_count (struct iovec *iov)
   return i;
 }
 
-int ext_client_recvmsg(struct ext_client * ext_client, struct iovec * message)
+int ext_client_recvmsg(struct ext_client * ext_client)
 {
   struct msghdr rmsghdr;
   struct iovec iovector[2];

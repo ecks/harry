@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -ggdb -Ilib
 EXECUTABLE = zebralite
-SRCS = api.c netlink.c listener.c vconn.c vconn-stream.c stream.c stream-fd.c stream-tcp.c util.c socket-util.c rfp-msgs.c rfpbuf.c dblist.c datapath.c rconn.o poll-loop.o timeval.c fatal-signal.c
+SRCS = api.c netlink.c listener.c vconn.c vconn-stream.c stream.c stream-fd.c stream-tcp.c util.c socket-util.c rfp-msgs.c rfpbuf.c dblist.c datapath.c rconn.o poll-loop.o timeval.c fatal-signal.c thread.c zl_serv.c
 OBJECTS = ${SRCS:.c=.o}
 LIBS = -lrt
 VPATH = lib
@@ -63,6 +63,12 @@ timeval.o: timeval.c
 	$(CC) $(CFLAGS) -c $^
 
 fatal-signal.o: fatal-signal.c
+	$(CC) $(CFLAGS) -c $^
+
+thread.o: thread.c
+	$(CC) $(CFLAGS) -c $^
+
+zl_serv.o: zl_serv.c
 	$(CC) $(CFLAGS) -c $^
 
 .c.o:

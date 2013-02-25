@@ -18,8 +18,8 @@
 #include "zl_client.h"
 #include "punter_ctrl.h"
 
-struct ext_client * ext_client = NULL;
-struct zl_client * zl_client = NULL;
+static struct ext_client * ext_client = NULL;
+static struct zl_client * zl_client = NULL;
 
 static struct punter_ctrl * punter_ctrl = NULL;
 
@@ -153,5 +153,10 @@ void punter_ctrl_init(char * host)
   ext_client_init(ext_client, host, punter_ctrl);
 
   zl_client = zl_client_new();
-  zl_client_init(zl_client);
+  zl_client_init(zl_client, punter_ctrl);
+}
+
+void punter_forward_msg()
+{
+  zl_client_write(ext_client->ibuf, zl_client->sockfd);
 }

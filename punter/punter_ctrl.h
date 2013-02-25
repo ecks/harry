@@ -20,5 +20,6 @@ struct punter_ctrl
 };
 
 void punter_ctrl_init(char * host);
+void punter_forward_msg();
 
 #endif

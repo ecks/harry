@@ -5,32 +5,36 @@
 
 #include "lib/dblist.h"
 #include "api.h"
+#include "thread.h"
 #include "lib/stream.h"
 #include "listener.h"
 
+struct thread_master * master;
+
 int main(int argc, char ** argv)
 {
+  struct thread thread;
   int i;
-
-  api_init();
 
   if(argc < 1)
   {
-    fprintf(stderr, "At least one argument required\n");
+    fprintf(stderr, "./zebralite protocol:::address\n");
     exit(1);
   }
 
-  for(i = 1; i < argc; i++) // ignore program name for now
-  {
-    const char * name;
-    name = argv[i];
-    listener_init(name);
-  }
+  /* thread master */
+  master = thread_master_create();
 
-//  listener_read(stream, STREAM_LEN);
+  api_init();
+
+  const char * name;
+  name = argv[1];
+  listener_init(name);
+
 
   // spin forever
-  while(1)
+  while(thread_fetch(master, &thread))
   {
+    thread_call(&thread);
   }
 }

@@ -38,6 +38,7 @@ void rfpbuf_use(struct rfpbuf *, void *, size_t);
 void *rfpbuf_tail(const struct rfpbuf *b);
 void *rfpbuf_end(const struct rfpbuf *b);
 void *rfpbuf_put_uninit(struct rfpbuf *b, size_t size);
+void *rfpbuf_put_init(struct rfpbuf *b, void * data, size_t size);
 void rfpbuf_uninit(struct rfpbuf *);
 void rfpbuf_init(struct rfpbuf *, size_t);
 void rfpbuf_prealloc_tailroom(struct rfpbuf *, size_t);

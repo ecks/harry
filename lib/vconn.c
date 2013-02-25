@@ -253,14 +253,17 @@ vconn_connect(struct vconn *vconn)
         last_state = vconn->state;
         switch (vconn->state) {
         case VCS_CONNECTING:
+            printf("vconn_connect: VCS_CONNECTING\n");
             vcs_connecting(vconn);
             break;
 
         case VCS_SEND_HELLO:
+            printf("vconn_connect: VCS_SEND_HELLO\n");
             vcs_send_hello(vconn);
             break;
 
         case VCS_RECV_HELLO:
+            printf("vconn_connect: VCS_RECV_HELLO\n");
             vcs_recv_hello(vconn);
             break;
 

@@ -1,4 +1,6 @@
 to run zebralite:
 
+sudo ./zebralite tcp6-fe80::250:56ff:fe95:3b8a
 
-./zebralite tcp6-fe80::250:56ff:fe95:3b8a
+1. Need to run as root to bind to unix domain socket correctly
+2. The IP address is the local-link address to connect to

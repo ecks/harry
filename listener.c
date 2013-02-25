@@ -12,6 +12,7 @@
 #include "lib/rfpbuf.h"
 #include "lib/vconn.h"
 #include "datapath.h"
+#include "zl_serv.h"
 #include "listener.h"
 #include "lib/socket-util.h"
 
@@ -22,7 +23,8 @@ int sockfd;
 struct sockaddr_in sin_me, sin_other;
 char msg[MSGLEN];
 
-static struct datapath *dp;
+static struct datapath * dp;
+static struct zl_serv * zl_serv;
 static uint64_t dpid = UINT64_MAX;
 
 void listener_init(const char * name)
@@ -32,10 +34,13 @@ void listener_init(const char * name)
   int error;
 
   error = dp_new(&dp, dpid);
-
   add_controller(dp, name);
-
   dp_run(dp);
+
+  zl_serv = zl_serv_new();
+  zl_serv_init(zl_serv);
+
+
 //  retval = vconn_open("tcp:0.0.0.0", RFP10_VERSION, &vconn, DSCP_DEFAULT);
 
 //  vconn_run(vconn);
