@@ -35,14 +35,14 @@ struct rfconn {
     struct rconn *rconn;
 };
 
+int fwd_control_input(struct datapath *, const struct sender *,
+                      struct rfpbuf *);
 void get_ports(struct list * ports);
 void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
 static struct rfconn *rfconn_create(struct datapath *, struct rconn *);
 static void rfconn_run(struct datapath *, struct rfconn *);
+static void rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf);
 static void rfconn_destroy(struct rfconn *);
-
-int fwd_control_input(struct datapath *, const struct sender *,
-                      const void *, size_t);
 
 int dp_new(struct datapath **dp_, uint64_t dpid)
 {
@@ -79,6 +79,17 @@ dp_run(struct datapath *dp)
   LIST_FOR_EACH_SAFE(rfconn, next_rfconn, struct rfconn, node, &dp->all_conns)
   {
     rfconn_run(dp, rfconn);
+  }
+}
+
+void dp_forward_msg(struct datapath * dp, struct rfpbuf * buf)
+{
+  struct rfconn *rfconn, *next_rfconn;
+
+  /* Talk ot remote controllers */
+  LIST_FOR_EACH_SAFE(rfconn, next_rfconn, struct rfconn, node, &dp->all_conns)
+  {
+    rfconn_forward_msg(dp, rfconn, buf);
   }
 }
 
@@ -173,7 +184,7 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
       rh = (struct rfp_header *)buffer->data;
       sender.rfconn = r;
       sender.xid = rh->xid;
-      fwd_control_input(dp, &sender, buffer->data, buffer->size);
+      fwd_control_input(dp, &sender, buffer);
     } 
     else 
     {
@@ -186,6 +197,20 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
   {
     rfconn_destroy(r);
   }
+}
+
+static void
+rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf)
+{
+  struct sender sender;
+  struct rfp_header * rh;
+
+  rh = (struct rfp_header *)buf->data;
+
+  sender.rfconn = rfconn;
+  sender.xid = rh->xid;
+  fwd_control_input(dp, &sender, buf);
+
 }
 
 static void
@@ -282,7 +307,7 @@ dp_send_features_reply(struct datapath *dp, const struct sender *sender)
 
 static int
 recv_features_request(struct datapath *dp, const struct sender *sender,
-                      const void *msg)
+                      struct rfpbuf * msg)
 {
     dp_send_features_reply(dp, sender);
     return 0;
@@ -324,9 +349,16 @@ dp_send_stats_routes_reply(struct datapath * dp, const struct sender * sender)
 
 static int
 recv_stats_routes_request(struct datapath *dp, const struct sender * sender,
-                          const void * msg)
+                          struct rfpbuf * msg)
 {
   dp_send_stats_routes_reply(dp, sender);
+  return 0;
+}
+
+static int
+forward_ospf6_msg(struct datapath * dp, const struct sender * sender, struct rfpbuf * msg)
+{
+  send_routeflow_buffer(dp, msg, sender);
   return 0;
 }
 
@@ -334,17 +366,19 @@ recv_stats_routes_request(struct datapath *dp, const struct sender * sender,
  * Apply it to 'chain'. */
 int
 fwd_control_input(struct datapath *dp, const struct sender *sender,
-                  const void *msg, size_t length)
+                  struct rfpbuf * buf)
 {
-    int (*handler)(struct datapath *, const struct sender *, const void *);
+    int (*handler)(struct datapath *, const struct sender *, struct rfpbuf *);
     struct rfp_header * rh;
 
     /* Check encapsulated length. */
-    rh = (struct rfp_header *) msg;
-    if (ntohs(rh->length) > length) {
-        return -EINVAL;
-    }
-//    assert(rh->version == OFP_VERSION);
+    rh = (struct rfp_header *) buf->data;
+
+
+/* Not sure why this is needed for now */
+//    if (ntohs(rh->length) > length) {
+//        return -EINVAL;
+//    }
 
     /* Figure out how to handle it. */
     switch (rh->type) 
@@ -359,10 +393,15 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
         handler = recv_stats_routes_request;
         break;
 
+      case RFPT_FORWARD_OSPF6:
+        printf("Forwarding OSPF6 traffic\n");
+        handler = forward_ospf6_msg;
+        break;
+
       default:
         return -EINVAL;
     }
 
     /* Handle it. */
-    return handler(dp, sender, msg);
+    return handler(dp, sender, buf);
 }

@@ -51,7 +51,10 @@ enum rfp_type {
     RFPT_STATS_ROUTES_REQUEST,    /* Controller/switch message */
     RFPT_STATS_ROUTES_REPLY,      /* Controller/switch message */
     RFPT_REDISTRIBUTE_REQUEST,    /* Sibling/controller message */
-    RFPT_IPV4_ROUTE_ADD           /* Controller/sibling message */
+    RFPT_IPV4_ROUTE_ADD,          /* Controller/sibling message */
+
+    /* Data forwarding messages. */
+    RFPT_FORWARD_OSPF6
 };
 
 
@@ -137,6 +140,34 @@ struct rfp_ipv4_route {
   struct rfp_header header;
   uint16_t prefixlen;
   uint32_t p;
+};
+
+/* OSPF6 Types */
+#define OSPF6_MESSAGE_TYPE_UNKNOWN  0x0
+#define OSPF6_MESSAGE_TYPE_HELLO    0x1  /* Discover/maintain neighbors */
+#define OSPF6_MESSAGE_TYPE_DBDESC   0x2  /* Summarize database contents */
+#define OSPF6_MESSAGE_TYPE_LSREQ    0x3  /* Database download request */
+#define OSPF6_MESSAGE_TYPE_LSUPDATE 0x4  /* Database update */
+#define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
+#define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
+
+/* OSPFv3 packet header */
+struct ospf6_header
+{
+  uint8_t    version;
+  uint8_t    type;
+  uint16_t length;
+  uint32_t router_id;
+  uint32_t area_id;
+  uint16_t checksum;
+  uint8_t    instance_id;
+  uint8_t    reserved;
+};
+
+/* Forward message */
+struct rfp_forward_ospf6 {
+  struct rfp_header header;
+  struct ospf6_header ospf6_header;
 };
 
 #endif

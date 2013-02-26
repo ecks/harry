@@ -5,6 +5,7 @@ struct zl_serv
 {
   int acceptfd;
 
+  struct datapath * dp;
   struct list * clients;
 };
 
@@ -17,6 +18,6 @@ struct zl_serv_cl
 };
 
 struct zl_serv * zl_serv_new(void);
-void zl_serv_init(struct zl_serv * zl_serv);
+void zl_serv_init(struct zl_serv * zl_serv, struct datapath * dp);
 
 #endif

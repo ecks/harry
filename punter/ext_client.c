@@ -13,6 +13,7 @@
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "rfpbuf.h"
+#include "rfp-msgs.h"
 #include "thread.h"
 #include "punter_ctrl.h"
 #include "ext_client.h"
@@ -124,6 +125,16 @@ static int ext_client_read(struct thread * t)
 
   // copy data over
   ext_client_iobuf_cpy(ext_client->ibuf, nbytes); 
+
+  // TODO: put a header
+  struct rfpbuf * buffer = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION, 0, sizeof(struct rfp_forward_ospf6));
+  rfpbuf_put_init(buffer, ext_client->ibuf->data, sizeof(struct rfp_header)); // put in ospf6 header only -- for now
+ 
+  rfpbuf_delete(ext_client->ibuf);
+
+  // reset the pointer
+  ext_client->ibuf = buffer;
+
 
   punter_forward_msg(); // punt the message over to zebralite
 

@@ -9,6 +9,7 @@
 #include "sys/types.h"
 #include "netinet/in.h"
 
+#include "routeflow-common.h"
 #include "thread.h"
 #include "dblist.h"
 #include "rfpbuf.h"
@@ -34,10 +35,11 @@ struct zl_serv * zl_serv_new(void)
   return zl_serv;
 }
 
-void zl_serv_init(struct zl_serv * zl_serv)
+void zl_serv_init(struct zl_serv * zl_serv, struct datapath * dp)
 {
   zl_serv->acceptfd = -1;
   list_init(zl_serv->clients);
+  zl_serv->dp = dp;
 
   zl_serv_g = zl_serv;
 
@@ -154,13 +156,39 @@ static int zl_serv_start()
 
 static int zl_serv_read(struct thread * thread)
 {
-  int sock;
-
-  sock = THREAD_FD(thread);
+  int sock = THREAD_FD(thread);
+  ssize_t nbytes;
   struct zl_serv_cl * zl_serv_cl = THREAD_ARG(thread);
+  struct rfp_header * rh;
+  struct rfp_forward_ospf6 * rfo;
+
   zl_serv_cl->t_read = 0;
 
   printf("read called from zl_serv with fd: %d\n", sock);
+
+  if((nbytes = rfpbuf_read_try(zl_serv_cl->ibuf, sock, sizeof(struct rfp_header))) != 8) // read header
+  {
+    printf("Could not read full header\n");
+  }
+
+  rh = (struct rpf_header *)zl_serv_cl->ibuf->data; 
+
+  switch (rh->type)
+  {
+    case RFPT_FORWARD_OSPF6:
+
+      // read rest of data
+      rfpbuf_read_try(zl_serv_cl->ibuf, sock, rh->length);
+ 
+      // forward the message
+      dp_forward_msg(zl_serv_g->dp, zl_serv_cl->ibuf);
+      break;
+
+    default:
+      fprintf(stderr, "Something went wrong\n");
+      return -1;
+    break;
+  }
 
   zl_serv_event(ZL_SERV_READ, sock, zl_serv_cl); // reregister read
 
