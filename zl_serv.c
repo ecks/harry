@@ -53,7 +53,8 @@ void zl_serv_create_client(int client_sock, struct zl_serv * zl_serv)
 
   client->sockfd = client_sock;
 
-  client->ibuf = rfpbuf_new(MAX_PACKET_SIZE);
+//  client->ibuf = rfpbuf_new(MAX_PACKET_SIZE); 
+  client->ibuf = NULL;
  
   client->node = calloc(1, sizeof(struct list));
   list_init(client->node);
@@ -158,6 +159,9 @@ static int zl_serv_read(struct thread * thread)
 {
   int sock = THREAD_FD(thread);
   ssize_t nbytes;
+  size_t routeflow_len;
+  size_t body_len;
+  size_t header_len;
   struct zl_serv_cl * zl_serv_cl = THREAD_ARG(thread);
   struct rfp_header * rh;
   struct rfp_forward_ospf6 * rfo;
@@ -166,7 +170,10 @@ static int zl_serv_read(struct thread * thread)
 
   printf("read called from zl_serv with fd: %d\n", sock);
 
-  if((nbytes = rfpbuf_read_try(zl_serv_cl->ibuf, sock, sizeof(struct rfp_header))) != 8) // read header
+  header_len = sizeof(struct rfp_header);
+  zl_serv_cl->ibuf = rfpbuf_new(header_len);
+
+  if((nbytes = rfpbuf_read_try(zl_serv_cl->ibuf, sock, header_len)) != header_len) // read header
   {
     printf("Could not read full header\n");
   }
@@ -176,12 +183,20 @@ static int zl_serv_read(struct thread * thread)
   switch (rh->type)
   {
     case RFPT_FORWARD_OSPF6:
+      routeflow_len = ntohs(rh->length);
+      body_len = routeflow_len - header_len;
+    
+      rfpbuf_prealloc_tailroom(zl_serv_cl->ibuf, body_len);
 
-      // read rest of data
-      rfpbuf_read_try(zl_serv_cl->ibuf, sock, rh->length);
+      // read body of data
+      rfpbuf_read_try(zl_serv_cl->ibuf, sock, routeflow_len - header_len);
  
       // forward the message
       dp_forward_msg(zl_serv_g->dp, zl_serv_cl->ibuf);
+
+      // no longer need the data so reset it to NULL -- already freed
+      zl_serv_cl->ibuf = NULL;
+
       break;
 
     default:

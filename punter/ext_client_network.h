@@ -16,7 +16,8 @@ extern void ext_client_join_alldrouters (struct ext_client * ext_client, u_int i
 extern void ext_client_leave_alldrouters (struct ext_client * ext_client, u_int ifindex);
 
 extern int ext_client_iobuf_size(unsigned int size);
-extern int ext_client_iobuf_cpy(struct rfpbuf * rfpbuf, unsigned int size);
+extern int ext_client_iobuf_cpy_rfp(struct rfpbuf * rfpbuf, unsigned int size);
+extern void * ext_client_iobuf_cpy_mem(void * mem, unsigned int size);
 
 int ext_client_recvmsg(struct ext_client * ext_client);
 

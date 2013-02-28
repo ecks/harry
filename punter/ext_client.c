@@ -53,8 +53,8 @@ void ext_client_init(struct ext_client * ext_client, char * host, struct punter_
   ext_client->mtu = ext_client_mtu(ext_client->punter_ctrl->port_list, ext_client->ifindex);
   ext_client_iobuf_size(ext_client->mtu);
 
-  ext_client->ibuf = rfpbuf_new(ext_client->mtu);
-  rfpbuf_init(ext_client->ibuf, ext_client->mtu);
+//  ext_client->ibuf = rfpbuf_new(ext_client->mtu);
+  ext_client->ibuf = NULL;
 
   ext_client_event(EXT_CLIENT_SCHEDULE, ext_client);
 }
@@ -80,10 +80,10 @@ static int ext_client_start(struct ext_client * ext_client)
   ext_client_join_allspfrouters(ext_client, ext_client->ifindex );
   ext_client_join_alldrouters(ext_client, ext_client->ifindex );
 
-  if((ext_client->ibuf = rfpbuf_new(60 * 1024)) == NULL)
-  {
-    fprintf(stderr, "rfpbuf_new failed");
-  }
+//  if((ext_client->ibuf = rfpbuf_new(60 * 1024)) == NULL)
+//  {
+//    fprintf(stderr, "rfpbuf_new failed");
+//  }
 
   ext_client->addr = calloc(1, sizeof(struct addrinfo));
 
@@ -107,6 +107,7 @@ static int ext_client_read(struct thread * t)
   printf("read triggered!\n");
 
   struct ext_client * ext_client = THREAD_ARG(t);
+  struct rfp_forward_ospf6 * rfp6;
   char buf[BUFSIZE];
   struct msghdr msgh;
   struct ip * ip;
@@ -123,20 +124,19 @@ static int ext_client_read(struct thread * t)
     perror("ext_client_recvmsg error");
   }
 
+  // put a header
+  ext_client->ibuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION, 0, sizeof(struct rfp_forward_ospf6));
+
+  rfp6 = ext_client->ibuf->l2;
+
   // copy data over
-  ext_client_iobuf_cpy(ext_client->ibuf, nbytes); 
-
-  // TODO: put a header
-  struct rfpbuf * buffer = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION, 0, sizeof(struct rfp_forward_ospf6));
-  rfpbuf_put_init(buffer, ext_client->ibuf->data, sizeof(struct rfp_header)); // put in ospf6 header only -- for now
- 
-  rfpbuf_delete(ext_client->ibuf);
-
-  // reset the pointer
-  ext_client->ibuf = buffer;
-
+  ext_client_iobuf_cpy_mem(&rfp6->ospf6_header, sizeof(struct rfp_header)); // put in ospf6 header only -- for now
 
   punter_forward_msg(); // punt the message over to zebralite
+
+  // we have sent the data, so free the memory
+  rfpbuf_delete(ext_client->ibuf);
+  ext_client->ibuf = 0;
 
   return 0;
 }
