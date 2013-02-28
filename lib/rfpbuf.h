@@ -15,7 +15,7 @@ typedef enum
   RFPBUF_PENDING = 1
 } rfpbuf_status;
 
-/* Buffer for holding arbitrary data.  An ofpbuf is automatically reallocated
+/* Buffer for holding arbitrary data.  An rfpbuf is automatically reallocated
  * as necessary if it grows too large for the available memory. */
 struct rfpbuf {
     void *base;                 /* First byte of allocated space. */
@@ -38,12 +38,19 @@ void rfpbuf_use(struct rfpbuf *, void *, size_t);
 void *rfpbuf_tail(const struct rfpbuf *b);
 void *rfpbuf_end(const struct rfpbuf *b);
 void *rfpbuf_put_uninit(struct rfpbuf *b, size_t size);
-void *rfpbuf_put_init(struct rfpbuf *b, void * data, size_t size);
+void *rfpbuf_put(struct rfpbuf *b, const void * data, size_t size);
+void rfpbuf_reserve(struct rfpbuf *, size_t);
 void rfpbuf_uninit(struct rfpbuf *);
 void rfpbuf_init(struct rfpbuf *, size_t);
 void rfpbuf_prealloc_tailroom(struct rfpbuf *, size_t);
 
 struct rfpbuf *rfpbuf_new(size_t);
+struct rfpbuf *rfpbuf_clone(const struct rfpbuf *);
+struct rfpbuf *rfpbuf_clone_with_headroom(const struct rfpbuf *,
+                                          size_t headroom);
+struct rfpbuf *rfpbuf_clone_data(const void *, size_t);
+struct rfpbuf *rfpbuf_clone_data_with_headroom(const void *, size_t,
+                                               size_t headroom);
 void rfpbuf_delete(struct rfpbuf *);
 
 rfpbuf_status rfpbuf_write(struct rfpbuf *, int);

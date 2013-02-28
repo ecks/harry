@@ -14,11 +14,15 @@
 #include "rfpbuf.h"
 #include "rib.h"
 #include "routeflow-common.h"
+#include "sib_router.h"
 #include "router.h"
+
+struct sib_router ** sib_routers = NULL;
+int * n_siblings_p;
 
 static void router_send_features_request(struct router *);
 static void router_send_stats_routes_request(struct router *rt);
-static void router_process_packet(struct router *, const struct rfpbuf *);
+static void router_process_packet(struct router *, struct rfpbuf *);
 static int router_process_features(struct router * rt, void *rh);
 static void router_process_phy_port(struct router * rt, void * rpp_);
 static void router_send_stats_routes_request(struct router *rt);
@@ -29,7 +33,7 @@ static void router_process_route(struct router * rt, void * rr_);
  * 'cfg'.
  * 'rconn' is used to send out an OpenFlow features request. */
 struct router *
-router_create(struct rconn *rconn)
+router_create(struct rconn *rconn, struct sib_router ** my_sib_routers, int * my_n_siblings_p)
 {
   struct router * rt;
   size_t i;
@@ -43,12 +47,16 @@ router_create(struct rconn *rconn)
     rt->port_states[i] = P_DISABLED;
   }
 
+  sib_routers = my_sib_routers;
+  n_siblings_p = my_n_siblings_p;
+
   return rt;
 }
 
 static void
 router_handshake(struct router * rt)
 {
+  printf("Router handshake...\n");
   // find out port info
   router_send_features_request(rt);
 
@@ -61,6 +69,19 @@ void router_run(struct router * rt)
   int i;
 
   rconn_run(rt->rconn);
+
+  switch(rt->state)
+  {
+    case R_CONNECTING:
+      printf("Outside of router_run ==> R_CONNECTING\n");
+      break;
+
+    case R_CONNECTED:
+      printf("Outside of router_run ==> R_CONNECTED\n");
+
+    default:
+      break;
+  }
 
   if(rt->state == R_CONNECTING)
   {
@@ -99,10 +120,11 @@ router_wait(struct router * rt)
  * that we can move to a state of routing
  */
 static void
-router_process_packet(struct router * rt, const struct rfpbuf * msg)
+router_process_packet(struct router * rt, struct rfpbuf * msg)
 {
   enum rfptype type;
   struct rfp_header * rh;
+  int i;
 
   rh = msg->data;
 
@@ -148,8 +170,21 @@ router_process_packet(struct router * rt, const struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_FORWARD_OSPF6:
+      if(rt->state == R_ROUTING)
+      {
+        // forward to all siblings
+        for(i = 0; i < *n_siblings_p; i++) // dereference the pointer
+        {
+          struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+          sib_router_process_packet(sib_routers[i], msg_copy);
+        }
+      }
+      break;
+
     default:
       printf("unknown packet\n");
+      break;
   }
 }
 

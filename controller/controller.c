@@ -30,10 +30,10 @@ struct router_
 };
 
 static void
-new_router(struct router ** rt, struct vconn *vconn, const char *name);
+new_router(struct router **, struct vconn *, const char *, struct sib_router **, int *);
 
 static void
-new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name, struct router ** routers, int n_routers);
+new_sib_router(struct sib_router **, struct vconn *, const char *, struct router **, int *);
 
 int main(int argc, char *argv[])
 {
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
   
-  retval = pvconn_open("ptcp:6633", &nb_pvconn, DSCP_DEFAULT);
+  retval = pvconn_open("ptcp6:6633", &nb_pvconn, DSCP_DEFAULT);
   if(!retval)
   {
     if(n_nb_listeners >= MAX_LISTENERS)
@@ -107,11 +107,11 @@ int main(int argc, char *argv[])
           // TODO: expect only one router connection for now
           if(n_routers == 1)
           {
-            new_sib_router(&siblings[n_siblings++], new_sib_vconn, "tcp", routers, n_routers);
+            new_sib_router(&siblings[n_siblings++], new_sib_vconn, "tcp", routers, &n_routers);
           }
           else
           {
-            new_sib_router(&siblings[n_siblings++], new_sib_vconn, "tcp", NULL, n_routers);
+            new_sib_router(&siblings[n_siblings++], new_sib_vconn, "tcp", NULL, &n_routers);
           }
         }
         i++;
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
         if(!retval)
         {
           printf("new router connection\n");
-          new_router(&routers[n_routers++], new_nb_vconn, "tcp");
+          new_router(&routers[n_routers++], new_nb_vconn, "tcp", siblings, &n_siblings);
         }
         i++;
       }
@@ -214,17 +214,17 @@ int main(int argc, char *argv[])
 }
 
 static void
-new_router(struct router ** rt, struct vconn *vconn, const char *name)
+new_router(struct router ** rt, struct vconn *vconn, const char *name, struct sib_router ** srt, int * n_siblings_p)
 {
     struct rconn * rconn;
   
     rconn = rconn_create();
     rconn_connect_unreliably(rconn, vconn, NULL);
-    *rt = router_create(rconn);
+    *rt = router_create(rconn, srt, n_siblings_p);
 }
 
 static void
-new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name, struct router ** rt, int n_routers)
+new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name, struct router ** rt, int * n_routers_p)
 {
     struct rconn * rconn;
   
@@ -232,12 +232,12 @@ new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name, s
     rconn_connect_unreliably(rconn, vconn, NULL);
 
     // expect to have only one interface for now
-    if(n_routers == 1)
+    if(*n_routers_p == 1)  // dereference the pointer
     {
-      *sr = sib_router_create(rconn, rt, n_routers);
+      *sr = sib_router_create(rconn, rt, n_routers_p);
     }
     else
     {
-      *sr = sib_router_create(rconn, NULL, n_routers);
+      *sr = sib_router_create(rconn, NULL, n_routers_p);
     }
 }

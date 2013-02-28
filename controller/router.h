@@ -22,7 +22,7 @@ struct router {
 };
 
 
-struct router * router_create(struct rconn *);
+struct router * router_create(struct rconn *, struct sib_router **, int *);
 void router_run(struct router *);
 void router_wait(struct router *);
 bool router_is_alive(const struct router *);

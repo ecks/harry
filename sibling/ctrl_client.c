@@ -281,6 +281,10 @@ static int ctrl_client_read(struct thread * t)
     case RFPT_IPV4_ROUTE_ADD:
       ret = ctrl_client->routes_reply(ctrl_client, ctrl_client->ibuf);
       break;
+
+    case RFPT_FORWARD_OSPF6:
+      printf("Forwarding message received\n");
+      break;
   }
 
   rfpbuf_delete(ctrl_client->ibuf);

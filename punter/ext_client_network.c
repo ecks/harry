@@ -196,7 +196,7 @@ int ext_client_iobuf_size(unsigned int size)
 
 int ext_client_iobuf_cpy_rfp(struct rfpbuf * rfpbuf, unsigned int size)
 {
-  return rfpbuf_put_init(rfpbuf, recvbuf, size);
+  return rfpbuf_put(rfpbuf, recvbuf, size);
 }
 
 void * ext_client_iobuf_cpy_mem(void * mem, unsigned int size)

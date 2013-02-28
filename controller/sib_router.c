@@ -18,20 +18,20 @@
 #include "sib_router.h"
 
 struct router ** routers = NULL;
-int n_routers;
+int * n_routers_p;
 
 //static void sib_router_send_features_request(struct sib_router *);
-static void sib_router_process_packet(struct sib_router *, const struct rfpbuf *);
 //static int sib_router_process_features(struct sib_router * rt, void *rh);
 //static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
 static void sib_router_send_features_reply();
 static void sib_router_redistribute(struct sib_router * sr);
+static void sib_router_forward_ospf6(struct sib_router *, struct rfpbuf *);
 
 /* Creates and returns a new learning switch whose configuration is given by
  * 'cfg'.
  * 'rconn' is used to send out an OpenFlow features request. */
 struct sib_router *
-sib_router_create(struct rconn *rconn, struct router ** my_routers, int my_n_routers)
+sib_router_create(struct rconn *rconn, struct router ** my_routers, int * my_n_routers_p)
 {
   struct sib_router * rt;
   size_t i;
@@ -46,7 +46,7 @@ sib_router_create(struct rconn *rconn, struct router ** my_routers, int my_n_rou
 //  }
 
   routers = my_routers;
-  n_routers = my_n_routers;
+  n_routers_p = my_n_routers_p;
 
   return rt;
 }
@@ -95,8 +95,8 @@ sib_router_wait(struct sib_router * rt)
   rconn_recv_wait(rt->rconn);
 }
 
-static void
-sib_router_process_packet(struct sib_router * sr, const struct rfpbuf * msg)
+void
+sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
 {
   enum rfptype type;
   struct rfp_header * rh;
@@ -128,6 +128,11 @@ sib_router_process_packet(struct sib_router * sr, const struct rfpbuf * msg)
     case RFPT_REDISTRIBUTE_REQUEST:
       printf("redistribute request\n");
       sib_router_redistribute(sr);
+      break;
+
+    case RFPT_FORWARD_OSPF6:
+      printf("forward ospf6 packet\n");
+      sib_router_forward_ospf6(sr, msg);
       break;
 
     default:
@@ -171,7 +176,7 @@ sib_router_send_features_reply(struct sib_router * sr)
   
     rfr = buffer->l2;
 
-    for(i = 0; i < n_routers; i++)
+    for(i = 0; i < *n_routers_p; i++) // dereference the pointer
     {
       for(j = 0; j < MAX_PORTS; j++)
       {
@@ -234,6 +239,17 @@ sib_router_redistribute(struct sib_router * sr)
         if(newrib->distance != DISTANCE_INFINITY)
 //            && zebra_check_addr (&rn->p)) // TODO: implement function
           sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, newrib);
+}
+
+static void
+sib_router_forward_ospf6(struct sib_router * sr, struct rfpbuf * msg)
+{
+  int retval = rconn_send(sr->rconn, msg);
+  if(retval)
+  {
+    printf("send to %s failed: %s\n",
+    		rconn_get_target(sr->rconn), strerror(retval));
+  }
 }
 
 /*

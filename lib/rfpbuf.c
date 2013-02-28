@@ -34,7 +34,7 @@ rfpbuf_use__(struct rfpbuf *b, void *base, size_t allocated,
     b->private_p = NULL;
 }
 
-/* Initializes 'b' as an empty ofpbuf that contains the 'allocated' bytes of
+/* Initializes 'b' as an empty rfpbuf that contains the 'allocated' bytes of
  * memory starting at 'base'.  'base' should be the first byte of a region
  * obtained from malloc().  It will be freed (with free()) if 'b' is resized or
  * freed. */
@@ -44,7 +44,7 @@ rfpbuf_use(struct rfpbuf *b, void *base, size_t allocated)
     rfpbuf_use__(b, base, allocated, RFPBUF_MALLOC);
 }
 
-/* Initializes 'b' as an empty ofpbuf with an initial capacity of 'size'
+/* Initializes 'b' as an empty rfpbuf with an initial capacity of 'size'
  * bytes. */
 void
 rfpbuf_init(struct rfpbuf *b, size_t size)
@@ -52,13 +52,79 @@ rfpbuf_init(struct rfpbuf *b, size_t size)
     rfpbuf_use(b, size ? malloc(size) : NULL, size);
 }
 
-/* Creates and returns a new ofpbuf with an initial capacity of 'size'
+/* Creates and returns a new rfpbuf with an initial capacity of 'size'
  * bytes. */
 struct rfpbuf *
 rfpbuf_new(size_t size)
 {
     struct rfpbuf *b = malloc(sizeof *b);
     rfpbuf_init(b, size);
+    return b;
+}
+
+/* Creates and returns a new rfpbuf with an initial capacity of 'size +
+ * headroom' bytes, reserving the first 'headroom' bytes as headroom. */
+struct rfpbuf *
+rfpbuf_new_with_headroom(size_t size, size_t headroom)
+{
+    struct rfpbuf *b = rfpbuf_new(size + headroom);
+    rfpbuf_reserve(b, headroom);
+    return b;
+}
+
+/* Creates and returns a new rfpbuf that initially contains a copy of the
+ * 'buffer->size' bytes of data starting at 'buffer->data' with no headroom or
+ * tailroom. */
+struct rfpbuf *
+rfpbuf_clone(const struct rfpbuf *buffer)
+{
+    return rfpbuf_clone_with_headroom(buffer, 0);
+}
+
+/* Creates and returns a new rfpbuf whose data are copied from 'buffer'.   The
+ * returned rfpbuf will additionally have 'headroom' bytes of headroom. */
+struct rfpbuf *
+rfpbuf_clone_with_headroom(const struct rfpbuf *buffer, size_t headroom)
+{
+    struct rfpbuf *new_buffer;
+    uintptr_t data_delta;
+
+    new_buffer = rfpbuf_clone_data_with_headroom(buffer->data, buffer->size,
+                                                 headroom);
+    data_delta = (char *) new_buffer->data - (char *) buffer->data;
+
+    if (buffer->l2) {
+        new_buffer->l2 = (char *) buffer->l2 + data_delta;
+    }
+    if (buffer->l3) {
+        new_buffer->l3 = (char *) buffer->l3 + data_delta;
+    }
+    if (buffer->l4) {
+        new_buffer->l4 = (char *) buffer->l4 + data_delta;
+    }
+    if (buffer->l7) {
+        new_buffer->l7 = (char *) buffer->l7 + data_delta;
+    }
+
+    return new_buffer;
+}
+
+/* Creates and returns a new rfpbuf that initially contains a copy of the
+ * 'size' bytes of data starting at 'data' with no headroom or tailroom. */
+struct rfpbuf *
+rfpbuf_clone_data(const void *data, size_t size)
+{
+    return rfpbuf_clone_data_with_headroom(data, size, 0);
+}
+
+/* Creates and returns a new rfpbuf that initially contains 'headroom' bytes of
+ * headroom followed by a copy of the 'size' bytes of data starting at
+ * 'data'. */
+struct rfpbuf *
+rfpbuf_clone_data_with_headroom(const void *data, size_t size, size_t headroom)
+{
+    struct rfpbuf *b = rfpbuf_new_with_headroom(size, headroom);
+    rfpbuf_put(b, data, size);
     return b;
 }
 
@@ -93,18 +159,20 @@ rfpbuf_put_uninit(struct rfpbuf *b, size_t size)
 /* Appends data to end of tail
  */
 void * 
-rfpbuf_put_init(struct rfpbuf *b, void * data, size_t size)
+rfpbuf_put(struct rfpbuf *b, const void * p, size_t size)
 {
-  void *p;
-  rfpbuf_prealloc_tailroom(b, size);
-  p = rfpbuf_tail(b);
-  if(memcpy(p, data, size) == p)
-  {
-    b->size+=size;
-    return p;
-  }
+  void * dst = rfpbuf_put_uninit(b, size);
+  memcpy(dst, p, size);
+  return dst;
+}
 
-  return NULL;
+/* Reserves 'size' bytes of headroom so that they can be later allocated with
+ * rfpbuf_push_uninit() without reallocating the rfpbuf. */
+void
+rfpbuf_reserve(struct rfpbuf *b, size_t size)
+{
+    rfpbuf_prealloc_tailroom(b, size);
+    b->data = (char*)b->data + size;
 }
 
 /* Frees memory that 'b' points to. */
@@ -189,8 +257,8 @@ ssize_t rfpbuf_recvmsg(struct rfpbuf * b, int fd, struct msghdr * msgh, int flag
 }
 
 /* Returns the number of bytes of headroom in 'b', that is, the number of bytes
- * of unused space in ofpbuf 'b' before the data that is in use.  (Most
- * commonly, the data in a ofpbuf is at its beginning, and thus the ofpbuf's
+ * of unused space in rfpbuf 'b' before the data that is in use.  (Most
+ * commonly, the data in a rfpbuf is at its beginning, and thus the rfpbuf's
  * headroom is 0.) */
 size_t
 rfpbuf_headroom(const struct rfpbuf *b)
@@ -198,8 +266,8 @@ rfpbuf_headroom(const struct rfpbuf *b)
     return (char*)b->data - (char*)b->base;
 }
 
-/* Returns the number of bytes that may be appended to the tail end of ofpbuf
- * 'b' before the ofpbuf must be reallocated. */
+/* Returns the number of bytes that may be appended to the tail end of rfpbuf
+ * 'b' before the rfpbuf must be reallocated. */
 size_t
 rfpbuf_tailroom(const struct rfpbuf *b)
 {

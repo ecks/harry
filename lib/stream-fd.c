@@ -69,6 +69,10 @@ fd_recv(struct stream *stream, void *buffer, size_t n)
     ssize_t retval;
 
     retval = read(s->fd, buffer, n);
+    if(retval < 0)
+    {
+      perror("read error");
+    }
     printf("fd_recv: %d\n", retval);
     return retval >= 0 ? retval : -errno;
 }
