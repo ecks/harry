@@ -200,6 +200,13 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
 }
 
 static void
+rfconn_wait(struct rfconn * r)
+{
+  rconn_run_wait(r->rconn);
+  rconn_recv_wait(r->rconn);
+}
+
+static void
 rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf)
 {
   struct sender sender;
