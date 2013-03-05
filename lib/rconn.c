@@ -9,6 +9,9 @@
 #include "routeflow-common.h"
 #include "socket-util.h"
 #include "util.h"
+#include "dblist.h"
+#include "rfpbuf.h"
+#include "../datapath.h"
 #include "rconn.h"
 #include "vconn.h"
 
@@ -348,6 +351,16 @@ rconn_recv_wait(struct rconn *rc)
         vconn_wait(rc->vconn, WAIT_RECV);
     }
 }
+
+void 
+rconn_recv_rfconn_wait(struct rconn *rc, struct rfconn * r)
+{
+    if (rc->vconn) {
+        vconn_wait_rfconn(rc->vconn, WAIT_RECV, r);
+    }
+}
+
+
 
 /* Returns 'rc''s target.  This is intended to be a string that may be passed
  * directly to, e.g., vconn_open(). */

@@ -13,6 +13,7 @@ void rconn_run(struct rconn *);
 void rconn_run_wait(struct rconn *);
 struct rfpbuf *rconn_recv(struct rconn *);
 void rconn_recv_wait(struct rconn *);
+void rconn_recv_rfconn_wait(struct rconn *rc, struct rfconn * r);
 int rconn_send(struct rconn *, struct rfpbuf *);
 const char *rconn_get_target(const struct rconn *);
 

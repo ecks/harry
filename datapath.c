@@ -15,24 +15,18 @@
 #include "lib/routeflow-common.h"
 #include "lib/util.h"
 #include "lib/byte-order.h"
+#include "thread.h"
 #include "lib/dblist.h"
 #include "lib/rfpbuf.h"
 #include "lib/rfp-msgs.h"
+#include "datapath.h"
 #include "lib/rconn.h"
 #include "lib/vconn.h"
-#include "datapath.h"
 
 /* The origin of a received OpenFlow message, to enable sending a reply. */
 struct sender {
     struct rfconn *rfconn;      /* The device that sent the message. */
     uint32_t xid;               /* The OpenFlow transaction ID. */
-};
-
-/* A connection to a secure channel. */
-struct rfconn {
-    struct list node;
-    struct datapath * dp;
-    struct rconn *rconn;
 };
 
 int fwd_control_input(struct datapath *, const struct sender *,
@@ -42,7 +36,10 @@ void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
 static struct rfconn *rfconn_create(struct datapath *, struct rconn *);
 static void rfconn_run(struct datapath *, struct rfconn *);
 static void rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf);
+static void rfconn_wait(struct rfconn * r);
 static void rfconn_destroy(struct rfconn *);
+
+extern struct thread_master * master;
 
 int dp_new(struct datapath **dp_, uint64_t dpid)
 {
@@ -166,44 +163,54 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
 
   rconn_run(r->rconn);
 
-  for(i = 0; i < 2; i++)
+  rfconn_wait(r);
+}
+
+int rfconn_read(struct thread * t)
+{
+  struct rfpbuf * buffer;
+  struct rfp_header * rh;
+  struct rfconn * r = THREAD_ARG(t);
+
+  printf("rfconn_read event\n");
+
+  rfconn_wait(r);
+
+  buffer = rconn_recv(r->rconn);
+  if(!buffer)
   {
-    struct rfpbuf * buffer;
-    struct rfp_header * rh;
-
-    buffer = rconn_recv(r->rconn);
-    if(!buffer)
-    {
-      break;
-    }
-
-    if (buffer->size >= sizeof *rh) 
-    {
-      struct sender sender;
-
-      rh = (struct rfp_header *)buffer->data;
-      sender.rfconn = r;
-      sender.xid = rh->xid;
-      fwd_control_input(dp, &sender, buffer);
-    } 
-    else 
-    {
-      printf("received too-short OpenFlow message\n");
-    }
-    rfpbuf_delete(buffer);
+    goto exit;
   }
 
+  if (buffer->size >= sizeof *rh) 
+  {
+    struct sender sender;
+
+    rh = (struct rfp_header *)buffer->data;
+    sender.rfconn = r;
+    sender.xid = rh->xid;
+    fwd_control_input(r->dp, &sender, buffer);
+  } 
+  else 
+  {
+    printf("received too-short OpenFlow message\n");
+  }
+  rfpbuf_delete(buffer);
+
+exit:
   if(!rconn_is_alive(r->rconn))
   {
     rfconn_destroy(r);
   }
+
+  return 0;
 }
 
 static void
 rfconn_wait(struct rfconn * r)
 {
   rconn_run_wait(r->rconn);
-  rconn_recv_wait(r->rconn);
+  rconn_recv_rfconn_wait(r->rconn, r);
 }
 
 static void
@@ -411,4 +418,10 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
 
     /* Handle it. */
     return handler(dp, sender, buf);
+}
+
+void
+dp_event(unsigned int fd, struct rfconn * r)
+{
+  r->t_read = thread_add_read(master, rfconn_read, r, fd);
 }

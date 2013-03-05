@@ -7,6 +7,10 @@
 #include <poll.h>
 
 #include "util.h"
+#include "routeflow-common.h"
+#include "dblist.h"
+#include "rfpbuf.h"
+#include "../datapath.h"
 #include "stream-fd.h"
 #include "stream-provider.h"
 #include "stream.h"
@@ -108,6 +112,26 @@ fd_wait(struct stream *stream, enum stream_wait_type wait)
     }
 }
 
+static void
+fd_wait_rfconn(struct stream *stream, enum stream_wait_type wait, struct rfconn * r)
+{
+    struct stream_fd *s = stream_fd_cast(stream);
+    switch (wait) {
+    case STREAM_CONNECT:
+    case STREAM_SEND:
+        poll_fd_wait(s->fd, POLLOUT);
+        break;
+
+    case STREAM_RECV:
+        dp_event(s->fd, r);   
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
+
 static const struct stream_class stream_fd_class = {
     "fd",                       /* name */
     false,                      /* needs_probes */
@@ -119,6 +143,7 @@ static const struct stream_class stream_fd_class = {
     NULL,                       /* run */
     NULL,                       /* run_wait */
     fd_wait,                    /* wait */
+    fd_wait_rfconn,             /* wait_rfconn */
 };
 
 struct fd_pstream

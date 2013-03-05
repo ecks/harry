@@ -107,6 +107,8 @@ struct vconn_class {
     /* Arranges for the poll loop to wake up when 'vconn' is ready to take an
      * action of the given 'type'. */
     void (*wait)(struct vconn *vconn, enum vconn_wait_type type);
+
+    void (*wait_rfconn)(struct vconn *vconn, enum vconn_wait_type type, struct rfconn * rfconn);
 };
 
 /* Passive virtual connection to an OpenFlow device.

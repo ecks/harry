@@ -240,6 +240,35 @@ vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait)
     }
 }
 
+static void
+vconn_stream_wait_rfconn(struct vconn *vconn, enum vconn_wait_type wait, struct rfconn *r)
+{
+    struct vconn_stream *s = vconn_stream_cast(vconn);
+    switch (wait) {
+    case WAIT_CONNECT:
+        stream_connect_wait(s->stream);
+        break;
+
+    case WAIT_SEND:
+//        if (!s->txbuf) {
+            stream_send_wait(s->stream);
+//        } else {
+            /* Nothing to do: need to drain txbuf first.
+             * vconn_stream_run_wait() will arrange to wake up when there room
+             * to send data, so there's no point in calling poll_fd_wait()
+             * redundantly here. */
+//        }
+        break;
+
+    case WAIT_RECV:
+        stream_recv_wait_rfconn(s->stream, r);
+        break;
+
+    default:
+        NOT_REACHED();
+    }
+}
+
 struct pvconn_pstream
 {
     struct pvconn pvconn;
@@ -328,6 +357,7 @@ pvconn_pstream_wait(struct pvconn *pvconn)
             vconn_stream_run,                       \
             vconn_stream_run_wait,                  \
             vconn_stream_wait,                      \
+            vconn_stream_wait_rfconn,               \
     }
 
 #define PSTREAM_INIT(NAME)                          \

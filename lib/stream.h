@@ -34,6 +34,7 @@ enum stream_wait_type {
 void stream_wait(struct stream *, enum stream_wait_type);
 void stream_connect_wait(struct stream *);
 void stream_recv_wait(struct stream *);
+void stream_recv_wait_rfconn(struct stream *, struct rfconn *);
 void stream_send_wait(struct stream *);
 
 int pstream_open(const char *name, struct pstream **, uint8_t dscp);

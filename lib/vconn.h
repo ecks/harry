@@ -28,6 +28,7 @@ enum vconn_wait_type {
 };
 
 void vconn_wait(struct vconn *, enum vconn_wait_type);
+void vconn_wait_rfconn(struct vconn *vconn, enum vconn_wait_type wait, struct rfconn * r);
 int pvconn_open(const char *name, struct pvconn **, uint8_t dscp);
 void pvconn_close(struct pvconn *);
 int pvconn_accept(struct pvconn *, int min_version, struct vconn **);

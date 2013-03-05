@@ -27,10 +27,19 @@ struct datapath {
 #endif
 };
 
+/* A connection to a secure channel. */
+struct rfconn {
+    struct list node;
+    struct datapath * dp;
+    struct rconn *rconn;
+    struct thread * t_read;
+};
+
 int dp_new(struct datapath **, uint64_t dpid);
 void add_controller(struct datapath *, const char *target);
 struct sw_port dp_get_ports();
 void dp_run(struct datapath *);
 void dp_forward_msg(struct datapath * dp, struct rfpbuf * buf);
+void dp_event(unsigned int fd, struct rfconn * r);
 
 #endif

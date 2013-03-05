@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -7,6 +9,10 @@
 #include <string.h>
 
 #include "util.h"
+#include "routeflow-common.h"
+#include "dblist.h"
+#include "rfpbuf.h"
+#include "../datapath.h"
 #include "stream-provider.h"
 
 /* State of an active stream.*/
@@ -187,6 +193,27 @@ stream_wait(struct stream *stream, enum stream_wait_type wait)
     (stream->class->wait)(stream, wait);
 }
 
+/* Arranges for the poll loop to wake up when 'stream' is ready to take an
+ * action of the given 'type'. */
+void
+stream_wait_rfconn(struct stream *stream, enum stream_wait_type wait, struct rfconn * r)
+{
+    assert(wait == STREAM_CONNECT || wait == STREAM_RECV
+           || wait == STREAM_SEND);
+
+    switch (stream->state) {
+    case SCS_CONNECTING:
+        wait = STREAM_CONNECT;
+        break;
+
+    case SCS_DISCONNECTED:
+//        poll_immediate_wake();
+        return;
+    }
+    (stream->class->wait_rfconn)(stream, wait, r);
+}
+
+
 void
 stream_connect_wait(struct stream *stream)
 {
@@ -197,6 +224,12 @@ void
 stream_recv_wait(struct stream *stream)
 {
     stream_wait(stream, STREAM_RECV);
+}
+
+void 
+stream_recv_wait_rfconn(struct stream * stream, struct rfconn * r)
+{
+  stream_wait_rfconn(stream, STREAM_RECV, r);
 }
 
 void

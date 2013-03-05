@@ -13,6 +13,7 @@
 #include "rfp-msgs.h"
 #include "rfp-errors.h"
 #include "routeflow-common.h"
+#include "../datapath.h"
 #include "vconn-provider.h"
 
 /* State of an active vconn.*/
@@ -427,6 +428,36 @@ vconn_wait(struct vconn *vconn, enum vconn_wait_type wait)
     }
     (vconn->class->wait)(vconn, wait);
 }
+
+void
+vconn_wait_rfconn(struct vconn *vconn, enum vconn_wait_type wait, struct rfconn * r)
+{
+    assert(wait == WAIT_CONNECT || wait == WAIT_RECV || wait == WAIT_SEND);
+
+    switch (vconn->state) {
+    case VCS_CONNECTING:
+        wait = WAIT_CONNECT;
+        break;
+
+    case VCS_SEND_HELLO:
+    case VCS_SEND_ERROR:
+        wait = WAIT_SEND;
+        break;
+
+    case VCS_RECV_HELLO:
+        wait = WAIT_RECV;
+        break;
+
+    case VCS_CONNECTED:
+        break;
+
+    case VCS_DISCONNECTED:
+//        poll_immediate_wake();
+        return;
+    }
+    (vconn->class->wait_rfconn)(vconn, wait, r);
+}
+
 
 void
 vconn_connect_wait(struct vconn *vconn)
