@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib
 EXECUTABLE = sibling
 LIBS = -pthread -lrt
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -69,6 +69,18 @@ ctrl_client.o: ctrl_client.c
 	$(CC) $(CFLAGS) -c $^
 
 thread.o: thread.c
+	$(CC) $(CFLAGS) -c $^
+
+if.o: if.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_interface.o: ospf6_interface.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_top.o: ospf6_top.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_message.o: ospf6_message.c
 	$(CC) $(CFLAGS) -c $^
 
 clean:

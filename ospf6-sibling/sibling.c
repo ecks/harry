@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include "stdint.h"
 #include "stdbool.h"
 #include "stdio.h"
@@ -11,6 +12,7 @@
 #include "routeflow-common.h"
 #include "util.h"
 #include "dblist.h"
+#include "if.h"
 #include "prefix.h"
 #include "socket-util.h"
 #include "dblist.h"
@@ -18,9 +20,11 @@
 #include "rfp-msgs.h"
 #include "vconn.h"
 #include "thread.h"
+#include "ospf6_top.h"
 #include "sisis.h"
 #include "sisis_process_types.h"
 #include "sibling_ctrl.h"
+#include "sibling.h"
 
 struct thread_master * master;
 
@@ -34,10 +38,20 @@ int main(int argc, char *argv[])
   int sisis_fd;
   uint64_t host_num = 1;
 
+  if(optind !=  argc-1)
+  {
+    printf("usage: sibling <interface>\n");
+    exit(1);
+  }
   /* thread master */
   master = thread_master_create();
 
+  interface_name = argv[optind];
+
   // TODO: signal_init
+
+  // initialize our interface list
+  if_init();
 
   if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_SBLING) < 0))
   {
@@ -73,6 +87,7 @@ int main(int argc, char *argv[])
 
   free(ctrl_addrs);
   
+  ospf6_top_init(interface_name);
 
   /* Start finite state machine, here we go! */
   while(thread_fetch(master, &thread))

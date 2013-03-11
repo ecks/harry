@@ -9,6 +9,7 @@ struct list {
 
 #define LIST_INITIALIZER(LIST) { LIST, LIST }
 
+struct list * list_new();
 void list_init(struct list *);
 void list_poison(struct list *);
 

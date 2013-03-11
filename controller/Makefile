@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib
 LIBS = -pthread -lrt
 EXECUTABLE = controller
-SRCS = vconn.c rconn.c vconn-stream.c util.c rfpbuf.c rfp-msgs.c dblist.c stream-fd.c stream.c socket-util.c stream-tcp.c poll-loop.c timeval.c fatal-signal.c router.c sib_router.c table.c prefix.c rib.c vector.c sisis.c sisis_api.c netlink.c
+SRCS = vconn.c rconn.c vconn-stream.c util.c rfpbuf.c rfp-msgs.c dblist.c stream-fd.c stream.c socket-util.c stream-tcp.c poll-loop.c timeval.c fatal-signal.c router.c sib_router.c table.c prefix.c rib.c vector.c sisis.c sisis_api.c netlink.c if.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -79,6 +79,10 @@ sisis_api.o: sisis_api.c
 
 netlink.o: netlink.c
 	$(CC) $(CFLAGS) $(LIBS) -c $^
+
+if.o: if.c
+	$(CC) $(CFLAGS) $(LIBS) -c $^
+
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c

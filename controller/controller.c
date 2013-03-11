@@ -7,9 +7,9 @@
 #include "rconn.h"
 #include "socket-util.h"
 #include "routeflow-common.h"
+#include "dblist.h"
 #include "router.h"
 #include "sib_router.h"
-#include "dblist.h"
 #include "rfpbuf.h"
 #include "vconn.h"
 #include "sisis.h"
@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 
   time_init();
   rib_init();
+  if_init();
 
   // initialize internal socket to sisis
   int sisis_fd;

@@ -13,7 +13,8 @@
 #define RFP_ASSERT BOOST_STATIC_ASSERT
 #endif /* __cplusplus */
 
-#define RFP_MAX_PORT_NAME_LEN  16
+#define RFP_MAX_PORT_NAME_LEN 20 
+#define RFP_MAX_HWADDR_LEN    20
 
 #define RFP_TCP_PORT  6633
 #define RFP_SSL_PORT  6633

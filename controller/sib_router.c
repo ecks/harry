@@ -1,3 +1,4 @@
+#include "string.h"
 #include "stdlib.h"
 #include "stdint.h"
 #include "stdio.h"
@@ -6,11 +7,13 @@
 #include "string.h"
 #include "netinet/in.h"
 
+#include "util.h"
+#include "routeflow-common.h"
 #include "rconn.h"
 #include "dblist.h"
+#include "if.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
-#include "routeflow-common.h"
 #include "prefix.h"
 #include "table.h"
 #include "rib.h"
@@ -178,15 +181,15 @@ sib_router_send_features_reply(struct sib_router * sr)
 
     for(i = 0; i < *n_routers_p; i++) // dereference the pointer
     {
-      for(j = 0; j < MAX_PORTS; j++)
+      struct if_list * if_node;
+      LIST_FOR_EACH(if_node, struct if_list, node, &routers[i]->port_list)
       {
-        if(routers[i]->port_states[j] == P_FORWARDING)
-        {
-          struct rfp_phy_port * rpp = rfpbuf_put_uninit(buffer, sizeof(struct rfp_phy_port));
-          memset(rpp, 0, sizeof *rpp);
-          rpp->port_no = htons(j);
-          rpp->state = htonl(RFPPS_FORWARD);
-        }
+        struct interface * ifp = if_node->ifp;
+        struct rfp_phy_port * rpp = rfpbuf_put_uninit(buffer, sizeof(struct rfp_phy_port));
+        memset(rpp, 0, sizeof *rpp);
+        rpp->port_no = htons(ifp->ifindex);
+        rpp->state = htonl(ifp->state);
+        strncpy(rpp->name, ifp->name, strlen(ifp->name));
       }
 
       rfpmsg_update_length(buffer);

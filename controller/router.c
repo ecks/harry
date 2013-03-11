@@ -6,6 +6,7 @@
 #include <string.h>
 #include <netinet/in.h>
 
+#include "routeflow-common.h"
 #include "dblist.h"
 #include "prefix.h"
 #include "rconn.h"
@@ -13,7 +14,7 @@
 #include "rfp-msgs.h"
 #include "rfpbuf.h"
 #include "rib.h"
-#include "routeflow-common.h"
+#include "if.h"
 #include "sib_router.h"
 #include "router.h"
 
@@ -42,14 +43,10 @@ router_create(struct rconn *rconn, struct sib_router ** my_sib_routers, int * my
   rt->rconn = rconn;
   rt->state = R_CONNECTING;
 
-  for(i = 0; i < MAX_PORTS; i++)
-  {
-    rt->port_states[i] = P_DISABLED;
-  }
-
   sib_routers = my_sib_routers;
   n_siblings_p = my_n_siblings_p;
 
+  list_init(&rt->port_list);
   return rt;
 }
 
@@ -240,8 +237,20 @@ router_process_phy_port(struct router * rt, void * rpp_)
   const struct rfp_phy_port * rpp = rpp_;
   uint16_t port_no = ntohs(rpp->port_no);
   uint32_t state = ntohl(rpp->state);
-  unsigned int *port_state = &rt->port_states[port_no];
-  unsigned int new_port_state;
+  struct if_list * if_list;
+
+  struct interface * ifp = if_get_by_name(rpp->name);
+
+  ifp->ifindex = port_no;
+  ifp->state = state;
+
+  if_list = calloc(1, sizeof(struct if_list));
+  list_init(&if_list->node);
+
+  // link to ifp and back
+  ifp->info = if_list;
+  if_list->ifp = ifp;
+  list_push_back(&rt->port_list, &if_list->node);
 
   printf("Port number: %d, name: %s", port_no, rpp->name);
   
@@ -249,22 +258,16 @@ router_process_phy_port(struct router * rt, void * rpp_)
   {
     case RFPPS_LINK_DOWN:
       printf(" at down state\n");
-      new_port_state = P_DISABLED;
       break;
 
     case RFPPS_FORWARD:
       printf(" at forwarding state\n");
-      new_port_state = P_FORWARDING;
       break;
 
     default:
       break;
   } 
 
-  if(*port_state != new_port_state)
-  {
-    *port_state = new_port_state;
-  }
 }
 
 static void

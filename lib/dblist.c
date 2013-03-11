@@ -1,9 +1,16 @@
 #include "config.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
 #include "dblist.h"
+
+struct list * 
+list_new()
+{
+  return calloc(1, sizeof(struct list));
+}
 
 /* Initializes 'list' as an empty list. */
 void
