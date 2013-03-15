@@ -37,6 +37,7 @@ struct rfconn {
 
 int fwd_control_input(struct datapath *, const struct sender *,
                       struct rfpbuf *);
+static int forward_ospf6_msg(struct datapath * dp, const struct sender * sender, struct rfpbuf * msg);
 void get_ports(struct list * ports);
 void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
 static struct rfconn *rfconn_create(struct datapath *, struct rconn *);
@@ -209,7 +210,7 @@ rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf *
 
   sender.rfconn = rfconn;
   sender.xid = rh->xid;
-  fwd_control_input(dp, &sender, buf);
+  forward_ospf6_msg(dp, &sender, buf);
 
 }
 
@@ -395,7 +396,7 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
 
       case RFPT_FORWARD_OSPF6:
         printf("Forwarding OSPF6 traffic\n");
-        handler = forward_ospf6_msg;
+//        handler = forward_ospf6_msg;
         break;
 
       default:
