@@ -4,6 +4,7 @@
 #include "stdio.h"
 #include "stdbool.h"
 #include "string.h"
+#include <stddef.h>
 #include "errno.h"
 #include "sys/un.h"
 #include "sys/types.h"
@@ -11,6 +12,7 @@
 
 #include "routeflow-common.h"
 #include "thread.h"
+#include "util.h"
 #include "dblist.h"
 #include "rfpbuf.h"
 #include "zl_serv.h"
@@ -30,7 +32,6 @@ struct zl_serv * zl_serv_new(void)
   struct zl_serv * zl_serv;
   
   zl_serv = calloc(1, sizeof(struct zl_serv));
-  zl_serv->clients = calloc(1, sizeof(struct list));
 
   return zl_serv;
 }
@@ -38,7 +39,7 @@ struct zl_serv * zl_serv_new(void)
 void zl_serv_init(struct zl_serv * zl_serv, struct datapath * dp)
 {
   zl_serv->acceptfd = -1;
-  list_init(zl_serv->clients);
+  list_init(&zl_serv->clients);
   zl_serv->dp = dp;
 
   zl_serv_g = zl_serv;
@@ -56,10 +57,9 @@ void zl_serv_create_client(int client_sock, struct zl_serv * zl_serv)
 //  client->ibuf = rfpbuf_new(MAX_PACKET_SIZE); 
   client->ibuf = NULL;
  
-  client->node = calloc(1, sizeof(struct list));
-  list_init(client->node);
+  list_init(&client->node);
 
-  list_push_back(zl_serv_g->clients, client->node);
+  list_push_back(&zl_serv_g->clients, &client->node);
  
   printf("Client sock is %d\n", client_sock);
 
@@ -155,6 +155,20 @@ static int zl_serv_start()
   return 0;
 }
 
+void zl_serv_forward(struct rfpbuf * msg)
+{
+  if(zl_serv_g == NULL)
+    return;
+
+  struct zl_serv_cl * client;
+  LIST_FOR_EACH(client, struct zl_serv_cl, node, &zl_serv_g->clients)
+  {
+    client->ibuf = rfpbuf_clone(msg);
+    rfpbuf_write(client->ibuf, client->sockfd);
+    rfpbuf_delete(client->ibuf);
+  }
+}
+
 static int zl_serv_read(struct thread * thread)
 {
   int sock = THREAD_FD(thread);
@@ -178,7 +192,7 @@ static int zl_serv_read(struct thread * thread)
     printf("Could not read full header\n");
   }
 
-  rh = (struct rpf_header *)zl_serv_cl->ibuf->data; 
+  rh = (struct rfp_header *)zl_serv_cl->ibuf->data; 
 
   switch (rh->type)
   {
@@ -192,7 +206,7 @@ static int zl_serv_read(struct thread * thread)
       rfpbuf_read_try(zl_serv_cl->ibuf, sock, routeflow_len - header_len);
  
       // forward the message
-      dp_forward_msg(zl_serv_g->dp, zl_serv_cl->ibuf);
+      dp_forward_zl_to_ctrl(zl_serv_g->dp, zl_serv_cl->ibuf);
 
       // no longer need the data so reset it to NULL -- already freed
       zl_serv_cl->ibuf = NULL;

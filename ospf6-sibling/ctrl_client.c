@@ -61,15 +61,13 @@ void ctrl_client_stop(struct ctrl_client * ctrl_client)
   ctrl_client->ibuf = NULL;
 
   rfpbuf_delete(ctrl_client->obuf);
-  ctrl_client->ibuf = NULL;
+  ctrl_client->obuf = NULL;
 
   if(ctrl_client->sock >= 0)
   {
     close(ctrl_client->sock);
     ctrl_client->sock = -1;
   }
-
-  ctrl_client->fail = 0;
 }
 
 int ctrl_client_socket(struct in6_addr * ctrl_addr)

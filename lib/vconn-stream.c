@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include "compiler.h"
+#include "thread.h"
 #include "stream.h"
 #include "dblist.h"
 #include "rfpbuf.h"
@@ -212,7 +213,7 @@ vconn_stream_run_wait(struct vconn *vconn)
 }
 
 static void
-vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait)
+vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait, int (*func)(struct thread *), void * args)
 {
     struct vconn_stream *s = vconn_stream_cast(vconn);
     switch (wait) {
@@ -232,7 +233,7 @@ vconn_stream_wait(struct vconn *vconn, enum vconn_wait_type wait)
         break;
 
     case WAIT_RECV:
-        stream_recv_wait(s->stream);
+        stream_recv_wait(s->stream, func, args);
         break;
 
     default:

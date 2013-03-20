@@ -35,10 +35,17 @@ int zl_client_sock_init(const char * path)
   return sock;
 }
 
-int zl_client_write(struct rfpbuf * buf, unsigned int sock)
+int zl_client_network_write(struct rfpbuf * buf, unsigned int sock)
 {
   printf("Writing data to zebralite\n");
 
   return rfpbuf_write(buf, sock);
+}
+
+int zl_client_network_recv(struct rfpbuf * buf, unsigned int sock, unsigned int size)
+{
+  printf("Reading data from zebralite\n");
+
+  return rfpbuf_read_try(buf, sock, size);
 }
 

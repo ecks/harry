@@ -118,7 +118,7 @@ struct stream_class {
 
     /* Arranges for the poll loop to wake up when 'stream' is ready to take an
      * action of the given 'type'. */
-    void (*wait)(struct stream *stream, enum stream_wait_type type);
+    void (*wait)(struct stream *stream, enum stream_wait_type type, int (*func)(struct thread *), void * args);
 };
 
 /* Passive listener for incoming stream connections.

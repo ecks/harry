@@ -8,6 +8,7 @@
 
 #include "util.h"
 #include "packets.h"
+#include "thread.h"
 #include "stream-provider.h"
 #include "stream-fd.h"
 
@@ -129,7 +130,7 @@ const struct stream_class tcp6_stream_class = {
     NULL,                       /* send */
     NULL,                       /* run */
     NULL,                       /* run_wait */
-    NULL,                       /* wait */
+    NULL,                  /* wait */
 };
  
 static int ptcp_accept(int fd, const struct sockaddr *sa, size_t sa_len,

@@ -13,6 +13,7 @@
 #include "lib/dblist.h"
 #include "lib/prefix.h"
 #include "lib/routeflow-common.h"
+#include "thread.h"
 #include "lib/util.h"
 #include "lib/byte-order.h"
 #include "lib/dblist.h"
@@ -20,6 +21,7 @@
 #include "lib/rfp-msgs.h"
 #include "lib/rconn.h"
 #include "lib/vconn.h"
+#include "controller.h"
 #include "datapath.h"
 
 /* The origin of a received OpenFlow message, to enable sending a reply. */
@@ -28,30 +30,22 @@ struct sender {
     uint32_t xid;               /* The OpenFlow transaction ID. */
 };
 
-/* A connection to a secure channel. */
-struct rfconn {
-    struct list node;
-    struct datapath * dp;
-    struct rconn *rconn;
-};
-
 int fwd_control_input(struct datapath *, const struct sender *,
                       struct rfpbuf *);
 static int forward_ospf6_msg(struct datapath * dp, const struct sender * sender, struct rfpbuf * msg);
 void get_ports(struct list * ports);
 void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
-static struct rfconn *rfconn_create(struct datapath *, struct rconn *);
 static void rfconn_run(struct datapath *, struct rfconn *);
 static void rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf);
 static void rfconn_destroy(struct rfconn *);
 
-int dp_new(struct datapath **dp_, uint64_t dpid)
+struct datapath * dp_new(uint64_t dpid)
 {
     struct datapath *dp;
 
     dp = calloc(1, sizeof *dp);
     if (!dp) {
-        return ENOMEM;
+        return NULL;
     }
 
     list_init(&dp->all_conns);
@@ -67,31 +61,36 @@ int dp_new(struct datapath **dp_, uint64_t dpid)
     get_routes(&dp->ipv4_rib_routes, NULL);
 #endif
 
-    *dp_ = dp;
-    return 0;
+    return dp;
 }
 
 void
 dp_run(struct datapath *dp)
 {
-  struct rfconn *rfconn, *next_rfconn;
+  struct conn *conn, *next_conn;
 
   /* Talk ot remote controllers */
-  LIST_FOR_EACH_SAFE(rfconn, next_rfconn, struct rfconn, node, &dp->all_conns)
+  LIST_FOR_EACH_SAFE(conn, next_conn, struct conn, node, &dp->all_conns)
   {
-    rfconn_run(dp, rfconn);
+    conn_run(conn);
+    conn_wait(conn);
   }
 }
 
-void dp_forward_msg(struct datapath * dp, struct rfpbuf * buf)
+void dp_forward_zl_to_ctrl(struct datapath * dp, struct rfpbuf * buf)
 {
-  struct rfconn *rfconn, *next_rfconn;
+  struct conn *conn, *next_conn;
 
   /* Talk ot remote controllers */
-  LIST_FOR_EACH_SAFE(rfconn, next_rfconn, struct rfconn, node, &dp->all_conns)
+  LIST_FOR_EACH_SAFE(conn, next_conn, struct conn, node, &dp->all_conns)
   {
-    rfconn_forward_msg(dp, rfconn, buf);
+    conn_forward_msg(conn, buf);
   }
+}
+
+void dp_forward_zl_to_punt(struct datapath * dp, struct rfpbuf * buf)
+{
+  zl_serv_forward(buf);
 }
 
 /* Creates a new controller for 'target' in 'mgr'.  update_controller() needs
@@ -99,10 +98,10 @@ void dp_forward_msg(struct datapath * dp, struct rfpbuf * buf)
 void
 add_controller(struct datapath *dp, const char *target)
 {
-  struct rfconn * rfconn;
+  struct conn * conn;
 
-  rfconn = rfconn_create(dp, rconn_create());
-  rconn_connect(rfconn->rconn, target);
+  conn = conn_create(dp, rconn_create());
+  conn_start(conn, target);
 }
 
 int iface_add_port (unsigned int index, unsigned int flags, unsigned int mtu, char * name, struct list * list)
@@ -160,6 +159,7 @@ get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
   }
 }
 
+/*
 static void
 rfconn_run(struct datapath * dp, struct rfconn *r)
 {
@@ -200,6 +200,7 @@ rfconn_run(struct datapath * dp, struct rfconn *r)
   }
 }
 
+
 static void
 rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf)
 {
@@ -225,19 +226,6 @@ rfconn_destroy(struct rfconn *r)
     }
 }
 
-static struct rfconn *
-rfconn_create(struct datapath *dp, struct rconn *rconn)
-{
-  struct rfconn * rfconn;
-  
-  rfconn = malloc(sizeof *rfconn);
-  rfconn->dp = dp;
-  list_push_back(&dp->all_conns, &rfconn->node);
-  rfconn->rconn = rconn;
-
-  return rfconn;
-}
-
 static int
 send_routeflow_buffer_to_remote(struct rfpbuf *buffer, struct rfconn *rfconn)
 {
@@ -248,24 +236,25 @@ send_routeflow_buffer_to_remote(struct rfpbuf *buffer, struct rfconn *rfconn)
                      rconn_get_target(rfconn->rconn), strerror(retval));
     }
     return retval;
-}
-
+} */
+/*
 static int
 send_routeflow_buffer(struct datapath *dp, struct rfpbuf *buffer,
                      const struct sender *sender)
 {
     rfpmsg_update_length(buffer);
     if (sender) 
-    {
-        /* Send back to the sender. */
+    { */
+        /* Send back to the sender. */ /*
         return send_routeflow_buffer_to_remote(buffer, sender->rfconn);
     }
     else
     {
         return 0;
     }
-}
+} */
 
+/*
 struct rfpbuf *
 make_openflow_reply(uint8_t type, uint8_t version, size_t openflow_len,
                     const struct sender *sender)
@@ -362,18 +351,19 @@ forward_ospf6_msg(struct datapath * dp, const struct sender * sender, struct rfp
   send_routeflow_buffer(dp, msg, sender);
   return 0;
 }
-
+*/
 /* 'msg', which is 'length' bytes long, was received from the control path.
  * Apply it to 'chain'. */
+/*
 int
 fwd_control_input(struct datapath *dp, const struct sender *sender,
                   struct rfpbuf * buf)
 {
     int (*handler)(struct datapath *, const struct sender *, struct rfpbuf *);
     struct rfp_header * rh;
-
+*/
     /* Check encapsulated length. */
-    rh = (struct rfp_header *) buf->data;
+/*    rh = (struct rfp_header *) buf->data; */
 
 
 /* Not sure why this is needed for now */
@@ -382,7 +372,7 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
 //    }
 
     /* Figure out how to handle it. */
-    switch (rh->type) 
+/*    switch (rh->type) 
     {
       case RFPT_FEATURES_REQUEST:
         printf("Receiving features request message\n");
@@ -402,7 +392,7 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
       default:
         return -EINVAL;
     }
-
+*/
     /* Handle it. */
-    return handler(dp, sender, buf);
-}
+/*    return handler(dp, sender, buf);
+} */

@@ -9,6 +9,7 @@
 #include "routeflow-common.h"
 #include "socket-util.h"
 #include "util.h"
+#include "thread.h"
 #include "rconn.h"
 #include "vconn.h"
 
@@ -342,10 +343,10 @@ rconn_recv(struct rconn *rc)
 /* Causes the next call to poll_block() to wake up when a packet may be ready
  * to be received by vconn_recv() on 'rc'.  */
 void
-rconn_recv_wait(struct rconn *rc)
+rconn_recv_wait(struct rconn *rc, int (*func)(struct thread *), void * args)
 {
     if (rc->vconn) {
-        vconn_wait(rc->vconn, WAIT_RECV);
+        vconn_wait(rc->vconn, WAIT_RECV, func, args);
     }
 }
 

@@ -9,6 +9,7 @@
 
 #include "util.h"
 #include "dblist.h"
+#include "thread.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "rfp-errors.h"
@@ -400,38 +401,38 @@ vconn_run_wait(struct vconn *vconn)
 }
 
 void
-vconn_wait(struct vconn *vconn, enum vconn_wait_type wait)
+vconn_wait(struct vconn *vconn,  enum vconn_wait_type wait, int (*func)(struct thread *), void * args)
 {
-    assert(wait == WAIT_CONNECT || wait == WAIT_RECV || wait == WAIT_SEND);
+  assert(wait == WAIT_CONNECT || wait == WAIT_RECV || wait == WAIT_SEND);
 
-    switch (vconn->state) {
+  switch (vconn->state) {
     case VCS_CONNECTING:
-        wait = WAIT_CONNECT;
-        break;
+      wait = WAIT_CONNECT;
+      break;
 
     case VCS_SEND_HELLO:
     case VCS_SEND_ERROR:
-        wait = WAIT_SEND;
-        break;
+      wait = WAIT_SEND;
+      break;
 
     case VCS_RECV_HELLO:
-        wait = WAIT_RECV;
-        break;
+      wait = WAIT_RECV;
+      break;
 
     case VCS_CONNECTED:
-        break;
+      break;
 
     case VCS_DISCONNECTED:
-//        poll_immediate_wake();
-        return;
+      //        poll_immediate_wake();
+      return;
     }
-    (vconn->class->wait)(vconn, wait);
+    (vconn->class->wait)(vconn, wait, func, args);
 }
 
 void
 vconn_connect_wait(struct vconn *vconn)
 {
-    vconn_wait(vconn, WAIT_CONNECT);
+    vconn_wait(vconn, WAIT_CONNECT, NULL, NULL);
 }
 
 /* Given 'name', a connection name in the form "TYPE:ARGS", stores the class

@@ -10,6 +10,7 @@
 #include "lib/routeflow-common.h"
 #include "lib/dblist.h"
 #include "lib/rfpbuf.h"
+#include "thread.h"
 #include "lib/vconn.h"
 #include "datapath.h"
 #include "zl_serv.h"
@@ -31,7 +32,7 @@ void listener_init(const char * name)
 {
   int error;
 
-  error = dp_new(&dp, dpid);
+  dp = dp_new(dpid);
   add_controller(dp, name);
   dp_run(dp);
 

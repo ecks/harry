@@ -6,14 +6,14 @@ struct zl_serv
   int acceptfd;
 
   struct datapath * dp;
-  struct list * clients;
+  struct list clients;
 };
 
 struct zl_serv_cl
 {
   int sockfd;
   struct rfpbuf * ibuf;
-  struct list * node;
+  struct list node;
   struct thread * t_read;
 };
 

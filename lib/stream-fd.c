@@ -7,9 +7,12 @@
 #include <poll.h>
 
 #include "util.h"
+#include "thread.h"
 #include "stream-fd.h"
 #include "stream-provider.h"
 #include "stream.h"
+
+extern struct thread_master * master;
 
 /* Active file descriptor stream. */
 
@@ -90,7 +93,7 @@ fd_send(struct stream *stream, const void *buffer, size_t n)
 }
 
 static void
-fd_wait(struct stream *stream, enum stream_wait_type wait)
+fd_wait(struct stream *stream, enum stream_wait_type wait, int (*func)(struct thread *), void * args)
 {
     struct stream_fd *s = stream_fd_cast(stream);
     switch (wait) {
@@ -100,7 +103,8 @@ fd_wait(struct stream *stream, enum stream_wait_type wait)
         break;
 
     case STREAM_RECV:
-        poll_fd_wait(s->fd, POLLIN);
+        thread_add_read(master, func, args, s->fd);
+//        poll_fd_wait(s->fd, POLLIN);
         break;
 
     default:

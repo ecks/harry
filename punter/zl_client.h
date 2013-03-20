@@ -7,6 +7,8 @@ struct zl_client
 
   int sockfd;
 
+  int fail;
+  struct rfpbuf * ibuf;
   struct thread * t_connect;
   struct thread * t_read;
 };
