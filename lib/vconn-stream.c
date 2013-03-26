@@ -47,6 +47,13 @@ vconn_stream_new(struct stream *stream, int connect_status)
     return &s->vconn;
 }
 
+static struct vconn_stream *
+vconn_stream_cast(struct vconn *vconn)
+{
+  return CONTAINER_OF(vconn, struct vconn_stream, vconn);
+}
+
+
 /* Creates a new vconn that will send and receive data on a stream named 'name'
  *  * and stores a pointer to the vconn in '*vconnp'.
  *   *
@@ -70,12 +77,6 @@ vconn_stream_open(const char *name, char *suffix OVS_UNUSED,
 
     stream_close(stream);
     return error;
-}
-
-static struct vconn_stream *
-vconn_stream_cast(struct vconn *vconn)
-{
-    return CONTAINER_OF(vconn, struct vconn_stream, vconn);
 }
 
 static void
@@ -208,7 +209,6 @@ static void
 vconn_stream_run_wait(struct vconn *vconn)
 {
   struct vconn_stream *s = vconn_stream_cast(vconn);
-
   stream_run_wait(s->stream);
 }
 
@@ -309,10 +309,10 @@ pvconn_pstream_accept(struct pvconn *pvconn, struct vconn **new_vconnp)
 }
 
 static void
-pvconn_pstream_wait(struct pvconn *pvconn)
+pvconn_pstream_wait(struct pvconn *pvconn, int (*func)(struct thread *), void * args)
 {
     struct pvconn_pstream *ps = pvconn_pstream_cast(pvconn);
-    pstream_wait(ps->pstream);
+    pstream_wait(ps->pstream, func, args);
 }
 
 

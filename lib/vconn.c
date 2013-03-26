@@ -537,9 +537,9 @@ pvconn_accept(struct pvconn *pvconn, int min_version, struct vconn **new_vconn)
 }
 
 void
-pvconn_wait(struct pvconn *pvconn)
+pvconn_wait(struct pvconn *pvconn, int (*func)(struct thread *), void * args)
 {
-    (pvconn->class->wait)(pvconn);
+    (pvconn->class->wait)(pvconn, func, args);
 }
 
 /* Initializes 'vconn' as a new vconn named 'name', implemented via 'class'.

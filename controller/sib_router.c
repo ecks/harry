@@ -9,6 +9,7 @@
 
 #include "util.h"
 #include "routeflow-common.h"
+#include "thread.h"
 #include "rconn.h"
 #include "dblist.h"
 #include "if.h"
@@ -60,8 +61,9 @@ sib_router_create(struct rconn *rconn, struct router ** my_routers, int * my_n_r
 //  sib_router_send_features_request(rt);
 //}
 
-void sib_router_run(struct sib_router * rt)
+int sib_router_run(struct thread * t)
 {
+  struct sib_router * rt = THREAD_ARG(t);
   int i;
 
   rconn_run(rt->rconn);
@@ -73,6 +75,7 @@ void sib_router_run(struct sib_router * rt)
 //      sib_router_handshake(rt);
       rt->state = S_FEATURES_REPLY;
 //    }
+    sib_router_wait(rt);
     return;
   }
 
@@ -89,13 +92,24 @@ void sib_router_run(struct sib_router * rt)
     sib_router_process_packet(rt, msg);
     rfpbuf_delete(msg);
   }
+
+  if(sib_router_is_alive(rt))
+  {
+    sib_router_wait(rt);
+  }
+  else
+  {
+    sib_router_destroy(rt);
+  }
+
+  return 0;
 }
 
 void
 sib_router_wait(struct sib_router * rt)
 {
-  rconn_run_wait(rt->rconn);
-  rconn_recv_wait(rt->rconn);
+//  rconn_run_wait(rt->rconn);
+  rconn_recv_wait(rt->rconn, sib_router_run, rt);
 }
 
 void

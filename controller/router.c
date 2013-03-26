@@ -9,6 +9,7 @@
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "prefix.h"
+#include "thread.h"
 #include "rconn.h"
 #include "dblist.h"
 #include "rfp-msgs.h"
@@ -61,8 +62,9 @@ router_handshake(struct router * rt)
   router_send_stats_routes_request(rt);
 }
 
-void router_run(struct router * rt)
+int router_run(struct thread * t)
 {
+  struct router * rt = THREAD_ARG(t);
   int i;
 
   rconn_run(rt->rconn);
@@ -87,6 +89,7 @@ void router_run(struct router * rt)
       router_handshake(rt);
       rt->state = R_CONNECTED;
 //    }
+    router_wait(rt);
     return;
   }
 
@@ -103,13 +106,24 @@ void router_run(struct router * rt)
     router_process_packet(rt, msg);
     rfpbuf_delete(msg);
   }
+
+  if(router_is_alive(rt))
+  {
+    router_wait(rt);
+  }
+  else
+  {
+    router_destroy(rt);
+  }
+
+  return 0;
 }
 
 void
 router_wait(struct router * rt)
 {
   rconn_run_wait(rt->rconn);
-  rconn_recv_wait(rt->rconn);
+  rconn_recv_wait(rt->rconn, router_run, rt);
 }
 
 /* The order of features reply and stats reply are not important

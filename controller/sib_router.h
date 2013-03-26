@@ -14,7 +14,7 @@ struct sib_router {
 
 
 struct sib_router * sib_router_create(struct rconn *, struct router **, int *);
-void sib_router_run(struct sib_router *);
+int sib_router_run(struct thread *);
 void sib_router_process_packet(struct sib_router *, struct rfpbuf *);
 void sib_router_wait(struct sib_router *);
 bool sib_router_is_alive(const struct sib_router *);

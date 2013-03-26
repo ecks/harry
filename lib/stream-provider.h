@@ -175,7 +175,7 @@ struct pstream_class {
 
     /* Arranges for the poll loop to wake up when a connection is ready to be
      * accepted on 'pstream'. */
-    void (*wait)(struct pstream *pstream);
+    void (*wait)(struct pstream *pstream, int (*func)(struct thread *), void * args);
 };
 
 /* Active and passive stream classes. */

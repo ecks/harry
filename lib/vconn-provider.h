@@ -10,16 +10,16 @@
 
 /* Active virtual connection to an OpenFlow device. */
 struct vconn {
-    struct vconn_class *class;
-    int state;
-    int error;
-    enum rfp_version min_version;
-    enum rfp_version version;
-    uint32_t remote_ip;
-    uint16_t remote_port;
-    uint32_t local_ip;
-    uint16_t local_port;
-    char *name;
+  struct vconn_class *class;
+  int state;
+  int error;
+  enum rfp_version min_version;
+  enum rfp_version version;
+  uint32_t remote_ip;
+  uint16_t remote_port;
+  uint32_t local_ip;
+  uint16_t local_port;
+  char *name;
 };
 
 void vconn_init(struct vconn *, struct vconn_class *, int connect_status,
@@ -109,6 +109,8 @@ struct vconn_class {
     void (*wait)(struct vconn *vconn, enum vconn_wait_type type, int (*func)(struct thread *), void * args);
 };
 
+
+
 /* Passive virtual connection to an OpenFlow device.
  *
  * This structure should be treated as opaque by vconn implementations. */
@@ -154,7 +156,7 @@ struct pvconn_class {
 
     /* Arranges for the poll loop to wake up when a connection is ready to be
      * accepted on 'pvconn'. */
-    void (*wait)(struct pvconn *pvconn);
+    void (*wait)(struct pvconn *pvconn, int (*func)(struct thread *), void * args);
 };
 
 /* Active and passive vconn classes. */

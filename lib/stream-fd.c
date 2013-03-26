@@ -103,6 +103,7 @@ fd_wait(struct stream *stream, enum stream_wait_type wait, int (*func)(struct th
         break;
 
     case STREAM_RECV:
+        printf("fd is %d\n", s->fd);
         thread_add_read(master, func, args, s->fd);
 //        poll_fd_wait(s->fd, POLLIN);
         break;
@@ -208,10 +209,11 @@ pfd_accept(struct pstream *pstream, struct stream **new_streamp)
 }
 
 static void
-pfd_wait(struct pstream *pstream)
+pfd_wait(struct pstream *pstream, int (*func)(struct thread *), void * args)
 {
     struct fd_pstream *ps = fd_pstream_cast(pstream);
-    poll_fd_wait(ps->fd, POLLIN);
+//    poll_fd_wait(ps->fd, POLLIN);
+    thread_add_read(master, func, args, ps->fd);
 }
 
 static struct pstream_class fd_pstream_class = {

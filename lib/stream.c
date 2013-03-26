@@ -557,7 +557,7 @@ pstream_accept(struct pstream *pstream, struct stream **new_stream)
 }
 
 void
-pstream_wait(struct pstream *pstream)
+pstream_wait(struct pstream *pstream, int (*func)(struct thread *), void * args)
 {
-    (pstream->class->wait)(pstream);
+    (pstream->class->wait)(pstream, func, args);
 }

@@ -132,7 +132,7 @@ struct thread * funcname_thread_add_read(struct thread_master * m, int (*func) (
 
   if(FD_ISSET(fd, &m->readfd))
   {
-    printf("There is already a read fd set\n");
+    printf("There is already a read fd set: %d\n", fd);
     return NULL;
   }
 
