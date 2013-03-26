@@ -29,7 +29,6 @@ int * n_routers_p;
 //static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
 static void sib_router_send_features_reply();
 static void sib_router_redistribute(struct sib_router * sr);
-static void sib_router_forward_ospf6(struct sib_router *, struct rfpbuf *);
 
 /* Creates and returns a new learning switch whose configuration is given by
  * 'cfg'.
@@ -117,6 +116,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
 {
   enum rfptype type;
   struct rfp_header * rh;
+  int i;
 
   rh = msg->data;
 
@@ -148,8 +148,12 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       break;
 
     case RFPT_FORWARD_OSPF6:
-      printf("forward ospf6 packet\n");
-      sib_router_forward_ospf6(sr, msg);
+      for(i = 0; i < *n_routers_p; i++)
+      {
+        printf("forward ospf6 packet: sibling => controller\n");
+        struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+        router_forward_ospf6(routers[i], msg_copy);
+      }
       break;
 
     default:
@@ -258,8 +262,7 @@ sib_router_redistribute(struct sib_router * sr)
           sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, newrib);
 }
 
-static void
-sib_router_forward_ospf6(struct sib_router * sr, struct rfpbuf * msg)
+void sib_router_forward_ospf6(struct sib_router * sr, struct rfpbuf * msg)
 {
   int retval = rconn_send(sr->rconn, msg);
   if(retval)

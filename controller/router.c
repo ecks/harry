@@ -14,6 +14,7 @@
 #include "dblist.h"
 #include "rfp-msgs.h"
 #include "rfpbuf.h"
+#include "rconn.h"
 #include "rib.h"
 #include "if.h"
 #include "sib_router.h"
@@ -187,8 +188,9 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
         // forward to all siblings
         for(i = 0; i < *n_siblings_p; i++) // dereference the pointer
         {
+          printf("forward ospf6 packet: controller => sibling\n");
           struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-          sib_router_process_packet(sib_routers[i], msg_copy);
+          sib_router_forward_ospf6(sib_routers[i], msg_copy);
         }
       }
       break;
@@ -336,4 +338,14 @@ router_process_route(struct router * rt, void * rr_)
 
   rib_add_ipv4(route, SAFI_UNICAST);
 
+}
+
+void router_forward_ospf6(struct router * r, struct rfpbuf * msg)
+{
+  int retval = rconn_send(r->rconn, msg);
+  if(retval)
+  {
+    printf("send to %s failed: %s\n",
+    		rconn_get_target(r->rconn), strerror(retval));
+  }
 }

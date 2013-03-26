@@ -2,6 +2,7 @@
 #define THREAD_H
 
 #define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
+#define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
 
 
@@ -43,7 +44,7 @@ struct thread
   {
     int val;
     int fd;
-//    struct timeval sands;
+    struct timeval sands;
   } u;
 
   char * funcname;
@@ -78,6 +79,9 @@ extern struct thread_master *thread_master_create (void);
 extern struct thread * funcname_thread_add_read (struct thread_master *,
                                                 int (*)(struct thread *),
                                                 void *, int, const char*);
+extern struct thread *funcname_thread_add_timer (struct thread_master *,
+                                                int (*)(struct thread *), 
+                                                void *, long, const char*);
 extern struct thread * funcname_thread_add_event (struct thread_master *,
                                                  int (*)(struct thread *),
                                                  void *, int, const char*);

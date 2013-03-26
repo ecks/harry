@@ -30,12 +30,13 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
     return oi;
 }
 
-void ospf6_interface_if_add(struct interface * ifp)
+void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client)
 {
  struct ospf6_interface * oi = (struct ospf6_interface *)ifp->info;
   if(oi == NULL)
     return;
 
+  oi->ctrl_client = ctrl_client;
   /* Interface start */
   thread_add_event(master, interface_up, oi, 0);
 }

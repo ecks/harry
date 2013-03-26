@@ -3,9 +3,70 @@
 #include "stdio.h"
 #include "assert.h"
 #include "sys/select.h"
+#include <sys/time.h>
 
 #include "thread.h"
 
+/* Relative time, since startup */
+static struct timeval relative_time;
+
+/* Struct timeval's tv_usec one second value.  */
+#define TIMER_SECOND_MICRO 1000000L
+
+/* Adjust so that tv_usec is in the range [0,TIMER_SECOND_MICRO).
+ *    And change negative values to 0. */
+static struct timeval
+timeval_adjust (struct timeval a)
+{
+  while (a.tv_usec >= TIMER_SECOND_MICRO)
+  {
+    a.tv_usec -= TIMER_SECOND_MICRO;
+    a.tv_sec++;
+  }
+
+  while (a.tv_usec < 0)
+  {
+    a.tv_usec += TIMER_SECOND_MICRO;
+    a.tv_sec--;
+  }
+
+  if (a.tv_sec < 0)
+  /* Change negative timeouts to 0. */
+    a.tv_sec = a.tv_usec = 0;
+
+  return a;
+}
+
+static long
+timeval_cmp (struct timeval a, struct timeval b)
+{
+    return (a.tv_sec == b.tv_sec
+                  ? a.tv_usec - b.tv_usec : a.tv_sec - b.tv_sec);
+}
+
+static int zebralite_get_relative(struct timeval * tv)
+{
+  int ret; 
+
+#ifdef HAVE_CLOCK_MONOTONIC
+    {
+      struct timespec tp;
+      if (!(ret = clock_gettime (CLOCK_MONOTONIC, &tp)))
+      {    
+        relative_time.tv_sec = tp.tv_sec;
+        relative_time.tv_usec = tp.tv_nsec / 1000;
+      }    
+    }
+#else /* !HAVE_CLOCK_MONOTONIC */
+//      if (!(ret = quagga_gettimeofday (&recent_time)))
+//            quagga_gettimeofday_relative_adjust();
+#endif /* HAVE_CLOCK_MONOTONIC */
+
+  if (tv) 
+    *tv = relative_time;
+
+  return ret;
+}
 struct thread_master * thread_master_create()
 {
   return (struct thread_master *)calloc(1, sizeof(struct thread_master));
@@ -24,6 +85,23 @@ thread_list_add (struct thread_list *list, struct thread *thread)
   list->tail = thread;
   list->count++;
 }
+
+/* Add a new thread just before the point.  */
+static void
+thread_list_add_before (struct thread_list *list,
+                        struct thread *point,
+                        struct thread *thread)
+{
+  thread->next = point;
+  thread->prev = point->prev;
+  if (point->prev)
+    point->prev->next = thread;
+  else
+    list->head = thread;
+  point->prev = thread;
+  list->count++;
+}
+
 
 /* Delete a thread from the list. */
 static struct thread *
@@ -124,6 +202,7 @@ static struct thread * thread_get (struct thread_master *m, u_char type, int (*f
   return thread; 
 }
 
+/* Add new read thread. */
 struct thread * funcname_thread_add_read(struct thread_master * m, int (*func) (struct thread *), void *arg, int fd, const char* funcname)
 {
   struct thread * thread;
@@ -142,6 +221,63 @@ struct thread * funcname_thread_add_read(struct thread_master * m, int (*func) (
   thread_list_add(&m->read, thread);
 
   return thread;
+}
+
+static struct thread *
+funcname_thread_add_timer_timeval (struct thread_master *m,
+                                   int (*func) (struct thread *),  
+                                   int type,
+                                   void *arg, 
+                                   struct timeval *time_relative, 
+                                   const char* funcname)
+{
+  struct thread *thread;
+  struct thread_list *list;
+  struct timeval alarm_time;
+  struct thread *tt; 
+
+  assert (m != NULL);
+
+  assert (type == THREAD_TIMER || type == THREAD_BACKGROUND);
+  assert (time_relative);
+      
+  list = ((type == THREAD_TIMER) ? &m->timer : &m->background);
+  thread = thread_get (m, type, func, arg, funcname);
+
+  /* Do we need jitter here? */
+  zebralite_get_relative (NULL);
+  alarm_time.tv_sec = relative_time.tv_sec + time_relative->tv_sec;
+  alarm_time.tv_usec = relative_time.tv_usec + time_relative->tv_usec;
+  thread->u.sands = timeval_adjust(alarm_time);
+
+  /* Sort by timeval. */
+  for (tt = list->head; tt; tt = tt->next)
+    if (timeval_cmp (thread->u.sands, tt->u.sands) <= 0)
+      break;
+
+  if (tt)
+    thread_list_add_before (list, tt, thread);
+  else
+    thread_list_add (list, thread);
+
+  return thread;
+}
+
+/* Add timer event thread. */
+struct thread *
+funcname_thread_add_timer (struct thread_master *m,
+                           int (*func) (struct thread *),  
+                           void *arg, long timer, const char* funcname)
+{
+    struct timeval trel;
+
+    assert (m != NULL);
+
+    trel.tv_sec = timer;
+    trel.tv_usec = 0; 
+
+    return funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, 
+                                              &trel, funcname);
 }
 
 /* Add simple event thread. */

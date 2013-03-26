@@ -42,7 +42,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
 
     // copy over the flags
     ifp->state = ntohl(rpp->state);
-    ospf6_interface_if_add(ifp);
+    ospf6_interface_if_add(ifp, ctrl_client);
   }
 }
 

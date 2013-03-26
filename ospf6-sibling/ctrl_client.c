@@ -68,6 +68,8 @@ void ctrl_client_stop(struct ctrl_client * ctrl_client)
     close(ctrl_client->sock);
     ctrl_client->sock = -1;
   }
+
+//  ctrl_client->fail = 0;
 }
 
 int ctrl_client_socket(struct in6_addr * ctrl_addr)
@@ -149,6 +151,11 @@ static int ctrl_message_send(struct ctrl_client * ctrl_client, uint8_t type, uin
   ctrl_client->obuf = routeflow_alloc(type, version, sizeof(struct rfp_header));
 
   return ctrl_send_message(ctrl_client);  
+}
+
+int fwd_message_send(struct ctrl_client * ctrl_client)
+{
+  return ctrl_send_message(ctrl_client);
 }
 
 /* connection to controller daemon */

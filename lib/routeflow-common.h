@@ -165,6 +165,19 @@ struct ospf6_header
   uint8_t    reserved;
 };
 
+/* Hello */
+struct ospf6_hello
+{
+  u_int32_t interface_id;
+  u_char    priority;
+  u_char    options[3];
+  u_int16_t hello_interval;
+  u_int16_t dead_interval;
+  u_int32_t drouter;
+  u_int32_t bdrouter;
+  /* Followed by Router-IDs */
+};
+
 /* Forward message */
 struct rfp_forward_ospf6 {
   struct rfp_header header;
