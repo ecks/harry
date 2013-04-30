@@ -3,9 +3,9 @@
 
 #include "vector.h"
 
-struct vector * vector_init(unsigned int size)
+vector vector_init(unsigned int size)
 {
-  struct vector * v = calloc(1, sizeof(*v));
+  vector v = calloc(1, sizeof(*v));
 
   /* allocate at least one slot */
   if (size == 0)
@@ -18,15 +18,31 @@ struct vector * vector_init(unsigned int size)
 }
 
 void
-vector_free (struct vector * v)
+vector_free (vector v)
 {
   free (v->index);
   free (v);
 }
 
+vector
+vector_copy (vector v)
+{
+  unsigned int size;
+  vector new = calloc(1, sizeof (struct _vector));
+
+  new->active = v->active;
+  new->alloced = v->alloced;
+
+  size = sizeof (void *) * (v->alloced);
+  new->index = calloc(1, size);
+  memcpy (new->index, v->index, size);
+
+  return new;
+}
+
 /* Check assigned index, and if it runs short double index pointer */
 void
-vector_ensure (struct vector * v, unsigned int num)
+vector_ensure (vector v, unsigned int num)
 {
   if (v->alloced > num)
     return;
@@ -39,9 +55,44 @@ vector_ensure (struct vector * v, unsigned int num)
     vector_ensure (v, num);
 }
 
+/* This function only returns next empty slot index.  It dose not mean
+   the slot's index memory is assigned, please call vector_ensure()
+   after calling this function. */
+int
+vector_empty_slot (vector v)
+{
+  unsigned int i;
+
+  if (v->active == 0)
+    return 0;
+
+  for (i = 0; i < v->active; i++)
+    if (v->index[i] == 0)
+      return i;
+
+  return i;
+}
+
+/* Set value to the smallest empty slot. */
+int
+vector_set (vector v, void *val)
+{
+  unsigned int i;
+
+  i = vector_empty_slot (v);
+  vector_ensure (v, i);
+
+  v->index[i] = val;
+
+  if (v->active <= i)
+    v->active = i + 1;
+
+  return i;
+}
+
 /* Set value to specified index slot. */
 int
-vector_set_index (struct vector * v, unsigned int i, void *val)
+vector_set_index (vector v, unsigned int i, void *val)
 {
   vector_ensure (v, i);
 
@@ -54,7 +105,7 @@ vector_set_index (struct vector * v, unsigned int i, void *val)
 }
 
 /* Look up vector.  */
-void * vector_lookup (struct vector * v, unsigned int i)
+void * vector_lookup (vector v, unsigned int i)
 {
   if (i >= v->active)
     return NULL;
