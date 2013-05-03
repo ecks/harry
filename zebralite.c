@@ -41,6 +41,8 @@ int main(int argc, char ** argv)
   cmd_init(1);
   vty_init(master);
 
+  zebra_debug_init();
+
   vty_read_config(config_file, config_default);
 
 

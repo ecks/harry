@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -ggdb -Ilib
 EXECUTABLE = zebralite
-SRCS = api.c netlink.c listener.c vconn.c vconn-stream.c stream.c stream-fd.c stream-tcp.c util.c socket-util.c rfp-msgs.c rfpbuf.c dblist.c datapath.c rconn.o poll-loop.o timeval.c fatal-signal.c thread.c zl_serv.c controller.c log.c command.c vty.c vector.c
+SRCS = api.c netlink.c listener.c vconn.c vconn-stream.c stream.c stream-fd.c stream-tcp.c util.c socket-util.c rfp-msgs.c rfpbuf.c dblist.c datapath.c rconn.o poll-loop.o timeval.c fatal-signal.c thread.c zl_serv.c controller.c log.c command.c vty.c vector.c debug.c
 OBJECTS = ${SRCS:.c=.o}
 LIBS = -lrt
 VPATH = lib
@@ -84,6 +84,9 @@ vty.o: vty.c
 	$(CC) $(CFLAGS) -c $^
 
 vector.o: vector.c
+	$(CC) $(CFLAGS) -c $^
+
+debug.o: debug.c
 	$(CC) $(CFLAGS) -c $^
 
 .c.o:

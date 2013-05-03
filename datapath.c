@@ -7,7 +7,7 @@
 #include "stddef.h"
 #include "errno.h"
 #include "string.h"
-#include "arpa/inet.h"
+#include "netinet/in.h"
 #include "linux/if.h"
 
 #include "lib/dblist.h"
@@ -21,6 +21,7 @@
 #include "lib/rfp-msgs.h"
 #include "lib/rconn.h"
 #include "lib/vconn.h"
+#include "debug.h"
 #include "controller.h"
 #include "datapath.h"
 
@@ -134,20 +135,22 @@ get_ports(struct list * ports)
     exit(1);
   }
 
-  struct sw_port * port;
-  LIST_FOR_EACH(port, struct sw_port, node, ports)
+  if(IS_ZEBRALITE_DEBUG_RIB)
   {
-    printf("Interface %d: %s\n", port->port_no, port->hw_name);
-    if(port->state == RFPPS_FORWARD)
+    struct sw_port * port;
+    LIST_FOR_EACH(port, struct sw_port, node, ports)
     {
-      printf("Link is up!\n");
+      zlog_debug("Interface %d: %s", port->port_no, port->hw_name);
+      if(port->state == RFPPS_FORWARD)
+      {
+        zlog_debug("Link is up!");
+      }
+      else
+      {
+        zlog_debug("Link is down!");
+      }
     }
-    else
-    {
-      printf("Link is down!\n");
-    }
-  }
-  
+  } 
 }
 
 void
@@ -156,6 +159,18 @@ get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
   if(routes_list(ipv4_rib_routes, ipv6_rib_routes) != 0)
   {
     exit(1);
+  }
+
+  if(IS_ZEBRALITE_DEBUG_RIB)
+  {
+    struct route_ipv4 * route;
+    LIST_FOR_EACH(route, struct route_ipv4, node, ipv4_rib_routes)
+    {
+      // print route
+      char prefix_str[INET_ADDRSTRLEN];
+      if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+      	zlog_debug("%s/%d [%u/%u]", prefix_str, route->p->prefixlen, route->distance, route->metric);
+    }
   }
 }
 

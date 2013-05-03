@@ -40,15 +40,6 @@ int routes_list(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 
   netlink_route_read(&info);
 
-  struct route_ipv4 * route;
-  LIST_FOR_EACH(route, struct route_ipv4, node, ipv4_rib_routes)
-  {
-    // print route
-    char prefix_str[INET_ADDRSTRLEN];
-    if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
-  	printf("%s/%d [%u/%u]\n", prefix_str, route->p->prefixlen, route->distance, route->metric);
-  }
-
   return 0;
 }
 
