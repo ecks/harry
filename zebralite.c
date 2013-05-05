@@ -42,6 +42,7 @@ int main(int argc, char ** argv)
   vty_init(master);
 
   zebra_debug_init();
+  listener_init();
 
   vty_read_config(config_file, config_default);
 
@@ -51,9 +52,7 @@ int main(int argc, char ** argv)
 
   api_init();
 
-  const char * name;
-  name = argv[1];
-  listener_init(name);
+  listener_run();
 
 
   zlog_notice("Zebralite starting");
