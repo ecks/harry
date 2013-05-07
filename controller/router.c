@@ -87,8 +87,11 @@ int router_run(struct thread * t)
   {
 //    if(rconn_get_version(rt->rconn) != -1)
 //    {
+    if(rconn_exchanged_hellos(rt->rconn))
+    {   
       router_handshake(rt);
       rt->state = R_CONNECTED;
+    }
 //    }
     router_wait(rt);
     return;
@@ -123,7 +126,7 @@ int router_run(struct thread * t)
 void
 router_wait(struct router * rt)
 {
-  rconn_run_wait(rt->rconn);
+//  rconn_run_wait(rt->rconn);
   rconn_recv_wait(rt->rconn, router_run, rt);
 }
 

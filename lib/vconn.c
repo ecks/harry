@@ -240,6 +240,11 @@ vcs_recv_hello(struct vconn *vconn)
     }
 }
 
+bool vconn_is_connected(struct vconn * vconn)
+{
+  return vconn->state == VCS_CONNECTED;
+}
+
 /* Tries to complete the connection on 'vconn'. If 'vconn''s connection is
  *  * complete, returns 0 if the connection was successful or a positive errno
  *   * value if it failed.  If the connection is still in progress, returns
@@ -269,6 +274,7 @@ vconn_connect(struct vconn *vconn)
             break;
 
         case VCS_CONNECTED:
+            printf("vconn_connect: VCS_CONNECTED\n");
             return 0;
 
         case VCS_SEND_ERROR:

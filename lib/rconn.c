@@ -176,6 +176,12 @@ void rconn_connect_unreliably(struct rconn *rc, struct vconn *vconn, const char 
   state_transition(rc, S_ACTIVE);
 }
 
+bool rconn_exchanged_hellos(struct rconn * rc)
+{
+  assert(rc->vconn != NULL);
+  return vconn_is_connected(rc->vconn);
+}
+
 void
 rconn_disconnect(struct rconn *rc)
 {

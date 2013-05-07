@@ -11,7 +11,7 @@
 #include "vector.h"
 #include "rib.h"
 
-static struct vector * vrf_vector;
+static vector vrf_vector;
 
 /* Allocate new VRF.  */
 static struct vrf * vrf_alloc (const char *name)

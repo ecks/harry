@@ -5,8 +5,22 @@ struct ospf6_interface
 {
   struct interface * interface;
 
-  u_int16_t hello_interval;
+  /* back pointer */
+  struct ospf6_area *area;
+  
   struct ctrl_client * ctrl_client;
+
+  /* Router Priority */
+  u_char priority;
+
+  /* Time Interval */
+  u_int16_t hello_interval;
+  u_int16_t dead_interval;
+  u_int32_t rxmt_interval;
+
+  /* Decision of DR Election */
+  u_int32_t drouter;
+  u_int32_t bdrouter;
 
   /* Interface state */
   u_char state;

@@ -15,6 +15,7 @@ int vconn_open(const char *name, int min_version,
                struct vconn **, uint8_t dscp);
 void vconn_close(struct vconn *);
 const char *vconn_get_name(const struct vconn *);
+bool vconn_is_connected(struct vconn * vconn);
 int vconn_connect(struct vconn *);
 int vconn_recv(struct vconn *, struct rfpbuf **);
 int vconn_send(struct vconn *, struct rfpbuf *);

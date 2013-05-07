@@ -21,7 +21,13 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
 
     oi = calloc(1, sizeof(struct ospf6_interface));
 
+    oi->area = NULL;
+    oi->priority = 1;
+
     oi->hello_interval = 10;
+    oi->dead_interval = 40;
+    oi->rxmt_interval = 5;
+    
     oi->state = OSPF6_INTERFACE_DOWN;
     
     oi->interface = ifp;

@@ -7,6 +7,7 @@ struct rconn * rconn_create();
 void rconn_set_probe_interval(struct rconn *, int inactivity_probe_interval);
 void rconn_connect(struct rconn *rc, const char *target);
 void rconn_connect_unreliably(struct rconn *rc, struct vconn *vconn, const char *name);
+bool rconn_exchanged_hellos(struct rconn * rc);
 void rconn_disconnect(struct rconn *);
 void rconn_destroy(struct rconn *);
 void rconn_run(struct rconn *);

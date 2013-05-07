@@ -182,6 +182,7 @@ struct ospf6_hello
 struct rfp_forward_ospf6 {
   struct rfp_header header;
   struct ospf6_header ospf6_header;
+  struct ospf6_hello ospf6_hello;
 };
 
 #endif

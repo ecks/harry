@@ -25,6 +25,7 @@ int ospf6_hello_send(struct thread * thread)
   oi = (struct ospf6_interface *)THREAD_ARG(thread);
   struct rfp_forward_ospf6 * rfo;
   struct ospf6_header * oh;
+  struct ospf6_hello * hello;
 
   oi->thread_send_hello = (struct thread *)NULL;
 
@@ -39,13 +40,29 @@ int ospf6_hello_send(struct thread * thread)
   /* set next thread */
   oi->thread_send_hello = thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval);
 
-  oi->ctrl_client->obuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_header));
+  oi->ctrl_client->obuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_forward_ospf6));
 
   rfo = oi->ctrl_client->obuf->l2;
 
   oh = &rfo->ospf6_header;
+
+  hello = &rfo->ospf6_hello;
+
+  hello->interface_id = htonl(oi->interface->ifindex);
+  hello->priority = oi->priority;
+//  hello->options[0] = oi->area->options[0];
+//  hello->options[1] = oi->area->options[1];
+//  hello->options[2] = oi->area->options[2];
+  hello->hello_interval = htons (oi->hello_interval);
+  hello->dead_interval = htons (oi->dead_interval);
+//  hello->drouter = oi->drouter;
+//  hello->bdrouter = oi->bdrouter;
+
+  // this is where you put the router ids of the neighbors
+
+  // do this at the end
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
-  oh->length = htons(sizeof(struct ospf6_header));
+  oh->length = htons(sizeof(struct ospf6_header) + sizeof(struct ospf6_hello));
 
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);
