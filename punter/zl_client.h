@@ -9,6 +9,7 @@ struct zl_client
 
   int fail;
   struct rfpbuf * ibuf;
+  struct rfpbuf * obuf;
   struct thread * t_connect;
   struct thread * t_read;
 };

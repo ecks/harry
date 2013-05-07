@@ -73,6 +73,8 @@ static int zl_client_read(struct thread * t)
   struct zl_client * zl_client = THREAD_ARG(t);
   struct rfp_header * rh;
   size_t rh_size = sizeof(struct rfp_header);
+  struct rfp_forward_ospf6 * rfp6;
+  uint16_t rfp6_length;
   uint16_t length;
   uint8_t type;
   size_t already = 0;
@@ -125,10 +127,19 @@ static int zl_client_read(struct thread * t)
 
   length -= rh_size;
 
-  switch(rh->type)
+  switch(type)
   {
     case RFPT_FORWARD_OSPF6:
       printf("Received OSPF6 handling traffic\n");
+      rfp6 = rfpbuf_at_assert(zl_client->ibuf, 0, sizeof(struct rfp_header));
+      rfp6_length = ntohs(rfp6->ospf6_header.length);
+      if(zl_client->obuf == NULL)
+      {
+        zl_client->obuf = rfpbuf_new(rfp6_length);
+      }
+      rfpbuf_put(zl_client->obuf, (void *)&rfp6->ospf6_header, rfp6_length);  
+      punter_zl_to_ext_forward_msg();
+      // clean up after finished sending message
       break;
 
     default:

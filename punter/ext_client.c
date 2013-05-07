@@ -102,6 +102,20 @@ static int ext_client_connect(struct thread * t)
   return ext_client_start(ext_client); 
 }
 
+int ext_client_send(struct ext_client * ext_client)
+{
+//  struct iovec iovector[2];
+
+//  iovector[0].iov_base = (caddr_t)oh;
+//  iovector[0].iov_len = ntohs(oh->length);
+//  iovector[1].iov_base = NULL;
+//  iovector[1].iov_len = 0;
+
+
+//  ext_client_sendmsg(src, dst, oi->interface->ifindex, iovector, sockfd);
+  return 0;
+}
+
 static int ext_client_read(struct thread * t)
 {
   printf("read triggered!\n");
@@ -132,7 +146,7 @@ static int ext_client_read(struct thread * t)
   // copy data over
   ext_client_iobuf_cpy_mem(&rfp6->ospf6_header, sizeof(struct rfp_header)); // put in ospf6 header only -- for now
 
-  punter_forward_msg(); // punt the message over to zebralite
+  punter_ext_to_zl_forward_msg(); // punt the message over to zebralite
 
   // we have sent the data, so free the memory
   rfpbuf_delete(ext_client->ibuf);

@@ -19,6 +19,7 @@ extern int ext_client_iobuf_size(unsigned int size);
 extern int ext_client_iobuf_cpy_rfp(struct rfpbuf * rfpbuf, unsigned int size);
 extern void * ext_client_iobuf_cpy_mem(void * mem, unsigned int size);
 
+int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned int ifindex, struct iovec * mesage, struct ext_client * ext_client);
 int ext_client_recvmsg(struct ext_client * ext_client);
 
 #endif

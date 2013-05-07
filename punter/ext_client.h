@@ -21,5 +21,6 @@ struct ext_client
 
 extern struct ext_client * ext_client_new();
 extern void ext_client_init(struct ext_client *, char *, struct punter_ctrl *);
+int ext_client_send(struct ext_client * ext_client);
 
 #endif

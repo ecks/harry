@@ -213,6 +213,53 @@ iov_count (struct iovec *iov)
   return i;
 }
 
+int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned int ifindex, struct iovec * message, struct ext_client * ext_client)
+{
+  int retval;
+  struct msghdr smsghdr;
+  struct cmsghdr *scmsgp;
+  u_char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+  struct in6_pktinfo *pktinfo;
+  struct sockaddr_in6 dst_sin6;
+
+  scmsgp = (struct cmsghdr *)cmsgbuf;
+  pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
+
+  /* source address */
+  // ifindex
+  if (src)
+    memcpy (&pktinfo->ipi6_addr, src, sizeof (struct in6_addr));
+  else
+    memset (&pktinfo->ipi6_addr, 0, sizeof (struct in6_addr));
+
+  memset (&dst_sin6, 0, sizeof (struct sockaddr_in6));
+
+  /* destination address */
+  dst_sin6.sin6_family = AF_INET6;
+#ifdef SIN6_LEN
+  dst_sin6.sin6_len = sizeof (struct sockaddr_in6);
+#endif
+  // dst
+  // scope_id
+
+  /* send control msg */
+  scmsgp->cmsg_level = IPPROTO_IPV6;
+  scmsgp->cmsg_type = IPV6_PKTINFO;
+  scmsgp->cmsg_len = CMSG_LEN (sizeof (struct in6_pktinfo));
+
+  memset(&smsghdr, 0, sizeof(struct msghdr));
+  smsghdr.msg_iov =  message;
+  smsghdr.msg_iovlen = iov_count(message);
+  smsghdr.msg_name = (caddr_t) &dst_sin6;
+  smsghdr.msg_namelen = sizeof (struct sockaddr_in6);
+  smsghdr.msg_control = (caddr_t)cmsgbuf;
+  smsghdr.msg_controllen = sizeof(cmsgbuf);
+
+  retval = sendmsg(ext_client->sockfd, &smsghdr, 0);
+
+  return retval;
+}
+
 int ext_client_recvmsg(struct ext_client * ext_client)
 {
   struct msghdr rmsghdr;

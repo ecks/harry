@@ -156,7 +156,12 @@ void punter_ctrl_init(char * host)
   zl_client_init(zl_client, punter_ctrl);
 }
 
-void punter_forward_msg()
+void punter_ext_to_zl_forward_msg()
 {
   zl_client_network_write(ext_client->ibuf, zl_client->sockfd);
+}
+
+void punter_zl_to_ext_forward_msg()
+{
+  ext_client_send(ext_client);
 }

@@ -20,6 +20,8 @@ struct punter_ctrl
 };
 
 void punter_ctrl_init(char * host);
-void punter_forward_msg();
+
+void punter_ext_to_zl_forward_msg();
+void punter_zl_to_ext_forward_msg();
 
 #endif
