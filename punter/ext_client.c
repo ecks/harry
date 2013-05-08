@@ -49,6 +49,10 @@ void ext_client_init(struct ext_client * ext_client, char * host, struct punter_
   // find the ifindex corresponding to the ip aaddress
   ext_client->ifindex = ext_client_ifindex(ext_client->punter_ctrl->ipv6_addrs, ext_client);
 
+  // set up the linklocal addr
+  ext_client->linklocal = calloc(1, sizeof(struct in6_addr));
+  inet_pton(AF_INET6, host, ext_client->linklocal);
+
   // find the mtu
   ext_client->mtu = ext_client_mtu(ext_client->punter_ctrl->port_list, ext_client->ifindex);
   ext_client_iobuf_size(ext_client->mtu);
@@ -102,17 +106,20 @@ static int ext_client_connect(struct thread * t)
   return ext_client_start(ext_client); 
 }
 
-int ext_client_send(struct ext_client * ext_client)
+int ext_client_send(struct rfpbuf * buf, struct ext_client * ext_client)
 {
-//  struct iovec iovector[2];
+  struct iovec iovector[2];
+  struct ospf6_header * oh;
 
-//  iovector[0].iov_base = (caddr_t)oh;
-//  iovector[0].iov_len = ntohs(oh->length);
-//  iovector[1].iov_base = NULL;
-//  iovector[1].iov_len = 0;
+  oh = rfpbuf_at_assert(buf, 0, sizeof(struct ospf6_header));
+
+  iovector[0].iov_base = (caddr_t)oh;
+  iovector[0].iov_len = ntohs(oh->length);
+  iovector[1].iov_base = NULL;
+  iovector[1].iov_len = 0;
 
 
-//  ext_client_sendmsg(src, dst, oi->interface->ifindex, iovector, sockfd);
+  ext_client_sendmsg(ext_client->linklocal, iovector, ext_client); // src needs to be the linclocal address, leave blank for now
   return 0;
 }
 

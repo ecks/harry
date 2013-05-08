@@ -163,5 +163,5 @@ void punter_ext_to_zl_forward_msg()
 
 void punter_zl_to_ext_forward_msg()
 {
-  ext_client_send(ext_client);
+  ext_client_send(zl_client->obuf, ext_client);
 }

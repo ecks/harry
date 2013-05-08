@@ -213,12 +213,14 @@ iov_count (struct iovec *iov)
   return i;
 }
 
-int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned int ifindex, struct iovec * message, struct ext_client * ext_client)
+int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext_client * ext_client)
 {
   int retval;
   struct msghdr smsghdr;
+
   struct cmsghdr *scmsgp;
   u_char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+
   struct in6_pktinfo *pktinfo;
   struct sockaddr_in6 dst_sin6;
 
@@ -226,7 +228,7 @@ int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned in
   pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
 
   /* source address */
-  // ifindex
+  pktinfo->ipi6_ifindex = ext_client->ifindex;
   if (src)
     memcpy (&pktinfo->ipi6_addr, src, sizeof (struct in6_addr));
   else
@@ -239,8 +241,10 @@ int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned in
 #ifdef SIN6_LEN
   dst_sin6.sin6_len = sizeof (struct sockaddr_in6);
 #endif
-  // dst
-  // scope_id
+  memcpy (&dst_sin6.sin6_addr, &allspfrouters6, sizeof (struct in6_addr));
+#ifdef HAVE_SIN6_SCOPE_ID
+  dst_sin6.sin6_scope_id = ext_client->ifindex;
+#endif
 
   /* send control msg */
   scmsgp->cmsg_level = IPPROTO_IPV6;
@@ -255,7 +259,11 @@ int ext_client_sendmsg(struct in6_addr * src, struct in6_addr * dst, unsigned in
   smsghdr.msg_control = (caddr_t)cmsgbuf;
   smsghdr.msg_controllen = sizeof(cmsgbuf);
 
-  retval = sendmsg(ext_client->sockfd, &smsghdr, 0);
+  if((retval = sendmsg(ext_client->sockfd, &smsghdr, 0)) < 0)
+  {
+    printf("sendmsg failed: %s (%d)\n", strerror(errno), errno);
+    perror("sendmsg");
+  }
 
   return retval;
 }

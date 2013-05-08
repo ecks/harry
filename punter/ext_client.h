@@ -8,6 +8,7 @@ struct ext_client
   int sockfd;
   char * host;
   unsigned int ifindex;
+  struct in6_addr * linklocal;
   unsigned int mtu;
 
   struct thread * t_connect;
@@ -21,6 +22,6 @@ struct ext_client
 
 extern struct ext_client * ext_client_new();
 extern void ext_client_init(struct ext_client *, char *, struct punter_ctrl *);
-int ext_client_send(struct ext_client * ext_client);
+int ext_client_send(struct rfpbuf * buf, struct ext_client * ext_client);
 
 #endif
