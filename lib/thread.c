@@ -1,9 +1,11 @@
+#include "config.h"
+
 #include "stdlib.h"
 #include "string.h"
 #include "stdio.h"
 #include "assert.h"
 #include "sys/select.h"
-#include <sys/time.h>
+#include <time.h>
 
 #include "thread.h"
 
@@ -35,6 +37,17 @@ timeval_adjust (struct timeval a)
     a.tv_sec = a.tv_usec = 0;
 
   return a;
+}
+
+static struct timeval
+timeval_subtract (struct timeval a, struct timeval b)
+{
+  struct timeval ret;
+
+  ret.tv_usec = a.tv_usec - b.tv_usec;
+  ret.tv_sec = a.tv_sec - b.tv_sec;
+
+  return timeval_adjust (ret);
 }
 
 static long
@@ -333,6 +346,16 @@ thread_cancel (struct thread *thread)
   thread_add_unuse (thread->master, thread);
 }
 
+static struct timeval * thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
+{
+  if (!thread_empty (tlist))
+  {
+    *timer_val = timeval_subtract (tlist->head->u.sands, relative_time);
+    return timer_val;
+  }
+  return NULL;
+}
+
 static struct thread *
 thread_run (struct thread_master *m, struct thread *thread,
             struct thread *fetch)
@@ -369,6 +392,25 @@ static int thread_process_fd(struct thread_list * list, fd_set * fdset, fd_set *
   return ready;
 }
 
+/* Add all timers that have popped to the ready list. */
+static unsigned int
+thread_timer_process (struct thread_list *list, struct timeval *timenow)
+{
+  struct thread *thread;
+  unsigned int ready = 0;
+
+  for (thread = list->head; thread; thread = thread->next)
+  {
+    if (timeval_cmp (*timenow, thread->u.sands) < 0)
+      return ready;
+    thread_list_delete (list, thread);
+    thread->type = THREAD_READY;
+    thread_list_add (&thread->master->ready, thread);
+    ready++;
+  }
+  return ready;
+}
+
 /* Fetch next ready thread. */
 struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
 {
@@ -377,6 +419,10 @@ struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
   fd_set readfd;
   fd_set writefd;
   fd_set exceptfd;
+  struct timeval timer_val;
+  struct timeval timer_val_bg;
+  struct timeval * timer_wait;
+  struct timeval * timer_wait_bg;
 
   while(1)
   {
@@ -399,9 +445,21 @@ struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
     writefd = m->writefd;
     exceptfd = m->exceptfd;
 
+    /* Calculate select wait timer if nothing else to do */
+    zebralite_get_relative(NULL); 
+    timer_wait = thread_timer_wait(&m->timer, &timer_val);
+    timer_wait_bg = thread_timer_wait(&m->background, &timer_val_bg);
+
+    if (timer_wait_bg &&
+      (!timer_wait || (timeval_cmp (*timer_wait, *timer_wait_bg) > 0)))
+    timer_wait = timer_wait_bg;
+
     printf("about to call select\n");
-    num = select(FD_SETSIZE, &readfd, &writefd, &exceptfd, NULL);
+    num = select(FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
     printf("called select\n");
+
+    zebralite_get_relative(NULL);
+    thread_timer_process (&m->timer, &relative_time);
 
     if(num < 0)
     {

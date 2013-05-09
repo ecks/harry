@@ -12,6 +12,7 @@
 #include "rfp-msgs.h"
 #include "if.h"
 #include "ctrl_client.h"
+#include "ospf6_proto.h"
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
 
@@ -53,6 +54,11 @@ int ospf6_hello_send(struct thread * thread)
 //  hello->options[0] = oi->area->options[0];
 //  hello->options[1] = oi->area->options[1];
 //  hello->options[2] = oi->area->options[2];
+  // for now set the options directly since we don't have an area yet
+  OSPF6_OPT_SET(hello->options, OSPF6_OPT_V6);
+  OSPF6_OPT_SET(hello->options, OSPF6_OPT_E);
+  OSPF6_OPT_SET(hello->options, OSPF6_OPT_R);
+
   hello->hello_interval = htons (oi->hello_interval);
   hello->dead_interval = htons (oi->dead_interval);
 //  hello->drouter = oi->drouter;
@@ -63,6 +69,14 @@ int ospf6_hello_send(struct thread * thread)
   // do this at the end
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
   oh->length = htons(sizeof(struct ospf6_header) + sizeof(struct ospf6_hello));
+
+  /* fill OSPF header */
+  oh->version = OSPFV3_VERSION;
+
+  // router id
+  // area id
+  // instance id
+  // reserved
 
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);
