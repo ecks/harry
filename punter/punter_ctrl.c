@@ -14,11 +14,11 @@
 #include "dblist.h"
 #include "prefix.h"
 #include "api.h"
-#include "ext_client.h"
+#include "ext_client_ospf6.h"
 #include "zl_client.h"
 #include "punter_ctrl.h"
 
-static struct ext_client * ext_client = NULL;
+static struct ext_client_ospf6 * ext_client_ospf6 = NULL;
 static struct zl_client * zl_client = NULL;
 
 static struct punter_ctrl * punter_ctrl = NULL;
@@ -149,8 +149,9 @@ void punter_ctrl_init(char * host)
 
   get_ports(punter_ctrl->port_list);
 
-  ext_client = ext_client_new();
-  ext_client_init(ext_client, host, punter_ctrl);
+  ext_client_ospf6 = ext_client_ospf6_new();
+  ext_client_ospf6_init(ext_client_ospf6, host, punter_ctrl);
+  ext_client_init(NULL, NULL);
 
   zl_client = zl_client_new();
   zl_client_init(zl_client, punter_ctrl);
@@ -158,10 +159,10 @@ void punter_ctrl_init(char * host)
 
 void punter_ext_to_zl_forward_msg()
 {
-  zl_client_network_write(ext_client->ibuf, zl_client->sockfd);
+  zl_client_network_write(ext_client_ospf6->ibuf, zl_client->sockfd);
 }
 
 void punter_zl_to_ext_forward_msg()
 {
-  ext_client_send(zl_client->obuf, ext_client);
+  ext_client_ospf6_send(zl_client->obuf, ext_client_ospf6);
 }

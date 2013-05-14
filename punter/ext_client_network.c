@@ -16,18 +16,18 @@
 #include "dblist.h"
 #include "prefix.h"
 #include "punter_ctrl.h"
-#include "ext_client.h"
+#include "ext_client_ospf6.h"
 #include "ext_client_network.h"
 
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;
 
-unsigned int ext_client_ifindex(struct list * ipv6_addrs, struct ext_client * ext_client)
+unsigned int ext_client_ospf6_ifindex(struct list * ipv6_addrs, struct ext_client_ospf6 * ext_client_ospf6)
 {
   struct in6_addr host_addr;
   int ifindex = -1;
 
-  inet_pton(AF_INET6, ext_client->host, &host_addr);
+  inet_pton(AF_INET6, ext_client_ospf6->host, &host_addr);
 
   struct addr_ipv6 * addr;
   LIST_FOR_EACH(addr, struct addr_ipv6, node, ipv6_addrs)
@@ -41,7 +41,7 @@ unsigned int ext_client_ifindex(struct list * ipv6_addrs, struct ext_client * ex
   return ifindex;
 }
 
-unsigned int ext_client_mtu(struct list * ports, unsigned int ifindex)
+unsigned int ext_client_ospf6_mtu(struct list * ports, unsigned int ifindex)
 {
   unsigned int mtu;
 
@@ -58,7 +58,7 @@ unsigned int ext_client_mtu(struct list * ports, unsigned int ifindex)
 }
 
 int
-ext_client_sock_init(void)
+ext_client_ospf6_sock_init(void)
 {
   int sock;
 
@@ -110,7 +110,7 @@ ext_client_sock_init(void)
 }
 
 void
-ext_client_join_allspfrouters (struct ext_client * ext_client, int ifindex)
+ext_client_ospf6_join_allspfrouters (struct ext_client_ospf6 * ext_client_ospf6, int ifindex)
 {
   struct ipv6_mreq mreq6;
   int retval;
@@ -120,7 +120,7 @@ ext_client_join_allspfrouters (struct ext_client * ext_client, int ifindex)
   memcpy (&mreq6.ipv6mr_multiaddr, &allspfrouters6,
           sizeof (struct in6_addr));
 
-  retval = setsockopt (ext_client->sockfd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+  retval = setsockopt (ext_client_ospf6->sockfd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                        &mreq6, sizeof (mreq6));
 
  if (retval < 0)
@@ -129,7 +129,7 @@ ext_client_join_allspfrouters (struct ext_client * ext_client, int ifindex)
 }
 
 void
-ext_client_leave_allspfrouters (struct ext_client * ext_client, u_int ifindex)
+ext_client_ospf6_leave_allspfrouters (struct ext_client_ospf6 * ext_client_ospf6, u_int ifindex)
 {
   struct ipv6_mreq mreq6;
 
@@ -138,14 +138,14 @@ ext_client_leave_allspfrouters (struct ext_client * ext_client, u_int ifindex)
   memcpy (&mreq6.ipv6mr_multiaddr, &allspfrouters6,
           sizeof (struct in6_addr));
 
-  if (setsockopt (ext_client->sockfd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
+  if (setsockopt (ext_client_ospf6->sockfd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     fprintf (stderr, "Network: Leave AllSPFRouters on ifindex %d Failed: %s",
                ifindex, strerror (errno));
 }
 
 void
-ext_client_join_alldrouters (struct ext_client * ext_client, u_int ifindex)
+ext_client_ospf6_join_alldrouters (struct ext_client_ospf6 * ext_client_ospf6, u_int ifindex)
 {
   struct ipv6_mreq mreq6;
 
@@ -154,14 +154,14 @@ ext_client_join_alldrouters (struct ext_client * ext_client, u_int ifindex)
   memcpy (&mreq6.ipv6mr_multiaddr, &alldrouters6,
           sizeof (struct in6_addr));
 
-  if (setsockopt (ext_client->sockfd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+  if (setsockopt (ext_client_ospf6->sockfd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     fprintf (stderr, "Network: Join AllDRouters on ifindex %d Failed: %s",
                ifindex, strerror (errno));
 }
 
 void
-ext_client_leave_alldrouters (struct ext_client * ext_client, u_int ifindex)
+ext_client_ospf6_leave_alldrouters (struct ext_client_ospf6 * ext_client_ospf6, u_int ifindex)
 {
   struct ipv6_mreq mreq6;
 
@@ -170,7 +170,7 @@ ext_client_leave_alldrouters (struct ext_client * ext_client, u_int ifindex)
   memcpy (&mreq6.ipv6mr_multiaddr, &alldrouters6,
           sizeof (struct in6_addr));
 
-  if (setsockopt (ext_client->sockfd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
+  if (setsockopt (ext_client_ospf6->sockfd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     fprintf (stderr, "Network: Leave AllDRouters on ifindex %d Failed", ifindex);
 }
@@ -179,7 +179,7 @@ static u_char * recvbuf = NULL;
 
 static int iobuflen = 0;
 
-int ext_client_iobuf_size(unsigned int size)
+int ext_client_ospf6_iobuf_size(unsigned int size)
 {
   u_char * recvnew;
 
@@ -194,12 +194,12 @@ int ext_client_iobuf_size(unsigned int size)
   return iobuflen; 
 }
 
-int ext_client_iobuf_cpy_rfp(struct rfpbuf * rfpbuf, unsigned int size)
+int ext_client_ospf6_iobuf_cpy_rfp(struct rfpbuf * rfpbuf, unsigned int size)
 {
   return rfpbuf_put(rfpbuf, recvbuf, size);
 }
 
-void * ext_client_iobuf_cpy_mem(void * mem, unsigned int size)
+void * ext_client_ospf6_iobuf_cpy_mem(void * mem, unsigned int size)
 {
   return memcpy(mem, recvbuf, size);
 }
@@ -213,7 +213,7 @@ iov_count (struct iovec *iov)
   return i;
 }
 
-int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext_client * ext_client)
+int ext_client_ospf6_sendmsg(struct in6_addr * src, struct iovec * message, struct ext_client_ospf6 * ext_client_ospf6)
 {
   int retval;
   struct msghdr smsghdr;
@@ -228,7 +228,7 @@ int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext
   pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
 
   /* source address */
-  pktinfo->ipi6_ifindex = ext_client->ifindex;
+  pktinfo->ipi6_ifindex = ext_client_ospf6->ifindex;
   if (src)
     memcpy (&pktinfo->ipi6_addr, src, sizeof (struct in6_addr));
   else
@@ -243,7 +243,7 @@ int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext
 #endif
   memcpy (&dst_sin6.sin6_addr, &allspfrouters6, sizeof (struct in6_addr));
 #ifdef HAVE_SIN6_SCOPE_ID
-  dst_sin6.sin6_scope_id = ext_client->ifindex;
+  dst_sin6.sin6_scope_id = ext_client_ospf6->ifindex;
 #endif
 
   /* send control msg */
@@ -259,7 +259,7 @@ int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext
   smsghdr.msg_control = (caddr_t)cmsgbuf;
   smsghdr.msg_controllen = sizeof(cmsgbuf);
 
-  if((retval = sendmsg(ext_client->sockfd, &smsghdr, 0)) < 0)
+  if((retval = sendmsg(ext_client_ospf6->sockfd, &smsghdr, 0)) < 0)
   {
     printf("sendmsg failed: %s (%d)\n", strerror(errno), errno);
     perror("sendmsg");
@@ -268,7 +268,7 @@ int ext_client_sendmsg(struct in6_addr * src, struct iovec * message, struct ext
   return retval;
 }
 
-int ext_client_recvmsg(struct ext_client * ext_client)
+int ext_client_ospf6_recvmsg(struct ext_client_ospf6 * ext_client_ospf6)
 {
   struct msghdr rmsghdr;
   struct iovec iovector[2];
@@ -289,7 +289,7 @@ int ext_client_recvmsg(struct ext_client * ext_client)
   rmsghdr.msg_control = (caddr_t) cmsgbuf;
   rmsghdr.msg_controllen = sizeof(cmsgbuf);
 
-  len = recvmsg(ext_client->sockfd, &rmsghdr, 0);
+  len = recvmsg(ext_client_ospf6->sockfd, &rmsghdr, 0);
 
   printf("length: %d\n", len);
   if(len > iobuflen)
