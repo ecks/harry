@@ -9,6 +9,7 @@
 #include "routeflow-common.h"
 #include "socket-util.h"
 #include "dblist.h"
+#include "rfpbuf.h"
 #include "api.h"
 #include "thread.h"
 #include "punter_ctrl.h"

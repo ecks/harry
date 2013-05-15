@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib -D_GNU_SOURCE
 EXECUTABLE = punter
 LIBS = -lrt
-SRCS = punter.c punter_ctrl.c ext_client.c ext_client_ospf6.c ext_client_bgp.c ext_client_network.c zl_client.c zl_client_network.c socket-util.c util.c thread.c rfp-msgs.c rfpbuf.c dblist.c api.c netlink.c
+SRCS = punter.c punter_ctrl.c ext_client.c ext_client_ospf6.c ext_client_bgp.c zl_client.c zl_client_network.c socket-util.c util.c thread.c rfp-msgs.c rfpbuf.c dblist.c api.c netlink.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -18,9 +18,6 @@ ext_client.o: ext_client.c
 	$(CC) $(CFLAGS) -c $^
 
 ext_client_ospf6.o: ext_client_ospf6.c
-	$(CC) $(CFLAGS) -c $^
-
-ext_client_network.o: ext_client_network.c
 	$(CC) $(CFLAGS) -c $^
 
 zl_client.o: zl_client.c

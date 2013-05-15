@@ -138,7 +138,7 @@ static int zl_client_read(struct thread * t)
         zl_client->obuf = rfpbuf_new(rfp6_length);
       }
       rfpbuf_put(zl_client->obuf, (void *)&rfp6->ospf6_header, rfp6_length);  
-      punter_zl_to_ext_forward_msg();
+      punter_zl_to_ext_forward_msg(type);
       // clean up after finished sending message
       break;
 

@@ -55,7 +55,8 @@ enum rfp_type {
     RFPT_IPV4_ROUTE_ADD,          /* Controller/sibling message */
 
     /* Data forwarding messages. */
-    RFPT_FORWARD_OSPF6
+    RFPT_FORWARD_OSPF6,
+    RFPT_FORWARD_BGP,
 };
 
 
