@@ -1,5 +1,0 @@
-#ifndef EXT_CLIENT_NETWORK
-#define EXT_CLIENT_NETWORK
-
-
-#endif
