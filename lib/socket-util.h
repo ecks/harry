@@ -21,6 +21,8 @@ int inet_open_passive6(int style, const char *target, int default_port,
                        struct sockaddr_in6 *sin6p, uint8_t dscp);
 struct addrinfo * host_addrinfo(const char *host, const char *serv, int family, int socktype);
 
+extern int setsockopt_ipv4_tos(int sock, int tos);
 extern int setsockopt_ifindex (int, int, int);
 extern int sockopt_reuseaddr (int sock);
+extern int sockopt_reuseport (int sock);
 #endif

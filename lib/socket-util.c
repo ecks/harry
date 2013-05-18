@@ -690,6 +690,18 @@ setsockopt_ipv6_pktinfo (int sock, int val)
 #endif
 
 int
+setsockopt_ipv4_tos(int sock, int tos)
+{
+  int ret;
+
+  ret = setsockopt (sock, IPPROTO_IP, IP_TOS, &tos, sizeof (tos));
+  if (ret < 0)
+    printf("Can't set IP_TOS option for fd %d to %#x: %s",
+                                 sock, tos, strerror(errno));
+  return ret;
+}
+
+int
 setsockopt_ifindex (int af, int sock, int val)
 {
   int ret = -1; 
@@ -725,3 +737,27 @@ sockopt_reuseaddr (int sock)
     }   
   return 0;
 }
+
+#ifdef SO_REUSEPORT
+int
+sockopt_reuseport (int sock)
+{
+  int ret;
+  int on = 1;
+
+  ret = setsockopt (sock, SOL_SOCKET, SO_REUSEPORT, 
+                                (void *) &on, sizeof (on));
+  if (ret < 0)
+  {   
+    printf("can't set sockopt SO_REUSEPORT to socket %d", sock);
+    return -1; 
+  }   
+  return 0;
+}
+#else
+int
+sockopt_reuseport (int sock)
+{
+  return 0;
+}
+#endif /* 0 */
