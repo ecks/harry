@@ -197,6 +197,8 @@ static int zl_serv_read(struct thread * thread)
   switch (rh->type)
   {
     case RFPT_FORWARD_OSPF6:
+    case RFPT_FORWARD_BGP:
+      printf("rh type: %d\n", rh->type);
       routeflow_len = ntohs(rh->length);
       body_len = routeflow_len - header_len;
     

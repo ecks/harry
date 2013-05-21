@@ -9,7 +9,7 @@ VPATH = lib
 all: $(EXECUTABLE)
 
 zebralite: zebralite.o $(OBJECTS)
-	$(CC) $(CFLAGS) $(LIBS) -o $@ zebralite.o $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ zebralite.o $(OBJECTS) $(LIBS)
 
 api.o: api.c
 	$(CC) $(CFLAGS) -c $^

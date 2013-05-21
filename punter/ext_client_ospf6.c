@@ -55,7 +55,7 @@ enum ext_client_ospf6_state
   EXT_CONNECTING
 };
 
-enum event {EXT_CLIENT_SCHEDULE, EXT_CLIENT_READ};
+enum event {EXT_CLIENT_OSPF6_SCHEDULE, EXT_CLIENT_OSPF6_READ};
 
 static void ext_client_ospf6_event(enum event event, struct ext_client_ospf6 * ext_client_ospf6);
 
@@ -386,7 +386,7 @@ struct ext_client * ext_client_ospf6_init(char * host, struct punter_ctrl * punt
   ext_client_ospf6->mtu = ext_client_ospf6_mtu(P(ext_client_ospf6).punter_ctrl->port_list, P(ext_client_ospf6).ifindex);
   ext_client_ospf6_iobuf_size(ext_client_ospf6->mtu);
 
-  ext_client_ospf6_event(EXT_CLIENT_SCHEDULE, ext_client_ospf6);
+  ext_client_ospf6_event(EXT_CLIENT_OSPF6_SCHEDULE, ext_client_ospf6);
 
   return &ext_client_ospf6->ext_client;
 }
@@ -420,7 +420,7 @@ static int ext_client_ospf6_start(struct ext_client_ospf6 * ext_client_ospf6)
 
   ext_client_ospf6->addr = calloc(1, sizeof(struct addrinfo));
 
-  ext_client_ospf6_event(EXT_CLIENT_READ, ext_client_ospf6);
+  ext_client_ospf6_event(EXT_CLIENT_OSPF6_READ, ext_client_ospf6);
 
   return 0; 
 }
@@ -466,7 +466,7 @@ static int ext_client_ospf6_recv(struct thread * t)
   int icmp_hdr_len;
   int nbytes;
 
-  ext_client_ospf6_event(EXT_CLIENT_READ, ext_client_ospf6);
+  ext_client_ospf6_event(EXT_CLIENT_OSPF6_READ, ext_client_ospf6);
 
   nbytes = ext_client_ospf6_recvmsg(ext_client_ospf6);
   if(nbytes < 0)
@@ -496,11 +496,11 @@ static void ext_client_ospf6_event(enum event event, struct ext_client_ospf6 * e
 {
   switch(event)
   { 
-    case EXT_CLIENT_SCHEDULE:
+    case EXT_CLIENT_OSPF6_SCHEDULE:
       ext_client_ospf6->t_connect = thread_add_event(master, ext_client_ospf6_connect, ext_client_ospf6, 0);
       break;
 
-    case EXT_CLIENT_READ:
+    case EXT_CLIENT_OSPF6_READ:
       ext_client_ospf6->t_read = thread_add_read(master, ext_client_ospf6_recv, ext_client_ospf6, P(ext_client_ospf6).sockfd);
       break;
 

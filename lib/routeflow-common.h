@@ -179,11 +179,25 @@ struct ospf6_hello
   /* Followed by Router-IDs */
 };
 
-/* Forward message */
+/* BGP Header */
+struct bgp_header
+{
+  u_int64_t marker1;
+  u_int64_t marker2;
+  u_int16_t length;
+  u_int8_t type;
+};
+
+/* Forward messages */
 struct rfp_forward_ospf6 {
   struct rfp_header header;
   struct ospf6_header ospf6_header;
   struct ospf6_hello ospf6_hello;
+};
+
+struct rfp_forward_bgp {
+  struct rfp_header header;
+  struct bgp_header bgp_header;
 };
 
 #endif
