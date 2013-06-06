@@ -5,15 +5,18 @@
 #include "stdbool.h"
 #include "stddef.h"
 #include "string.h"
+#include "errno.h"
 #include "netinet/in.h"
 
 #include "util.h"
+#include "socket-util.h"
 #include "routeflow-common.h"
 #include "thread.h"
 #include "rconn.h"
 #include "dblist.h"
 #include "if.h"
 #include "rfpbuf.h"
+#include "vconn-provider.h"
 #include "rfp-msgs.h"
 #include "prefix.h"
 #include "table.h"
@@ -21,8 +24,24 @@
 #include "router.h"
 #include "sib_router.h"
 
+#define MAX_OSPF6_SIBLINGS 3
+#define MAX_BGP_SIBLINGS 3
+
+#define MAX_LISTENERS 16
+
+extern struct thread_master * master;
+
 struct router ** routers = NULL;
 int * n_routers_p;
+
+static struct sib_router * ospf6_siblings[MAX_OSPF6_SIBLINGS];
+int n_ospf6_siblings;
+
+static struct sib_router * bgp_siblings[MAX_BGP_SIBLINGS];
+int n_bgp_siblings;
+
+static int sib_listener_accept(struct thread * t);
+static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name);
 
 //static void sib_router_send_features_request(struct sib_router *);
 //static int sib_router_process_features(struct sib_router * rt, void *rh);
@@ -30,11 +49,118 @@ int * n_routers_p;
 static void sib_router_send_features_reply();
 static void sib_router_redistribute(struct sib_router * sr);
 
+sib_router_init(struct router ** my_routers, int * my_n_routers_p)
+{
+  int retval;
+  int i;
+  int n_sib_listeners;
+  struct pvconn * sib_listeners[MAX_LISTENERS];
+  struct pvconn * sib_ospf6_pvconn;  // sibling channel interface
+  struct pvconn * sib_bgp_pvconn;    // sibling channel interface
+
+  n_ospf6_siblings = 0;
+  n_bgp_siblings = 0;
+
+  n_sib_listeners = 0;
+
+  retval = pvconn_open("ptcp6:6634", &sib_ospf6_pvconn, DSCP_DEFAULT);
+  if(!retval)
+  {
+    if(n_sib_listeners >= MAX_LISTENERS)
+    {
+      printf("max switch %d connections\n", n_sib_listeners);
+    }
+
+    pvconn_wait(sib_ospf6_pvconn, sib_listener_accept, sib_ospf6_pvconn);
+
+    sib_listeners[n_sib_listeners++] = sib_ospf6_pvconn;
+  }
+
+  retval = pvconn_open("ptcp6:6635", &sib_bgp_pvconn, DSCP_DEFAULT);
+  if(!retval)
+  {
+    if(n_sib_listeners >= MAX_LISTENERS)
+    {
+      printf("max switch %d connections\n", n_sib_listeners);
+    }
+
+    pvconn_wait(sib_bgp_pvconn, sib_listener_accept, sib_bgp_pvconn);
+
+    sib_listeners[n_sib_listeners++] = sib_bgp_pvconn;
+  }
+ 
+  // copy over pointers to routers
+  routers = my_routers;
+  n_routers_p = my_n_routers_p;
+}
+
+static int sib_listener_accept(struct thread * t)
+{
+  struct pvconn * sib_listener = THREAD_ARG(t);
+  struct vconn * new_sib_vconn;
+  int retval;
+
+  retval = pvconn_accept(sib_listener, RFP10_VERSION, &new_sib_vconn);
+  if(!retval)
+  {
+    // TODO: expect only one router connection for now
+//    if(*n_routers_p == 1)
+//    {
+      if(strcmp(sib_listener->name, "ptcp6:6634") == 0)
+      {
+        // ospf6 connection
+        printf("new ospf6 sibling connection\n");
+        new_sib_router(&ospf6_siblings[n_ospf6_siblings++], new_sib_vconn, "tcp6");
+      }
+      if(strcmp(sib_listener->name, "ptcp6:6635") == 0)
+      {
+        // bgp connection
+        printf("new bgp sibling connection\n");
+        new_sib_router(&bgp_siblings[n_bgp_siblings++], new_sib_vconn, "tcp6");
+      }
+//    }
+//    else
+//    {
+//      exit(1);
+//    }
+ }
+  else if(retval != EAGAIN)
+  {
+    pvconn_close(sib_listener);
+  }
+
+  // reregister ourselves
+  pvconn_wait(sib_listener, sib_listener_accept, sib_listener);
+
+  return 0;
+}
+
+static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name)
+{
+    struct rconn * rconn;
+  
+    rconn = rconn_create();
+    rconn_connect_unreliably(rconn, vconn, NULL);
+
+    // expect to have only one interface for now
+//    if(*n_routers_p == 1)  // dereference the pointer
+//    {
+      *sr = sib_router_create(rconn);
+
+      // schedule an event to call sib_router_run
+      thread_add_event(master, sib_router_run, *sr, 0);
+//    }
+//    else
+//    {
+//      exit(1);  // error condition
+//    }
+}
+
 /* Creates and returns a new learning switch whose configuration is given by
  * 'cfg'.
  * 'rconn' is used to send out an OpenFlow features request. */
 struct sib_router *
-sib_router_create(struct rconn *rconn, struct router ** my_routers, int * my_n_routers_p)
+sib_router_create(struct rconn *rconn)
 {
   struct sib_router * rt;
   size_t i;
@@ -47,9 +173,6 @@ sib_router_create(struct rconn *rconn, struct router ** my_routers, int * my_n_r
 //  {
 //    rt->port_states[i] = P_DISABLED;
 //  }
-
-  routers = my_routers;
-  n_routers_p = my_n_routers_p;
 
   return rt;
 }
@@ -152,9 +275,19 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         printf("forward ospf6 packet: sibling => controller\n");
         struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-        router_forward_ospf6(routers[i], msg_copy);
+        router_forward(routers[i], msg_copy);
       }
       break;
+
+    case RFPT_FORWARD_BGP:
+      for(i = 0; i < *n_routers_p; i++)
+      {
+        printf("forward bgp packet: sibling => controller\n");
+        struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+        router_forward(routers[i], msg_copy);
+      }
+      break;
+
 
     default:
       printf("unknown packet\n");
@@ -262,13 +395,35 @@ sib_router_redistribute(struct sib_router * sr)
           sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, newrib);
 }
 
-void sib_router_forward_ospf6(struct sib_router * sr, struct rfpbuf * msg)
+void sib_router_forward_ospf6(struct rfpbuf * msg)
 {
-  int retval = rconn_send(sr->rconn, msg);
-  if(retval)
+  int i;
+  int retval;
+
+  for(i = 0; i < n_ospf6_siblings; i++)
   {
-    printf("send to %s failed: %s\n",
-    		rconn_get_target(sr->rconn), strerror(retval));
+    retval = rconn_send(ospf6_siblings[i]->rconn, msg);
+    if(retval)
+    {
+      printf("send to %s failed: %s\n",
+    		  rconn_get_target(ospf6_siblings[i]->rconn), strerror(retval));
+    }
+  }
+}
+
+void sib_router_forward_bgp(struct rfpbuf * msg)
+{
+  int i;
+  int retval;
+
+  for(i = 0; i < n_bgp_siblings; i++)
+  {
+    retval = rconn_send(bgp_siblings[i]->rconn, msg);
+    if(retval)
+    {
+      printf("send to %s failed: %s\n",
+    		  rconn_get_target(ospf6_siblings[i]->rconn), strerror(retval));
+    }
   }
 }
 

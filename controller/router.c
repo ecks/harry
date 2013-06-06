@@ -20,9 +20,6 @@
 #include "sib_router.h"
 #include "router.h"
 
-struct sib_router ** sib_routers = NULL;
-int * n_siblings_p;
-
 static void router_send_features_request(struct router *);
 static void router_send_stats_routes_request(struct router *rt);
 static void router_process_packet(struct router *, struct rfpbuf *);
@@ -36,7 +33,7 @@ static void router_process_route(struct router * rt, void * rr_);
  * 'cfg'.
  * 'rconn' is used to send out an OpenFlow features request. */
 struct router *
-router_create(struct rconn *rconn, struct sib_router ** my_sib_routers, int * my_n_siblings_p)
+router_create(struct rconn *rconn)
 {
   struct router * rt;
   size_t i;
@@ -44,9 +41,6 @@ router_create(struct rconn *rconn, struct sib_router ** my_sib_routers, int * my
   rt = malloc(sizeof *rt);
   rt->rconn = rconn;
   rt->state = R_CONNECTING;
-
-  sib_routers = my_sib_routers;
-  n_siblings_p = my_n_siblings_p;
 
   list_init(&rt->port_list);
   return rt;
@@ -189,12 +183,19 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
       if(rt->state == R_ROUTING)
       {
         // forward to all siblings
-        for(i = 0; i < *n_siblings_p; i++) // dereference the pointer
-        {
-          printf("forward ospf6 packet: controller => sibling\n");
-          struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-          sib_router_forward_ospf6(sib_routers[i], msg_copy);
-        }
+        printf("forward ospf6 packet: controller => sibling\n");
+        struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+        sib_router_forward_ospf6(msg_copy);
+      }
+      break;
+
+    case RFPT_FORWARD_BGP:
+      if(rt->state == R_ROUTING)
+      {
+        // forward to all siblings
+        printf("forward bgp packet: controller => sibling\n");
+        struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+        sib_router_forward_bgp(msg_copy);
       }
       break;
 
@@ -343,7 +344,7 @@ router_process_route(struct router * rt, void * rr_)
 
 }
 
-void router_forward_ospf6(struct router * r, struct rfpbuf * msg)
+void router_forward(struct router * r, struct rfpbuf * msg)
 {
   int retval = rconn_send(r->rconn, msg);
   if(retval)

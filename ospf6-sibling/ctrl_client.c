@@ -15,9 +15,6 @@
 #include "thread.h"
 #include "ctrl_client.h"
 
-// TODO: need to make global
-#define CTRL_SISIS_PORT 6634
-
 enum ctrl_client_state
 {
   CTRL_CONNECTING,        /* not connected */
@@ -271,7 +268,7 @@ static int ctrl_client_read(struct thread * t)
       printf("Hello message received\n");
 
       if(ctrl_client->state == CTRL_RECV_HELLO)
-        ctrl_client->state == CTRL_CONNECTED;
+        ctrl_client->state = CTRL_CONNECTED;
   
       ctrl_client_event(CTRL_CLIENT_CONNECTED, ctrl_client);
       break;

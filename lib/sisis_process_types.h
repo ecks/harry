@@ -12,5 +12,6 @@
 #define SISIS_PTYPE_RIBCOMP_SVZ						9
 #define SISIS_PTYPE_RIBCOMP_OSPF6					10
 #define SISIS_PTYPE_CTRL						11
-#define SISIS_PTYPE_SBLING						12
+#define SISIS_PTYPE_OSPF6_SBLING				        12
+#define SISIS_PTYPE_BGP_SBLING				                13
 #endif

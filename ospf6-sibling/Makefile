@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -ggdb -I../lib
-EXECUTABLE = sibling
+EXECUTABLE = ospf6-sibling
 LIBS = -pthread -lrt
 SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c
 OBJECTS = ${SRCS:.c=.o}
@@ -8,8 +8,8 @@ VPATH = ../lib
 
 all: ${EXECUTABLE}
 
-sibling: sibling.o ${OBJECTS}
-	$(CC) $(CFLAGS) -o $@ sibling.o $(OBJECTS) $(LIBS)
+ospf6-sibling: ospf6-sibling.o ${OBJECTS}
+	$(CC) $(CFLAGS) -o $@ ospf6-sibling.o $(OBJECTS) $(LIBS)
 
 vconn.o: vconn.c
 	$(CC) $(CFLAGS) -c $^

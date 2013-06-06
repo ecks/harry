@@ -1,26 +1,24 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 #include <string.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 
-#include "dblist.h"
-#include "rfpbuf.h"
 #include "routeflow-common.h"
-#include "thread.h"
+#include "dblist.h"
 #include "prefix.h"
-#include "if.h"
-#include "ospf6_interface.h"
-#include "ctrl_client.h"
-#include "sibling_ctrl.h"
+#include "rfpbuf.h"
+#include "bgp_ctrl_client.h"
+#include "bgp_sibling_ctrl.h"
 
-struct ctrl_client * ctrl_client = NULL;
+static struct bgp_ctrl_client * bgp_ctrl_client = NULL;
 
-int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
+int recv_features_reply(struct bgp_ctrl_client * bgp_ctrl_client, struct rfpbuf * buffer)
 {
   struct rfp_router_features * rrf = buffer->data;
-  struct interface * ifp;
+//  struct interface * ifp;
   int i;
   unsigned int ifindex;
   int offset = offsetof(struct rfp_router_features, ports);
@@ -29,30 +27,30 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
                         / sizeof(*rrf->ports));
   printf("number of ports: %d\n", n_ports);
   for(i = 0; i < n_ports; i++)
-  {  
+  {   
     const struct rfp_phy_port * rpp = &rrf->ports[i];
     ifindex = ntohs(rpp->port_no);
     printf("port #: %d, name: %s\n", ifindex, rpp->name);
 
     /* create new interface if not created */
-    ifp = if_get_by_name(rpp->name);
+//    ifp = if_get_by_name(rpp->name);
 
     // fill up the interface info
-    ifp->ifindex = ifindex;
+//    ifp->ifindex = ifindex;
 
     // copy over the flags
-    ifp->state = ntohl(rpp->state);
-    ospf6_interface_if_add(ifp, ctrl_client);
+//    ifp->state = ntohl(rpp->state);
+//    ospf6_interface_if_add(ifp, ctrl_client);
   }
-
+  
   return 0;
 }
 
-int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
+int recv_routes_reply(struct bgp_ctrl_client * bgp_ctrl_client, struct rfpbuf * buffer)
 {
   const struct rfp_ipv4_route * rir = buffer->data;
   struct route_ipv4 * route = new_route();
- 
+
   route->p = new_prefix_v4();
   route->p->family = AF_INET;
   memcpy(&route->p->prefix, &rir->p, 4);
@@ -60,16 +58,16 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 
   // print route
   char prefix_str[INET_ADDRSTRLEN];
-  if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+  if(inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
     printf("%s/%d\n", prefix_str, route->p->prefixlen);
 
   return 0;
 }
 
-void sibling_ctrl_init(struct in6_addr * ctrl_addr)
+void bgp_sibling_ctrl_init(struct in6_addr * addr)
 {
-  ctrl_client = ctrl_client_new();
-  ctrl_client_init(ctrl_client, ctrl_addr);
-  ctrl_client->features_reply = recv_features_reply;
-  ctrl_client->routes_reply = recv_routes_reply;
+  bgp_ctrl_client = bgp_ctrl_client_new();
+  bgp_ctrl_client_init(bgp_ctrl_client, addr);
+  bgp_ctrl_client->features_reply = recv_features_reply;
+  bgp_ctrl_client->routes_reply = recv_routes_reply;
 }

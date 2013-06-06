@@ -19,6 +19,8 @@
 #define RFP_TCP_PORT  6633
 #define RFP_SSL_PORT  6633
 
+#define OSPF6_CTRL_SISIS_PORT 6634
+#define BGP_CTRL_SISIS_PORT   6635
 #define MAX_PORTS 255
 
 #define RFP_ETH_ALEN 6          /* Bytes in an Ethernet address. */
