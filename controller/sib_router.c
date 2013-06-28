@@ -10,10 +10,12 @@
 
 #include "util.h"
 #include "socket-util.h"
+#include "dblist.h"
 #include "routeflow-common.h"
+#include "paxosflow-common.h"
+#include "sisis_process_types.h"
 #include "thread.h"
 #include "rconn.h"
-#include "dblist.h"
 #include "if.h"
 #include "rfpbuf.h"
 #include "vconn-provider.h"
@@ -23,6 +25,9 @@
 #include "rib.h"
 #include "router.h"
 #include "sib_router.h"
+
+#include "libpaxos.h"
+#include "ctrl_paxos.h"
 
 #define MAX_OSPF6_SIBLINGS 3
 #define MAX_BGP_SIBLINGS 3
@@ -49,7 +54,7 @@ static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const c
 static void sib_router_send_features_reply();
 static void sib_router_redistribute(struct sib_router * sr);
 
-sib_router_init(struct router ** my_routers, int * my_n_routers_p)
+void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
 {
   int retval;
   int i;
@@ -57,6 +62,26 @@ sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   struct pvconn * sib_listeners[MAX_LISTENERS];
   struct pvconn * sib_ospf6_pvconn;  // sibling channel interface
   struct pvconn * sib_bgp_pvconn;    // sibling channel interface
+  struct list * dst_ptype_lst;
+
+  dst_ptype_lst = list_new();
+  list_init(dst_ptype_lst);
+
+  struct dst_ptype * bgp_dst_ptype = calloc(1, sizeof(struct dst_ptype));
+  bgp_dst_ptype->ptype = SISIS_PTYPE_BGP_SBLING;
+  list_push_back(dst_ptype_lst, &bgp_dst_ptype->node);
+
+  struct dst_ptype * ospf6_dst_ptype = calloc(1, sizeof(struct dst_ptype));
+  ospf6_dst_ptype->ptype = SISIS_PTYPE_OSPF6_SBLING;
+  list_push_back(dst_ptype_lst, &ospf6_dst_ptype->node);
+
+  ctrl_paxos_new(SISIS_PTYPE_CTRL, dst_ptype_lst);
+
+  if(learner_init(ctrl_paxos_deliver, ctrl_paxos_init) != 0)
+  {
+    printf("Failed to start the learner!\n");
+    exit(1); 
+  }
 
   n_ospf6_siblings = 0;
   n_bgp_siblings = 0;

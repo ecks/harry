@@ -12,8 +12,13 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "routeflow-common.h"
+#include "paxosflow-common.h"
+#include "sisis_process_types.h"
 #include "thread.h"
 #include "ctrl_client.h"
+
+#include "libpaxos.h"
+#include "ctrl_paxos.h"
 
 enum ctrl_client_state
 {
@@ -25,10 +30,16 @@ enum ctrl_client_state
 
 enum event {CTRL_CLIENT_SCHEDULE, CTRL_CLIENT_CONNECT, CTRL_CLIENT_READ, CTRL_CLIENT_CONNECTED};
 
+static int ctrl_client_start();
+static void ctrl_client_read(char * value, size_t val_size, iid_t iid, ballot_t ballot, int proposer);
+
 /* Prototype for event manager */
 static void ctrl_client_event(enum event, struct ctrl_client * ctrl_client);
 
 extern struct thread_master * master;
+
+static struct ctrl_client * ctrl_client = NULL;
+static paxos_submit_handle * psh = NULL;
 
 struct ctrl_client * ctrl_client_new()
 {
@@ -36,15 +47,33 @@ struct ctrl_client * ctrl_client_new()
   return ctrl_client;
 }
 
-void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr)
+void ctrl_client_init(struct ctrl_client * ctrl_client_arg, struct in6_addr * ctrl_addr)
 {
+  struct list * dst_ptype_lst;
+
+  ctrl_client = ctrl_client_arg;
+
   ctrl_client->sock = -1;
 
   ctrl_client->ctrl_addr = ctrl_addr;
 
   ctrl_client->state = CTRL_CONNECTING;
 
-  ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
+  dst_ptype_lst = list_new();
+  list_init(dst_ptype_lst);
+
+  struct dst_ptype * ctrl_dst_ptype = calloc(1, sizeof(struct dst_ptype));
+  ctrl_dst_ptype->ptype = SISIS_PTYPE_CTRL;
+  list_push_back(dst_ptype_lst, &ctrl_dst_ptype->node);
+
+  ctrl_paxos_new(SISIS_PTYPE_OSPF6_SBLING, dst_ptype_lst);
+
+  if(learner_init(ctrl_paxos_deliver, ctrl_paxos_init) != 0)
+  {
+    printf("Failed to start the learner!\n");
+    exit(1); 
+  }
+//  ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
 }
 
 void ctrl_client_stop(struct ctrl_client * ctrl_client)
@@ -85,7 +114,7 @@ int ctrl_client_socket(struct in6_addr * ctrl_addr)
   hints.ai_socktype = SOCK_STREAM;  // TCP
 
   char port_str[8];
-  sprintf(port_str, "%u", CTRL_SISIS_PORT);
+  sprintf(port_str, "%u", OSPF6_CTRL_SISIS_PORT);
   if((status = getaddrinfo(c_addr, port_str, &hints, &addr)) != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
@@ -156,7 +185,7 @@ int fwd_message_send(struct ctrl_client * ctrl_client)
 }
 
 /* connection to controller daemon */
-int ctrl_client_start(struct ctrl_client * ctrl_client)
+int ctrl_client_start()
 {
   int retval;
 
@@ -166,25 +195,38 @@ int ctrl_client_start(struct ctrl_client * ctrl_client)
   if(ctrl_client->t_connect)
     return 0;
 
-  /* Make socket */
-  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr);
-  if (ctrl_client->sock < 0)
-  {
-    printf("ctrl_client connection fail\n");
-    ctrl_client->fail++;
-    ctrl_client_event (CTRL_CLIENT_CONNECT, ctrl_client);
-    return -1;
+  psh = pax_submit_handle_init();
+
+  if (psh == NULL) {
+    printf("Client init failed [submit handle]\n");
+    return -1;    
   }
 
-  if(set_nonblocking(ctrl_client->sock) < 0)
-  {
-    printf("set_nonblocking failed\n");
-  }
+  char * value = calloc(3, sizeof(char));
+
+  strncpy(value, "abc", 3);
+
+  pax_submit_nonblock(psh, value, 3);
+
+  /* Make socket */
+//  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr);
+//  if (ctrl_client->sock < 0)
+//  {
+//    printf("ctrl_client connection fail\n");
+//    ctrl_client->fail++;
+//    ctrl_client_event (CTRL_CLIENT_CONNECT, ctrl_client);
+//    return -1;
+//  }
+
+//  if(set_nonblocking(ctrl_client->sock) < 0)
+//  {
+//    printf("set_nonblocking failed\n");
+//  }
 
   /* Clear fail count */
   ctrl_client->fail = 0;
 
-  ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
+//  ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
 
   retval = ctrl_message_send(ctrl_client, RFPT_HELLO, RFP10_VERSION);
   if(!retval)
@@ -194,19 +236,39 @@ int ctrl_client_start(struct ctrl_client * ctrl_client)
 }
 
 /* wrapper function for threads */
-static int ctrl_client_connect(struct thread * t)
+//static int ctrl_client_connect(struct thread * t)
+//{
+//  struct ctrl_client * ctrl_client;
+
+//  ctrl_client = THREAD_ARG(t);
+//  ctrl_client->t_connect = NULL;
+
+//  return ctrl_client_start(ctrl_client);
+//}
+
+void ctrl_client_read(char * value, size_t val_size, iid_t iid, ballot_t ballot, int proposer)
 {
-  struct ctrl_client * ctrl_client;
+  struct rfpbuf * b;
+  const struct pfp_header *ph;
 
-  ctrl_client = THREAD_ARG(t);
-  ctrl_client->t_connect = NULL;
+//  b = rfpbuf_new
+//  b = (struct rfpbuf *)value;
+  ph = (struct pfp_header *)value;
 
-  return ctrl_client_start(ctrl_client);
-}
+  // only process messages that are destined for this process
+  if(ph->dst == SISIS_PTYPE_OSPF6_SBLING) 
+  {
+    if(ph->type == PFPT_HELLO)
+    {
+      printf("Received RouteFlow Hello Message\n");
+    }
+    else
+    {
+      printf("Received Message\n");
+    }
+  }
 
-static int ctrl_client_read(struct thread * t)
-{
-  int ret;
+/*  int ret;
   size_t already = 0;
   struct rfp_header * rh;
   uint16_t length;
@@ -231,9 +293,9 @@ static int ctrl_client_read(struct thread * t)
     return ctrl_client_failed(ctrl_client);
   }
   if(nbyte != (ssize_t)(sizeof(struct rfp_header)-already))
-  {
+  { */
     /* Try again later */
-    ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
+/*    ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
     return 0;
   }
 
@@ -253,9 +315,9 @@ static int ctrl_client_read(struct thread * t)
     }
 
     if(nbyte != (ssize_t) length - already)
-    {
+    { */
       /* Try again later */
-      ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
+/*      ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
       return 0;
     }
   }
@@ -293,7 +355,7 @@ static int ctrl_client_read(struct thread * t)
   ctrl_client->ibuf = NULL;
 
   ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
-  return 0;
+  return 0; */
 }
 
 static int ctrl_client_connected(struct thread * t)
@@ -313,15 +375,15 @@ ctrl_client_event(enum event event, struct ctrl_client * ctrl_client)
 {
   switch(event)
   {
-    case CTRL_CLIENT_SCHEDULE:
-      ctrl_client->t_connect = thread_add_event(master, ctrl_client_connect, ctrl_client, 0);
-      break;
+//    case CTRL_CLIENT_SCHEDULE:
+//      ctrl_client->t_connect = thread_add_event(master, ctrl_client_connect, ctrl_client, 0);
+//      break;
     case CTRL_CLIENT_CONNECT:
       // TODO: implement connecting again
       break;
-    case CTRL_CLIENT_READ:
-      ctrl_client->t_read = thread_add_read(master, ctrl_client_read, ctrl_client, ctrl_client->sock);
-      break;
+//    case CTRL_CLIENT_READ:
+//      ctrl_client->t_read = thread_add_read(master, ctrl_client_read, ctrl_client, ctrl_client->sock);
+//      break;
     case CTRL_CLIENT_CONNECTED:
       ctrl_client->t_connected = thread_add_event(master, ctrl_client_connected, ctrl_client, 0);
       break;

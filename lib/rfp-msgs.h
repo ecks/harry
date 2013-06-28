@@ -16,6 +16,11 @@ struct rfpbuf *routeflow_alloc(uint8_t type, uint8_t version,
                             size_t routeflow_len);
 struct rfpbuf *routeflow_alloc_xid(uint8_t rfpraw, uint8_t version,
                                 uint32_t xid, size_t routeflow_len);
+struct rfpbuf *
+paxosflow_alloc(uint8_t type, uint8_t version, size_t paxosflow_len, uint32_t src, uint32_t dst);
+struct rfpbuf *
+paxosflow_alloc_xid(uint8_t type, uint8_t version, uint32_t xid, size_t paxosflow_len, uint32_t src, uint32_t dst);
+
 
 /* Semantic identifiers for OpenFlow messages.
  *
