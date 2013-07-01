@@ -41,9 +41,9 @@ char * sisis_listener_ip_addr = "127.0.0.1";
 unsigned int next_request_id = 1;
 
 // IPv4/IPv6 Ribs
-//struct list_sis * ipv4_rib_routes = NULL;
+struct list_sis * ipv4_rib_routes = NULL;
 #ifdef HAVE_IPV6
-//struct list_sis * ipv6_rib_routes = NULL;
+struct list_sis * ipv6_rib_routes = NULL;
 #endif /* HAVE_IPV6 */
 
 #ifdef USE_IPV6
@@ -953,5 +953,87 @@ struct prefix_ipv6 sisis_make_ipv6_prefix(char * addr, int prefix_len)
 	return p;
 }
 #else /* IPv4 Version */
+/**
+ * Get SIS-IS addresses that match a given ipv4 prefix.  It is the receivers
+ * responsibility to free the list when done with it.
+ */
+struct list_sis * get_sisis_addrs_for_prefix(struct prefix_ipv4 * p)
+{
+	// Update kernel routes
+	sisis_dump_kernel_routes();
+	
+	unsigned long prefix_mask = 0xffffffff;
+	int i = 0;
+	for (; i < 32-p->prefixlen; i++)
+	{
+		prefix_mask <<= 1;
+		prefix_mask |= 0;
+	}
+	prefix_mask = htonl(prefix_mask);
+	
+	// Create list of relevant SIS-IS addresses
+	struct list_sis * rtn = malloc(sizeof(struct list_sis));
+	if (ipv4_rib_routes != NULL && rtn != NULL)
+	{
+		memset(rtn, 0, sizeof(*rtn));
+		struct listnode_sis * node;
+		LIST_FOREACH(ipv4_rib_routes, node)
+		{
+			struct route_ipv4 * route = (struct route_ipv4 *)node->data;
+			
+			// Check if the route matches the prefix
+			if (route->p->prefixlen == 32 && (route->p->prefix.s_addr & prefix_mask) == (p->prefix.s_addr & prefix_mask))
+			{
+				// Add to list
+				struct listnode_sis * new_node = malloc(sizeof(struct listnode_sis));
+				if (new_node != NULL)
+				{
+					if ((new_node->data = malloc(sizeof(route->p->prefix))) != NULL)
+					{
+						memcpy(new_node->data, &route->p->prefix, sizeof(route->p->prefix));
+						LIST_APPEND(rtn,new_node);
+					}
+				}
+			}
+		}
+	}
+	
+	return rtn;
+}
 
+/**
+ * Get SIS-IS addresses for a specific process type.  It is the receivers
+ * responsibility to free the list when done with it.
+ */
+struct list_sis * get_sisis_addrs_for_process_type(unsigned int ptype)
+{
+	// Create prefix
+	char prefix_addr_str[INET_ADDRSTRLEN+1];
+	memset(prefix_addr_str, 0, sizeof(prefix_addr_str));
+	if (sisis_create_addr(ptype, 0, 0, prefix_addr_str))
+		return NULL;
+	struct prefix_ipv4 p;
+	p.prefixlen = SISIS_ADD_PREFIX_LEN_PTYPE;
+	inet_pton(AF_INET, prefix_addr_str, &p.prefix);
+	
+	return get_sisis_addrs_for_prefix(&p);
+}
+
+/**
+ * Get SIS-IS addresses for a specific process type and host.  It is the receivers
+ * responsibility to free the list when done with it.
+ */
+struct list_sis * get_sisis_addrs_for_process_type_and_host(unsigned int ptype, unsigned int host_num)
+{
+	// Create prefix
+	char prefix_addr_str[INET_ADDRSTRLEN+1];
+	memset(prefix_addr_str, 0, sizeof(prefix_addr_str));
+	if (sisis_create_addr(ptype, host_num, 0, prefix_addr_str))
+		return NULL;
+	struct prefix_ipv4 p;
+	p.prefixlen = SISIS_ADD_PREFIX_LEN_HOST_NUM;
+	inet_pton(AF_INET, prefix_addr_str, &p.prefix);
+	
+	return get_sisis_addrs_for_prefix(&p);
+}
 #endif /* USE_IPV6 */

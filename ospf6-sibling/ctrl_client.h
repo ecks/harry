@@ -27,6 +27,7 @@ struct ctrl_client
 extern struct ctrl_client * ctrl_client_new();
 extern void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr);
 int fwd_message_send(struct ctrl_client * ctrl_client);
+int ctrl_client_start(struct ctrl_client * ctrl_client);
 
 /* TCP socket connection to controller */
 extern int ctrl_client_socket(struct in6_addr * ctrl_addr);

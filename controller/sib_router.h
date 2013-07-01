@@ -13,7 +13,6 @@ struct sib_router {
 };
 
 
-void sib_router_init(struct router ** my_routers, int * my_n_routers_p);
 struct sib_router * sib_router_create(struct rconn *);
 int sib_router_run(struct thread *);
 void sib_router_process_packet(struct sib_router *, struct rfpbuf *);

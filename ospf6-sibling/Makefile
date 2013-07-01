@@ -1,17 +1,15 @@
 CC = gcc
 CFLAGS = -ggdb -I../lib
-PFLAGS = -I/home/hasenov/libpaxos2/include/ -I/home/hasenov/libpaxos2 -I/usr/lib/x86_64-linux-gnu -I/usr/lib
 EXECUTABLE = ospf6-sibling
-LIBS = -lpthread -lrt
-PLIBS = /home/hasenov/libpaxos2/libpaxos.a /usr/lib/libevent.a /usr/lib/x86_64-linux-gnu/libdb.a 
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ctrl_paxos.c
+LIBS = -pthread -lrt
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
 all: ${EXECUTABLE}
 
 ospf6-sibling: ospf6-sibling.o ${OBJECTS}
-	$(CC) $(CFLAGS) -o $@ ospf6-sibling.o $(OBJECTS) $(LIBS) $(PLIBS)
+	$(CC) $(CFLAGS) -o $@ ospf6-sibling.o $(OBJECTS) $(LIBS)
 
 vconn.o: vconn.c
 	$(CC) $(CFLAGS) -c $^
@@ -68,7 +66,7 @@ sibling_ctrl.o: sibling_ctrl.c
 	$(CC) $(CFLAGS) -c $^
 
 ctrl_client.o: ctrl_client.c
-	$(CC) $(CFLAGS) $(PFLAGS) -c $^
+	$(CC) $(CFLAGS) -c $^
 
 thread.o: thread.c
 	$(CC) $(CFLAGS) -c $^
@@ -84,12 +82,6 @@ ospf6_top.o: ospf6_top.c
 
 ospf6_message.o: ospf6_message.c
 	$(CC) $(CFLAGS) -c $^
-
-ctrl_paxos.o: ctrl_paxos.c
-	$(CC) $(CFLAGS) $(PFLAGS) -c $^
-
-.c.o:
-	$(CC) $(CFLAGS) -c $*.c
 
 clean:
 	/bin/rm -f *.o ${EXECUTABLE}

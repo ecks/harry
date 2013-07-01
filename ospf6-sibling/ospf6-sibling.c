@@ -62,12 +62,6 @@ int main(int argc, char *argv[])
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
   printf("num of controllers: %d\n", num_of_controllers);
  
-  if(num_of_controllers != 1)
-  {
-    // there should be only one controller
-    exit(1);
-  }
-
   struct list * ctrl_addrs = get_ctrl_addrs();
   struct route_ipv6 * route_iter;
   LIST_FOR_EACH(route_iter, struct route_ipv6, node, ctrl_addrs)

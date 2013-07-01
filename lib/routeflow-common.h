@@ -71,7 +71,7 @@ struct rfp_header {
                            Replies use the same id as was in the request
                            to facilitate pairing. */
 };
-//RFP_ASSERT(sizeof(struct rfp_header) == 8);
+RFP_ASSERT(sizeof(struct rfp_header) == 8);
 
 /* OFPT_HELLO.  This message has an empty body, but implementations must
  * ignore any data included in the body, to allow for future extensions. */

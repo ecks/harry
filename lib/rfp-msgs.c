@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #include "routeflow-common.h"
-#include "paxosflow-common.h"
 #include "dblist.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
@@ -82,56 +81,117 @@ static void routeflow_put__(uint8_t type, uint8_t version, uint32_t xid,
   memset(rh + 1, 0, routeflow_len - sizeof *rh);
 }
 
-/* Allocates and returns a new ofpbuf that contains an OpenFlow header for
- * 'raw' with OpenFlow version 'version' and a fresh OpenFlow transaction ID.
- * The ofpbuf has enough tailroom for the minimum body length of 'raw', plus
- * 'extra_tailroom' additional bytes.
- *
- * Each 'raw' value is valid only for certain OpenFlow versions.  The caller
- * must specify a valid (raw, version) pair.
- *
- * In the returned ofpbuf, 'l2' points to the beginning of the OpenFlow header
- * and 'l3' points just after it, to where the message's body will start.  The
- * caller must actually allocate the body into the space reserved for it,
- * e.g. with ofpbuf_put_uninit().
- *
- * The caller owns the returned ofpbuf and must free it when it is no longer
- * needed, e.g. with ofpbuf_delete(). */
-struct rfpbuf *
-paxosflow_alloc(uint8_t type, uint8_t version, size_t paxosflow_len, uint32_t src, uint32_t dst)
+/*
+static void
+rfpraw_put__(enum rfpraw raw, uint8_t version, uint32_t xid,
+             size_t extra_tailroom, struct rfpbuf *buf)
 {
-    return paxosflow_alloc_xid(type, version, alloc_xid(), paxosflow_len, src, dst);
+    const struct raw_info *info = raw_info_get(raw);
+    const struct raw_instance *instance = raw_instance_get(info, version);
+    const struct rfphdrs *hdrs = &instance->hdrs;
+    struct rfp_header *rh;
+
+    rfpbuf_prealloc_tailroom(buf, (instance->hdrs_len + info->min_body
+                                   + extra_tailroom));
+    buf->l2 = rfpbuf_put_uninit(buf, instance->hdrs_len);
+    buf->l3 = rfpbuf_tail(buf);
+
+    oh = buf->l2;
+    oh->version = version;
+    oh->type = hdrs->type;
+    oh->length = htons(buf->size);
+    oh->xid = xid;
+
+    if (hdrs->type == OFPT_VENDOR) {
+        struct nicira_header *nh = buf->l2;
+
+        assert(hdrs->vendor == NX_VENDOR_ID);
+        nh->vendor = htonl(hdrs->vendor);
+        nh->subtype = htonl(hdrs->subtype);
+    } else if (version == OFP10_VERSION
+               && (hdrs->type == OFPT10_STATS_REQUEST ||
+                   hdrs->type == OFPT10_STATS_REPLY)) {
+        struct ofp10_stats_msg *osm = buf->l2;
+
+        osm->type = htons(hdrs->stat);
+        osm->flags = htons(0);
+        if (hdrs->stat == OFPST_VENDOR) {
+            struct ofp10_vendor_stats_msg *ovsm = buf->l2;
+
+            ovsm->vendor = htonl(hdrs->vendor);
+            if (hdrs->vendor == NX_VENDOR_ID) {
+                struct nicira10_stats_msg *nsm = buf->l2;
+
+                nsm->subtype = htonl(hdrs->subtype);
+                memset(nsm->pad, 0, sizeof nsm->pad);
+            } else {
+                NOT_REACHED();
+            }
+        }
+    } else if (version != OFP10_VERSION
+               && (hdrs->type == OFPT11_STATS_REQUEST ||
+                   hdrs->type == OFPT11_STATS_REPLY)) {
+        struct ofp11_stats_msg *osm = buf->l2;
+
+        osm->type = htons(hdrs->stat);
+        osm->flags = htons(0);
+        memset(osm->pad, 0, sizeof osm->pad);
+
+        if (hdrs->stat == OFPST_VENDOR) {
+            struct ofp11_vendor_stats_msg *ovsm = buf->l2;
+
+            ovsm->vendor = htonl(hdrs->vendor);
+            if (hdrs->vendor == NX_VENDOR_ID) {
+                struct nicira11_stats_msg *nsm = buf->l2;
+
+                nsm->subtype = htonl(hdrs->subtype);
+            } else {
+                NOT_REACHED();
+            }
+        }
+    }
+} */
+
+static void rfpmsgs_init(void);
+/*
+static const struct raw_info *
+raw_info_get(enum rfpraw raw)
+{
+    rfpmsgs_init();
+
+    assert(raw < ARRAY_SIZE(raw_infos));
+    return &raw_infos[raw];
 }
 
-static void paxosflow_put__(uint8_t type, uint8_t version, uint32_t src, uint32_t dst, uint32_t xid,
-                         size_t paxosflow_len, struct rfpbuf *);
-
-/* Same as ofpraw_alloc() but the caller provides the transaction ID. */
-struct rfpbuf *
-paxosflow_alloc_xid(uint8_t type, uint8_t version, uint32_t xid,
-                 size_t paxosflow_len, uint32_t src, uint32_t dst)
+static struct raw_instance *
+raw_instance_get(const struct raw_info *info, uint8_t version)
 {
-    struct rfpbuf *buf = rfpbuf_new(paxosflow_len);
-    paxosflow_put__(type, version, src, dst, xid, paxosflow_len, buf);
-    return buf;
+    assert(version >= info->min_version && version <= info->max_version);
+    return &info->instances[version - info->min_version];
 }
 
-static void paxosflow_put__(uint8_t type, uint8_t version, uint32_t src, uint32_t dst, uint32_t xid,
-                         size_t paxosflow_len, struct rfpbuf *buf)
+static void
+rfpmsgs_init(void)
 {
-  struct pfp_header *rh;
+    const struct raw_info *info;
 
-  assert(paxosflow_len >= sizeof *rh);
-  assert(paxosflow_len <= UINT16_MAX);
+    if (raw_instance_map.buckets) {
+        return;
+    }
 
-  buf->l2 = rfpbuf_put_uninit(buf, paxosflow_len);
+    hmap_init(&raw_instance_map);
+    for (info = raw_infos; info < &raw_infos[ARRAY_SIZE(raw_infos)]; info++)
+    {
+        int n_instances = info->max_version - info->min_version + 1;
+        struct raw_instance *inst;
 
-  rh = buf->l2;
-  rh->version = version;
-  rh->src = src;
-  rh->dst = dst;
-  rh->type = type;
-  rh->length = htons(paxosflow_len);
-  rh->xid = xid;
-  memset(rh + 1, 0, paxosflow_len - sizeof *rh);
+        for (inst = info->instances;
+             inst < &info->instances[n_instances];
+             inst++) {
+            inst->hdrs_len = ofphdrs_len(&inst->hdrs);
+            hmap_insert(&raw_instance_map, &inst->hmap_node,
+                        ofphdrs_hash(&inst->hdrs));
+        }
+    }
 }
+*/

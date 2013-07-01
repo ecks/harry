@@ -1,5 +1,6 @@
 #ifndef UTIL_H
-#define UTIL_H 
+#define UTIL_H
+
 #include "compiler.h"
 
 /* Given POINTER, the address of the given MEMBER in a STRUCT object, returns
