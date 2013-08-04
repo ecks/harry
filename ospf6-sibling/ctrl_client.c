@@ -85,7 +85,7 @@ int ctrl_client_socket(struct in6_addr * ctrl_addr)
   hints.ai_socktype = SOCK_STREAM;  // TCP
 
   char port_str[8];
-  sprintf(port_str, "%u", CTRL_SISIS_PORT);
+  sprintf(port_str, "%u", OSPF6_CTRL_SISIS_PORT);
   if((status = getaddrinfo(c_addr, port_str, &hints, &addr)) != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
