@@ -66,10 +66,10 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   return 0;
 }
 
-void sibling_ctrl_init(struct in6_addr * ctrl_addr)
+void sibling_ctrl_init()
 {
   ctrl_client = ctrl_client_new();
-  ctrl_client_init(ctrl_client, ctrl_addr);
+  ctrl_client_init(ctrl_client);
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
 }

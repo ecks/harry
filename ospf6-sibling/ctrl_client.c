@@ -36,11 +36,12 @@ struct ctrl_client * ctrl_client_new()
   return ctrl_client;
 }
 
-void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr)
+void ctrl_client_init(struct ctrl_client * ctrl_client)
 {
-  ctrl_client->sock = -1;
+  ctrl_client->sock_in = -1;
+  ctrl_client->sock_out = -1;
 
-  ctrl_client->ctrl_addr = ctrl_addr;
+//  ctrl_client->ctrl_addr = ctrl_addr;
 
   ctrl_client->state = CTRL_CONNECTING;
 
@@ -60,11 +61,11 @@ void ctrl_client_stop(struct ctrl_client * ctrl_client)
   rfpbuf_delete(ctrl_client->obuf);
   ctrl_client->obuf = NULL;
 
-  if(ctrl_client->sock >= 0)
-  {
-    close(ctrl_client->sock);
-    ctrl_client->sock = -1;
-  }
+//  if(ctrl_client->sock >= 0)
+//  {
+//    close(ctrl_client->sock);
+//    ctrl_client->sock = -1;
+//  }
 
 //  ctrl_client->fail = 0;
 }
@@ -123,9 +124,9 @@ ctrl_client_failed(struct ctrl_client * ctrl_client)
 
 int ctrl_send_message(struct ctrl_client * ctrl_client)
 {
-  if(ctrl_client->sock < 0)
+  if(ctrl_client->sock_out < 0)
     return -1;
-  switch(rfpbuf_write(ctrl_client->obuf, ctrl_client->sock))
+  switch(rfpbuf_write(ctrl_client->obuf, ctrl_client->sock_out))
   {
     case RFPBUF_ERROR:
       break;
@@ -160,23 +161,29 @@ int ctrl_client_start(struct ctrl_client * ctrl_client)
 {
   int retval;
 
-  if(ctrl_client->sock >= 0)
-    return 0;
+//  if(ctrl_client->sock >= 0)
+//    return 0;
 
   if(ctrl_client->t_connect)
     return 0;
 
   /* Make socket */
-  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr);
-  if (ctrl_client->sock < 0)
-  {
-    printf("ctrl_client connection fail\n");
-    ctrl_client->fail++;
-    ctrl_client_event (CTRL_CLIENT_CONNECT, ctrl_client);
-    return -1;
-  }
+//  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr);
+//  if (ctrl_client->sock < 0)
+//  {
+//    printf("ctrl_client connection fail\n");
+//    ctrl_client->fail++;
+//    ctrl_client_event (CTRL_CLIENT_CONNECT, ctrl_client);
+//    return -1;
+//  }
 
-  if(set_nonblocking(ctrl_client->sock) < 0)
+  // set sock_in to stdin
+  ctrl_client->sock_in = 0;
+
+  // set sock_out to stdout
+  ctrl_client->sock_out = 1;
+
+  if(set_nonblocking(ctrl_client->sock_in) < 0)
   {
     printf("set_nonblocking failed\n");
   }
@@ -225,7 +232,7 @@ static int ctrl_client_read(struct thread * t)
   }
 
   ssize_t nbyte;
-  if(((nbyte = rfpbuf_read_try(ctrl_client->ibuf, ctrl_client->sock, sizeof(struct rfp_header)-already)) == 0) ||
+  if(((nbyte = rfpbuf_read_try(ctrl_client->ibuf, ctrl_client->sock_in, sizeof(struct rfp_header)-already)) == 0) ||
      (nbyte == -1))
   {
     return ctrl_client_failed(ctrl_client);
@@ -246,7 +253,7 @@ static int ctrl_client_read(struct thread * t)
 
   if(already < length)
   {
-    if(((nbyte = rfpbuf_read_try(ctrl_client->ibuf, ctrl_client->sock, length - already)) == 0) ||
+    if(((nbyte = rfpbuf_read_try(ctrl_client->ibuf, ctrl_client->sock_in, length - already)) == 0) ||
        (nbyte == -1))
     {
       return ctrl_client_failed(ctrl_client);
@@ -320,7 +327,7 @@ ctrl_client_event(enum event event, struct ctrl_client * ctrl_client)
       // TODO: implement connecting again
       break;
     case CTRL_CLIENT_READ:
-      ctrl_client->t_read = thread_add_read(master, ctrl_client_read, ctrl_client, ctrl_client->sock);
+      ctrl_client->t_read = thread_add_read(master, ctrl_client_read, ctrl_client, ctrl_client->sock_in);
       break;
     case CTRL_CLIENT_CONNECTED:
       ctrl_client->t_connected = thread_add_event(master, ctrl_client_connected, ctrl_client, 0);

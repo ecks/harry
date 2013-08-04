@@ -3,9 +3,10 @@
 
 struct ctrl_client
 {
-  int sock;
+  int sock_in;
+  int sock_out;
 
-  struct in6_addr * ctrl_addr;
+//  struct in6_addr * ctrl_addr;
 
   int fail;
 
@@ -25,7 +26,7 @@ struct ctrl_client
 };
 
 extern struct ctrl_client * ctrl_client_new();
-extern void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr);
+extern void ctrl_client_init(struct ctrl_client * ctrl_client);
 int fwd_message_send(struct ctrl_client * ctrl_client);
 int ctrl_client_start(struct ctrl_client * ctrl_client);
 
