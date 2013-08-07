@@ -7,7 +7,10 @@ struct ospf6_interface
 
   /* back pointer */
   struct ospf6_area *area;
-  
+ 
+  /* list of ospf6 neighbors */
+  struct list neighbor_list;
+
   struct ctrl_client * ctrl_client;
 
   /* Router Priority */

@@ -94,7 +94,7 @@ struct rfp_phy_port {
 
 //    uint32_t config;        /* Bitmap of OFPPC_* flags. */
     uint32_t state;         /* Bitmap of RFPPS_* flags. */
-
+    uint32_t mtu;
     /* Bitmaps of OFPPF_* that describe features.  All bits zeroed if
      * unsupported or unavailable. */
 //    uint32_t curr;          /* Current features. */

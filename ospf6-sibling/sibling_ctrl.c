@@ -23,6 +23,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
   struct interface * ifp;
   int i;
   unsigned int ifindex;
+  unsigned int mtu;
   int offset = offsetof(struct rfp_router_features, ports);
   size_t n_ports = ((ntohs(rrf->header.length)
                                      - offset)
@@ -32,6 +33,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
   {  
     const struct rfp_phy_port * rpp = &rrf->ports[i];
     ifindex = ntohs(rpp->port_no);
+    mtu = ntohl(rpp->mtu);
     printf("port #: %d, name: %s\n", ifindex, rpp->name);
 
     /* create new interface if not created */
@@ -40,6 +42,8 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
     // fill up the interface info
     ifp->ifindex = ifindex;
 
+    // fill up the mtu
+    ifp->mtu = mtu;
     // copy over the flags
     ifp->state = ntohl(rpp->state);
     ospf6_interface_if_add(ifp, ctrl_client);
@@ -66,10 +70,10 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   return 0;
 }
 
-void sibling_ctrl_init(struct in6_addr * ctrl_addr)
+void sibling_ctrl_init(struct in6_addr * ctrl_addr, char * interface_name)
 {
   ctrl_client = ctrl_client_new();
-  ctrl_client_init(ctrl_client, ctrl_addr);
+  ctrl_client_init(ctrl_client, ctrl_addr, interface_name);
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
 }

@@ -9,8 +9,8 @@
 #include "dblist.h"
 #include "thread.h"
 #include "if.h"
-#include "ospf6_message.h"
 #include "ospf6_interface.h"
+#include "ospf6_message.h"
 
 extern struct thread_master * master;
 
@@ -29,7 +29,9 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
     oi->rxmt_interval = 5;
     
     oi->state = OSPF6_INTERFACE_DOWN;
-    
+ 
+    list_init(&oi->neighbor_list);
+
     oi->interface = ifp;
     ifp->info = oi;
 

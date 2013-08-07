@@ -340,6 +340,7 @@ sib_router_send_features_reply(struct sib_router * sr)
         memset(rpp, 0, sizeof *rpp);
         rpp->port_no = htons(ifp->ifindex);
         rpp->state = htonl(ifp->state);
+        rpp->mtu = htonl(ifp->mtu);
         strncpy(rpp->name, ifp->name, strlen(ifp->name));
       }
 

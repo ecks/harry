@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 
     struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
     memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
-    sibling_ctrl_init(ctrl_addr);
+    sibling_ctrl_init(ctrl_addr, interface_name);
   }
 
   // free  the list, no longer needed

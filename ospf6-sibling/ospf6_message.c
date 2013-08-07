@@ -1,10 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 
+#include "util.h"
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "thread.h"
@@ -15,11 +17,13 @@
 #include "ospf6_proto.h"
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
+#include "ospf6_neighbor.h"
 
 extern struct thread_master * master;
 
 int ospf6_hello_send(struct thread * thread)
 {
+  u_char * p;
   struct ospf6_interface * oi;
   int retval;
 
@@ -64,7 +68,23 @@ int ospf6_hello_send(struct thread * thread)
 //  hello->drouter = oi->drouter;
 //  hello->bdrouter = oi->bdrouter;
 
-  // this is where you put the router ids of the neighbors
+  p = (u_char *)(hello + sizeof(struct ospf6_hello));
+
+  struct ospf6_neighbor * on;
+  LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list)
+  {
+    if(on->state < OSPF6_NEIGHBOR_INIT)
+      continue;
+
+    if((void *)p - oi->ctrl_client->obuf->data + sizeof(u_int32_t) > oi->interface->mtu)
+    {
+      printf("mtu exceeded\n");
+      break;
+    }
+
+    memcpy(p, &on->router_id, sizeof(u_int32_t));
+    p += sizeof(u_int32_t);
+  }
 
   // do this at the end
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
@@ -81,4 +101,54 @@ int ospf6_hello_send(struct thread * thread)
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);
   return 0;
+}
+
+void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+{
+  struct ospf6_hello * hello;
+  struct ospf6_header * oh;
+  struct ospf6_neighbor * on;
+
+  oh = &rfp6->ospf6_header;
+  hello = &rfp6->ospf6_hello;
+
+  /* HelloInterval check */
+  if(ntohs(hello->hello_interval) != oi->hello_interval)
+  {
+    printf("HelloInterval mismatch\n");
+    return;
+  }
+
+  /* RouterDeadInterval */
+
+  /* E-bit check */
+
+  /* Find neighbor, create if not exist */
+  on = ospf6_neighbor_lookup(oh->router_id, oi);
+  if(on == NULL)
+  {
+    on = ospf6_neighbor_create(oh->router_id, oi);
+    on->prev_drouter = on->drouter = hello->drouter;
+    on->prev_bdrouter = on->bdrouter = hello->bdrouter;
+    on->priority = hello->priority;
+  }
+
+  /* always override neighbor's source address and ifindex */
+  on->ifindex = ntohl(hello->interface_id);
+//  memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
+}
+
+int ospf6_receive(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+{
+  uint16_t rfp6_length = ntohs(rfp6->ospf6_header.length);
+  struct ospf6_header * oh;
+
+  oh = &rfp6->ospf6_header;
+
+  switch(oh->type)
+  {
+    case OSPF6_MESSAGE_TYPE_HELLO:
+      ospf6_hello_recv(rfp6, oi);
+      break; 
+  }
 }

@@ -9,8 +9,10 @@
 
 #include "dblist.h"
 #include "prefix.h"
+#include "routeflow-common.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
+#include "if.h"
 #include "routeflow-common.h"
 #include "thread.h"
 #include "ctrl_client.h"
@@ -36,13 +38,14 @@ struct ctrl_client * ctrl_client_new()
   return ctrl_client;
 }
 
-void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr)
+void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr, char * interface_name)
 {
   ctrl_client->sock = -1;
 
   ctrl_client->ctrl_addr = ctrl_addr;
 
   ctrl_client->state = CTRL_CONNECTING;
+  ctrl_client->interface_name = interface_name;
 
   ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
 }
@@ -209,10 +212,15 @@ static int ctrl_client_read(struct thread * t)
   int ret;
   size_t already = 0;
   struct rfp_header * rh;
+  struct rfp_forward_ospf6 * rfp6;
+  uint16_t rfp6_length;
   uint16_t length;
   uint8_t type;
   size_t rh_size = sizeof(struct rfp_header);
   struct ctrl_client * ctrl_client = THREAD_ARG(t);
+  struct interface * ifp;
+  struct ospf6_interface * oi;
+
   ctrl_client->t_read = NULL;
 
   if(ctrl_client->ibuf == NULL)
@@ -286,6 +294,10 @@ static int ctrl_client_read(struct thread * t)
 
     case RFPT_FORWARD_OSPF6:
       printf("Forwarding message received\n");
+      rfp6 = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
+      ifp = if_get_by_name(ctrl_client->interface_name);
+      oi = (struct ospf6_interface *)ifp->info;
+      ospf6_receive(rfp6, oi);
       break;
   }
 
