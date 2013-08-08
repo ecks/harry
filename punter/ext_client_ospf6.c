@@ -239,6 +239,11 @@ static void * ext_client_ospf6_iobuf_cpy_mem(void * mem, unsigned int size)
   return memcpy(mem, recvbuf, size);
 }
 
+static void * ext_client_ospf6_iobuf_cpy_mem_from_offset(void * mem, unsigned int offset, unsigned int size)
+{
+  return memcpy(mem, recvbuf+offset, size);
+}
+
 static int 
 iov_count (struct iovec *iov)
 {
@@ -458,6 +463,8 @@ static int ext_client_ospf6_recv(struct thread * t)
 
   struct ext_client_ospf6 * ext_client_ospf6 = THREAD_ARG(t);
   struct rfp_forward_ospf6 * rfp6;
+  unsigned int ospf6_len;
+  unsigned int ospf6_body_len;
   char buf[BUFSIZE];
   struct msghdr msgh;
   struct ip * ip;
@@ -479,8 +486,18 @@ static int ext_client_ospf6_recv(struct thread * t)
 
   rfp6 = P(ext_client_ospf6).ibuf->l2;
 
-  // copy data over
-  ext_client_ospf6_iobuf_cpy_mem(&rfp6->ospf6_header, sizeof(struct rfp_header)); // put in ospf6 header only -- for now
+  // copy data over, put the ospf6 header first
+  ext_client_ospf6_iobuf_cpy_mem(&rfp6->ospf6_header, sizeof(struct ospf6_header));
+
+  // find out the length of the packet
+  ospf6_len = ntohs(rfp6->ospf6_header.length);
+  ospf6_body_len = ospf6_len - sizeof(struct ospf6_header);
+
+  // copy the body of the data
+  ext_client_ospf6_iobuf_cpy_mem_from_offset(&rfp6->ospf6_hello, sizeof(struct ospf6_header), ospf6_body_len);
+
+  // update the length in the rfp header
+  rfp6->header.length = htons(sizeof(struct rfp_header) + ospf6_len);
 
   // call our parent's class
   ext_client_recv(&P(ext_client_ospf6));
