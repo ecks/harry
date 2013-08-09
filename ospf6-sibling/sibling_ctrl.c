@@ -34,7 +34,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
     const struct rfp_phy_port * rpp = &rrf->ports[i];
     ifindex = ntohs(rpp->port_no);
     mtu = ntohl(rpp->mtu);
-    printf("port #: %d, name: %s\n", ifindex, rpp->name);
+    printf("port #: %d, name: %s, mtu: %d\n", ifindex, rpp->name, mtu);
 
     /* create new interface if not created */
     ifp = if_get_by_name(rpp->name);

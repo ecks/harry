@@ -483,3 +483,28 @@ void thread_call(struct thread * thread)
 
   free(thread->funcname);
 }
+
+/* Execute thread */
+struct thread * funcname_thread_execute(struct thread_master * m,
+                                        int (*func)(struct thread *),
+                                        void * arg,
+                                        int val,
+                                        const char * funcname)
+{
+  struct thread dummy;
+
+  memset (&dummy, 0, sizeof (struct thread));
+
+  dummy.type = THREAD_EVENT;
+  dummy.add_type = THREAD_EXECUTE;
+  dummy.master = NULL;
+  dummy.func = func;
+  dummy.arg = arg;
+  dummy.u.val = val;
+  dummy.funcname = strip_funcname(funcname);
+  thread_call(&dummy);
+
+//  free(dummy.funcname);
+
+  return NULL;
+}

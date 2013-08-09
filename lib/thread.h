@@ -4,7 +4,7 @@
 #define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
-
+#define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f)
 
 /* Linked list of thread. */
 struct thread_list

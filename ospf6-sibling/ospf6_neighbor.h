@@ -36,6 +36,8 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_LOADING  7
 #define OSPF6_NEIGHBOR_FULL     8
 
+int hello_received(struct thread * thread);
+
 struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, struct ospf6_interface *oi);
 
 struct ospf6_neighbor * ospf6_neighbor_create(u_int32_t router_id, struct ospf6_interface * oi);

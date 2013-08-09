@@ -68,9 +68,11 @@ int ospf6_hello_send(struct thread * thread)
 //  hello->drouter = oi->drouter;
 //  hello->bdrouter = oi->bdrouter;
 
-  p = (u_char *)(hello + sizeof(struct ospf6_hello));
+  p = (u_char *)((void *)hello + sizeof(struct ospf6_hello));
 
   struct ospf6_neighbor * on;
+  int i = 0;
+
   LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list)
   {
     if(on->state < OSPF6_NEIGHBOR_INIT)
@@ -82,13 +84,26 @@ int ospf6_hello_send(struct thread * thread)
       break;
     }
 
+    // preallocate more space in the buffer if necessary
+    rfpbuf_prealloc_tailroom(oi->ctrl_client->obuf, sizeof(u_int32_t));
+
+    // need to reset all references in case they have changed as a result of realloc
+    rfo = oi->ctrl_client->obuf->l2;
+    oh = &rfo->ospf6_header;
+    hello = &rfo->ospf6_hello;
+    p = (u_char *)((void *)hello + sizeof(struct ospf6_hello) + i*sizeof(u_int32_t));
+
     memcpy(p, &on->router_id, sizeof(u_int32_t));
+    oi->ctrl_client->obuf->size += sizeof(u_int32_t);
+
     p += sizeof(u_int32_t);
+
+    i++;
   }
 
   // do this at the end
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
-  oh->length = htons(sizeof(struct ospf6_header) + sizeof(struct ospf6_hello));
+  oh->length = htons(p - (u_char *)(&rfo->ospf6_header));
 
   /* fill OSPF header */
   oh->version = OSPFV3_VERSION;
@@ -136,6 +151,9 @@ void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * 
   /* always override neighbor's source address and ifindex */
   on->ifindex = ntohl(hello->interface_id);
 //  memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
+
+  /* Execute neighbor events */
+  thread_execute(master, hello_received, on, 0);
 }
 
 int ospf6_receive(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)

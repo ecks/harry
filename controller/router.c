@@ -257,12 +257,14 @@ router_process_phy_port(struct router * rt, void * rpp_)
   const struct rfp_phy_port * rpp = rpp_;
   uint16_t port_no = ntohs(rpp->port_no);
   uint32_t state = ntohl(rpp->state);
+  unsigned int mtu = ntohl(rpp->mtu);
   struct if_list * if_list;
 
   struct interface * ifp = if_get_by_name(rpp->name);
 
   ifp->ifindex = port_no;
   ifp->state = state;
+  ifp->mtu = mtu;
 
   if_list = calloc(1, sizeof(struct if_list));
   list_init(&if_list->node);
@@ -272,7 +274,7 @@ router_process_phy_port(struct router * rt, void * rpp_)
   if_list->ifp = ifp;
   list_push_back(&rt->port_list, &if_list->node);
 
-  printf("Port number: %d, name: %s", port_no, rpp->name);
+  printf("Port number: %d, name: %s, mtu: %d", port_no, rpp->name, mtu);
   
   switch(state)
   {
