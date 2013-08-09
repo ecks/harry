@@ -155,6 +155,7 @@ fill_port_desc(struct sw_port * p, struct rfp_phy_port * desc)
   desc->port_no = htons(p->port_no);
   strncpy((char *) desc->name, p->hw_name, sizeof desc->name);
   desc->state = htonl(p->state);
+  desc->mtu = htonl(p->mtu);
 }
 
 static void

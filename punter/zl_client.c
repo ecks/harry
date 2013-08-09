@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -86,7 +87,9 @@ static int zl_client_read(struct thread * t)
   }
   else
   {
-    rfpbuf_put_uninit(zl_client->ibuf, rh_size);
+    // this should never happen
+    assert(1 == 0);
+//    rfpbuf_put_uninit(zl_client->ibuf, rh_size);
   }
 
   if(((nbyte = zl_client_network_recv(zl_client->ibuf, zl_client->sockfd, rh_size - already)) == 0) ||
@@ -137,9 +140,18 @@ static int zl_client_read(struct thread * t)
       {
         zl_client->obuf = rfpbuf_new(rfp6_length);
       }
+      else
+      {
+        // should never happen
+        assert(1 == 0);
+      }
+
       rfpbuf_put(zl_client->obuf, (void *)&rfp6->ospf6_header, rfp6_length);  
       punter_zl_to_ext_forward_msg(type);
+
       // clean up after finished sending message
+      rfpbuf_delete(zl_client->obuf);
+      zl_client->obuf = NULL;
       break;
 
     default:
