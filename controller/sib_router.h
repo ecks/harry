@@ -10,13 +10,14 @@ enum sib_router_state {
 struct sib_router {
     struct rconn *rconn;
     enum sib_router_state state;
+    unsigned int last_xid;
 };
 
 
 struct sib_router * sib_router_create(struct rconn *);
 int sib_router_run(struct thread *);
 void sib_router_process_packet(struct sib_router *, struct rfpbuf *);
-void sib_router_forward_ospf6(struct rfpbuf * msg);
+void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_xid);
 void sib_router_forward_bgp(struct rfpbuf * msg);
 void sib_router_wait(struct sib_router *);
 bool sib_router_is_alive(const struct sib_router *);

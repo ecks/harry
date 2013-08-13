@@ -183,9 +183,11 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
       if(rt->state == R_ROUTING)
       {
         // forward to all siblings
-        printf("forward ospf6 packet: controller => sibling\n");
+        printf("forward ospf6 packet: controller => sibling, xid: %d\n", ntohl(rh->xid));
         struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-        sib_router_forward_ospf6(msg_copy);
+        sib_router_forward_ospf6(msg_copy, ntohl(rh->xid));
+        // sent the data, no longer needed
+        rfpbuf_delete(msg_copy);
       }
       break;
 

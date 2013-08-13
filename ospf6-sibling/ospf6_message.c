@@ -118,7 +118,7 @@ int ospf6_hello_send(struct thread * thread)
   return 0;
 }
 
-void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+static void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
 {
   struct ospf6_hello * hello;
   struct ospf6_header * oh;
@@ -156,6 +156,17 @@ void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * 
   thread_execute(master, hello_received, on, 0);
 }
 
+static void ospf6_dbdesc_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+{
+  struct ospf6_neighbor * on;
+  struct ospf6_dbdesc * dbdesc;
+  struct ospf6_header * oh;
+
+  oh = &rfp6->ospf6_header;
+
+  printf("Received DBDESC message\n");
+
+}
 int ospf6_receive(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
 {
   uint16_t rfp6_length = ntohs(rfp6->ospf6_header.length);
@@ -168,5 +179,12 @@ int ospf6_receive(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
     case OSPF6_MESSAGE_TYPE_HELLO:
       ospf6_hello_recv(rfp6, oi);
       break; 
+
+    case OSPF6_MESSAGE_TYPE_DBDESC:
+      ospf6_dbdesc_recv(rfp6, oi);
+      break;
+
+    debault:
+      break;
   }
 }

@@ -396,14 +396,16 @@ sib_router_redistribute(struct sib_router * sr)
           sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, newrib);
 }
 
-void sib_router_forward_ospf6(struct rfpbuf * msg)
+void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_xid)
 {
   int i;
   int retval;
 
   for(i = 0; i < n_ospf6_siblings; i++)
   {
-    retval = rconn_send(ospf6_siblings[i]->rconn, msg);
+    struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+    ospf6_siblings[i]->last_xid = current_xid;
+    retval = rconn_send(ospf6_siblings[i]->rconn, msg_copy);
     if(retval)
     {
       printf("send to %s failed: %s\n",
