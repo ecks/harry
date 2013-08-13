@@ -349,6 +349,10 @@ static int ext_client_ospf6_recvmsg(struct ext_client_ospf6 * ext_client_ospf6)
       printf("Hello received\n");
       break;
 
+    case OSPF6_MESSAGE_TYPE_DBDESC:
+      printf("DBDESC received\n");
+      break;
+
     default:
       break;
   }
@@ -481,8 +485,8 @@ static int ext_client_ospf6_recv(struct thread * t)
     perror("ext_client_ospf6_recvmsg error");
   }
 
-  // put a header
-  P(ext_client_ospf6).ibuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION, 0, sizeof(struct rfp_forward_ospf6));
+  // put a header with a unique xid
+  P(ext_client_ospf6).ibuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_forward_ospf6));
 
   rfp6 = P(ext_client_ospf6).ibuf->l2;
 
