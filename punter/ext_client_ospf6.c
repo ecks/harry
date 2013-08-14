@@ -466,7 +466,9 @@ static int ext_client_ospf6_recv(struct thread * t)
   printf("read triggered!\n");
 
   struct ext_client_ospf6 * ext_client_ospf6 = THREAD_ARG(t);
-  struct rfp_forward_ospf6 * rfp6;
+  struct rfp_header * rh;
+  struct ospf6_header * oh;
+  void * ospf6_body;
   unsigned int ospf6_len;
   unsigned int ospf6_body_len;
   char buf[BUFSIZE];
@@ -486,22 +488,26 @@ static int ext_client_ospf6_recv(struct thread * t)
   }
 
   // put a header with a unique xid
-  P(ext_client_ospf6).ibuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_forward_ospf6));
+  P(ext_client_ospf6).ibuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_header));
 
-  rfp6 = P(ext_client_ospf6).ibuf->l2;
+  rh = P(ext_client_ospf6).ibuf->l2;
+
+  oh = rfpbuf_put_uninit(P(ext_client_ospf6).ibuf, sizeof(struct ospf6_header));
 
   // copy data over, put the ospf6 header first
-  ext_client_ospf6_iobuf_cpy_mem(&rfp6->ospf6_header, sizeof(struct ospf6_header));
+  ext_client_ospf6_iobuf_cpy_mem(oh, sizeof(struct ospf6_header));
 
   // find out the length of the packet
-  ospf6_len = ntohs(rfp6->ospf6_header.length);
+  ospf6_len = ntohs(oh->length);
   ospf6_body_len = ospf6_len - sizeof(struct ospf6_header);
 
+  ospf6_body = rfpbuf_put_uninit(P(ext_client_ospf6).ibuf, ospf6_body_len);
+
   // copy the body of the data
-  ext_client_ospf6_iobuf_cpy_mem_from_offset(&rfp6->ospf6_hello, sizeof(struct ospf6_header), ospf6_body_len);
+  ext_client_ospf6_iobuf_cpy_mem_from_offset(ospf6_body, sizeof(struct ospf6_header), ospf6_body_len);
 
   // update the length in the rfp header
-  rfp6->header.length = htons(sizeof(struct rfp_header) + ospf6_len);
+  rh->length = htons(sizeof(struct rfp_header) + ospf6_len);
 
   // call our parent's class
   ext_client_recv(&P(ext_client_ospf6));

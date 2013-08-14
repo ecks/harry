@@ -178,7 +178,6 @@ static int zl_serv_read(struct thread * thread)
   size_t header_len;
   struct zl_serv_cl * zl_serv_cl = THREAD_ARG(thread);
   struct rfp_header * rh;
-  struct rfp_forward_ospf6 * rfo;
 
   zl_serv_cl->t_read = 0;
 
