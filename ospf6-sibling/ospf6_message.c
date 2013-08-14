@@ -28,7 +28,7 @@ int ospf6_hello_send(struct thread * thread)
   int retval;
 
   oi = (struct ospf6_interface *)THREAD_ARG(thread);
-  struct rfp_forward_ospf6 * rfo;
+  struct rfp_header * rh;
   struct ospf6_header * oh;
   struct ospf6_hello * hello;
 
@@ -45,13 +45,12 @@ int ospf6_hello_send(struct thread * thread)
   /* set next thread */
   oi->thread_send_hello = thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval);
 
-  oi->ctrl_client->obuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_forward_ospf6));
+  oi->ctrl_client->obuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_header));
 
-  rfo = oi->ctrl_client->obuf->l2;
 
-  oh = &rfo->ospf6_header;
+  oh = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_header));
 
-  hello = &rfo->ospf6_hello;
+  hello = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_hello));
 
   hello->interface_id = htonl(oi->interface->ifindex);
   hello->priority = oi->priority;
@@ -88,9 +87,9 @@ int ospf6_hello_send(struct thread * thread)
     rfpbuf_prealloc_tailroom(oi->ctrl_client->obuf, sizeof(u_int32_t));
 
     // need to reset all references in case they have changed as a result of realloc
-    rfo = oi->ctrl_client->obuf->l2;
-    oh = &rfo->ospf6_header;
-    hello = &rfo->ospf6_hello;
+    rh = oi->ctrl_client->obuf->l2;
+    oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
+    hello = (struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header));
     p = (u_char *)((void *)hello + sizeof(struct ospf6_hello) + i*sizeof(u_int32_t));
 
     memcpy(p, &on->router_id, sizeof(u_int32_t));
@@ -103,7 +102,7 @@ int ospf6_hello_send(struct thread * thread)
 
   // do this at the end
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
-  oh->length = htons(p - (u_char *)(&rfo->ospf6_header));
+  oh->length = htons(p - (u_char *)(oh));
 
   /* fill OSPF header */
   oh->version = OSPFV3_VERSION;
@@ -118,14 +117,12 @@ int ospf6_hello_send(struct thread * thread)
   return 0;
 }
 
-static void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+static void ospf6_hello_recv(struct ospf6_header * oh, struct ospf6_interface * oi)
 {
   struct ospf6_hello * hello;
-  struct ospf6_header * oh;
   struct ospf6_neighbor * on;
 
-  oh = &rfp6->ospf6_header;
-  hello = &rfp6->ospf6_hello;
+  hello = (struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header));
 
   /* HelloInterval check */
   if(ntohs(hello->hello_interval) != oi->hello_interval)
@@ -156,32 +153,29 @@ static void ospf6_hello_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_inter
   thread_execute(master, hello_received, on, 0);
 }
 
-static void ospf6_dbdesc_recv(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+static void ospf6_dbdesc_recv(struct ospf6_header * oh, struct ospf6_interface * oi)
 {
   struct ospf6_neighbor * on;
   struct ospf6_dbdesc * dbdesc;
-  struct ospf6_header * oh;
 
-  oh = &rfp6->ospf6_header;
 
   printf("Received DBDESC message\n");
 
 }
-int ospf6_receive(struct rfp_forward_ospf6 * rfp6, struct ospf6_interface * oi)
+int ospf6_receive(struct rfp_header * rh, struct ospf6_interface * oi)
 {
-  uint16_t rfp6_length = ntohs(rfp6->ospf6_header.length);
   struct ospf6_header * oh;
 
-  oh = &rfp6->ospf6_header;
+  oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
 
   switch(oh->type)
   {
     case OSPF6_MESSAGE_TYPE_HELLO:
-      ospf6_hello_recv(rfp6, oi);
+      ospf6_hello_recv(oh, oi);
       break; 
 
     case OSPF6_MESSAGE_TYPE_DBDESC:
-      ospf6_dbdesc_recv(rfp6, oi);
+      ospf6_dbdesc_recv(oh, oi);
       break;
 
     debault:

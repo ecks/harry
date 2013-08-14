@@ -212,7 +212,6 @@ static int ctrl_client_read(struct thread * t)
   int ret;
   size_t already = 0;
   struct rfp_header * rh;
-  struct rfp_forward_ospf6 * rfp6;
   uint16_t rfp6_length;
   uint16_t length;
   uint8_t type;
@@ -294,10 +293,10 @@ static int ctrl_client_read(struct thread * t)
 
     case RFPT_FORWARD_OSPF6:
       printf("Forwarding message received\n");
-      rfp6 = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
+      rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
       ifp = if_get_by_name(ctrl_client->interface_name);
       oi = (struct ospf6_interface *)ifp->info;
-      ospf6_receive(rfp6, oi);
+      ospf6_receive(rh, oi);
       break;
   }
 

@@ -181,6 +181,18 @@ struct ospf6_hello
   /* Followed by Router-IDs */
 };
 
+/* Database Description */
+struct ospf6_dbdesc
+{
+  u_char    reserved1;
+  u_char    options[3];
+  u_int16_t ifmtu;
+  u_char    reserved2;
+  u_char    bits;
+  u_int32_t seqnum;
+  /* Followed by LSA Headers */
+};
+
 /* BGP Header */
 struct bgp_header
 {
@@ -188,13 +200,6 @@ struct bgp_header
   u_int64_t marker2;
   u_int16_t length;
   u_int8_t type;
-};
-
-/* Forward messages */
-struct rfp_forward_ospf6 {
-  struct rfp_header header;
-  struct ospf6_header ospf6_header;
-  struct ospf6_hello ospf6_hello;
 };
 
 struct rfp_forward_bgp {
