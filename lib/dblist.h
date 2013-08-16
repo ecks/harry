@@ -18,6 +18,7 @@ void list_push_back(struct list *, struct list *);
 
 struct list *list_remove(struct list *);
 struct list *list_pop_front(struct list *);
+struct list *list_peek_front(struct list * list);
 
 size_t list_size(const struct list *);
 bool list_empty(const struct list *);

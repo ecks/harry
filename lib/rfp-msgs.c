@@ -1,8 +1,10 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 
+#include "util.h"
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "rfpbuf.h"

@@ -64,6 +64,14 @@ list_pop_front(struct list *list)
   return front;
 }
 
+/* Return the front element from 'list' without removing it. */
+struct list *
+list_peek_front(struct list * list)
+{
+  struct list *front = list->next;
+  return front;
+}
+
 /* Returns the number of elements in 'list'.
    Runs in O(n) in the number of elements. */
 size_t

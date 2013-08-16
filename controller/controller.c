@@ -2,8 +2,10 @@
 #include "stdint.h"
 #include "stdbool.h"
 #include "stdlib.h"
+#include "stddef.h"
 #include "errno.h"
 
+#include "util.h"
 #include "socket-util.h"
 #include "routeflow-common.h"
 #include "dblist.h"

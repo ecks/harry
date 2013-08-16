@@ -66,6 +66,9 @@ int ospf6_hello_send(struct thread * thread)
   hello->dead_interval = htons (oi->dead_interval);
 //  hello->drouter = oi->drouter;
 //  hello->bdrouter = oi->bdrouter;
+//*NOTE* this is only for testing, needs to be removed soon because it is incorrect
+  hello->drouter = htonl(0);
+  hello->bdrouter = htonl(0);
 
   p = (u_char *)((void *)hello + sizeof(struct ospf6_hello));
 
@@ -111,6 +114,12 @@ int ospf6_hello_send(struct thread * thread)
   // area id
   // instance id
   // reserved
+  // *NOTE* filled in with zeroes for testing purposes only
+  oh->router_id = htonl(0);
+  oh->area_id = htonl(0);
+  oh->checksum = htons(0);
+  oh->instance_id = htons(0);
+  oh->reserved = htons(0);
 
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);

@@ -11,8 +11,8 @@ struct sib_router {
     struct rconn *rconn;
     enum sib_router_state state;
     unsigned int last_xid;
+    struct list msgs_rcvd_queue;
 };
-
 
 struct sib_router * sib_router_create(struct rconn *);
 int sib_router_run(struct thread *);

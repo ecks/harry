@@ -59,6 +59,7 @@ sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   struct pvconn * sib_bgp_pvconn;    // sibling channel interface
 
   n_ospf6_siblings = 0;
+
   n_bgp_siblings = 0;
 
   n_sib_listeners = 0;
@@ -168,6 +169,7 @@ sib_router_create(struct rconn *rconn)
   rt = malloc(sizeof *rt);
   rt->rconn = rconn;
   rt->state = S_CONNECTING;
+  list_init(&rt->msgs_rcvd_queue);
 
 //  for(i = 0; i < MAX_PORTS; i++)
 //  {
@@ -182,6 +184,67 @@ sib_router_create(struct rconn *rconn)
 //{
 //  sib_router_send_features_request(rt);
 //}
+
+static bool 
+all_have_msg_rcvd()
+{
+  int i;
+  for(i = 0; i < n_ospf6_siblings; i++)  
+  {
+    if(list_empty(&ospf6_siblings[i]->msgs_rcvd_queue))
+      return false;
+  }
+
+  return true;
+}
+
+static void
+vote_majority()
+{
+  bool all_same = true;
+  int i;
+  // the first message gets compared with the second message, second message
+  // gets compared with third message, etc
+  struct rfpbuf * a = rfpbuf_from_list(list_peek_front(&ospf6_siblings[0]->msgs_rcvd_queue));
+  for(i = 1; i < n_ospf6_siblings; i++)
+  {
+    struct rfpbuf * b = rfpbuf_from_list(list_peek_front(&ospf6_siblings[i]->msgs_rcvd_queue));
+
+    struct ospf6_header * a_oh = (void *)a->data + sizeof(struct rfp_header);
+    struct ospf6_hello * a_hello = (void *)a_oh + sizeof(struct ospf6_header);
+
+    struct ospf6_header * b_oh = (void *)b->data + sizeof(struct rfp_header);
+    struct ospf6_hello * b_hello = (void *)b_oh + sizeof(struct ospf6_header);
+
+    if(!rfpbuf_equal(a, b))
+    {
+      all_same = false;
+      break;
+    }
+    else
+    {
+      a = b;
+    }
+  }
+
+  if(all_same)
+  {
+    // delete members from beginning of queue since they all matched
+    for(i = 0; i < n_ospf6_siblings; i++)
+    {
+      struct rfpbuf * msg_to_delete = rfpbuf_from_list(list_pop_front(&ospf6_siblings[i]->msgs_rcvd_queue));
+      if(msg_to_delete != a)
+      {
+        rfpbuf_delete(msg_to_delete);
+      }
+    }
+    for(i = 0; i < *n_routers_p; i++)
+    {
+      printf("forward ospf6 packet: sibling => controller\n");
+      router_forward(routers[i], a);
+    }
+  }  
+}
 
 int sib_router_run(struct thread * t)
 {
@@ -271,11 +334,14 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       break;
 
     case RFPT_FORWARD_OSPF6:
-      for(i = 0; i < *n_routers_p; i++)
       {
-        printf("forward ospf6 packet: sibling => controller\n");
-        struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-        router_forward(routers[i], msg_copy);
+        struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
+        list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
+        if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
+           (all_have_msg_rcvd()))
+        {
+          vote_majority();
+        }
       }
       break;
 

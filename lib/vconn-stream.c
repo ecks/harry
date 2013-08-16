@@ -1,9 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <stddef.h>
 
+#include "util.h"
 #include "compiler.h"
 #include "thread.h"
 #include "stream.h"

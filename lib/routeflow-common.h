@@ -20,6 +20,8 @@
 #define RFP_SSL_PORT  6633
 
 #define OSPF6_CTRL_SISIS_PORT 6634
+#define OSPF6_NUM_SIBS 3
+
 #define BGP_CTRL_SISIS_PORT   6635
 #define MAX_PORTS 255
 

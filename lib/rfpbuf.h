@@ -51,7 +51,18 @@ struct rfpbuf *rfpbuf_clone_with_headroom(const struct rfpbuf *,
 struct rfpbuf *rfpbuf_clone_data(const void *, size_t);
 struct rfpbuf *rfpbuf_clone_data_with_headroom(const void *, size_t,
                                                size_t headroom);
+
+static inline struct rfpbuf *rfpbuf_from_list(const struct list * list)
+{
+  return CONTAINER_OF(list, struct rfpbuf, list_node);
+}
+
 void rfpbuf_delete(struct rfpbuf *);
+
+static inline bool rfpbuf_equal(const struct rfpbuf * a, const struct rfpbuf * b)
+{
+  return a->size == b->size && memcmp(a->data, b->data, a->size) == 0;
+}
 
 rfpbuf_status rfpbuf_write(struct rfpbuf *, int);
 ssize_t rfpbuf_read_try(struct rfpbuf * b, int fd, size_t size);

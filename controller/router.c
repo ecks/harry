@@ -6,6 +6,7 @@
 #include <string.h>
 #include <netinet/in.h>
 
+#include "util.h"
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "prefix.h"
