@@ -32,7 +32,7 @@ int main(int argc, char ** argv)
 
   if(argc < 1)
   {
-    fprintf(stderr, "./zebralite protocol:::address\n");
+    fprintf(stderr, "./zebralite\n");
     exit(1);
   }
 
