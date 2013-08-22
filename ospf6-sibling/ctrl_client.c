@@ -1,12 +1,14 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "stdint.h"
+#include "stddef.h"
 #include "string.h"
 #include <stdbool.h>
 #include "netdb.h"
 #include "netinet/in.h"
 #include "sys/socket.h"
 
+#include "util.h"
 #include "dblist.h"
 #include "prefix.h"
 #include "routeflow-common.h"

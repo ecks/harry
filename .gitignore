@@ -1,0 +1,13 @@
+# Compiled source files
+*.o
+
+# Binaries
+zebralite
+controller/controller
+punter/punter
+ospf6-sibling/ospf6-sibling
+bgp-sibling/bgp-sibling
+
+# ctags and scope generated files
+tags
+cscope.out

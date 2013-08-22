@@ -21,6 +21,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "rib.h"
+#include "debug.h"
 #include "router.h"
 #include "sib_router.h"
 
@@ -201,6 +202,11 @@ all_have_msg_rcvd()
 static void
 vote_majority()
 {
+  if(CONTROLLER_DEBUG_MSG)
+  {
+    zlog_debug("inside vote majority");
+  }
+
   bool all_same = true;
   int i;
   // the first message gets compared with the second message, second message
@@ -240,7 +246,10 @@ vote_majority()
     }
     for(i = 0; i < *n_routers_p; i++)
     {
-      printf("forward ospf6 packet: sibling => controller\n");
+      if(CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("forward ospf6 packet: sibling => controller");
+      }
       router_forward(routers[i], a);
     }
   }  
@@ -324,12 +333,18 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       break;
 
     case RFPT_FEATURES_REQUEST:
-      printf("features request\n");
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("features request\n");
+      }
       sib_router_send_features_reply(sr);   
       break;
 
     case RFPT_REDISTRIBUTE_REQUEST:
-      printf("redistribute request\n");
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("redistribute request\n");
+      }
       sib_router_redistribute(sr);
       break;
 

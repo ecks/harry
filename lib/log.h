@@ -8,7 +8,7 @@ typedef enum
   ZLOG_ZEBRALITE,
   ZLOG_PUNTER,
   ZLOG_CONTROLLER,
-  ZLOG_OSPF_SIBLING
+  ZLOG_OSPF6_SIBLING
 } zlog_proto_t;
 
 /* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent

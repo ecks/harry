@@ -9,6 +9,7 @@
 #include "util.h"
 #include "routeflow-common.h"
 #include "dblist.h"
+#include "debug.h"
 #include "thread.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
@@ -40,7 +41,10 @@ int ospf6_hello_send(struct thread * thread)
     return 0;
   }
 
-  printf("About to send hello message\n");
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_notice("About to send hello message");
+  }
 
   /* set next thread */
   oi->thread_send_hello = thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval);

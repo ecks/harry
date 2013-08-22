@@ -2,14 +2,16 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include "stdint.h"
-#include "stdbool.h"
-#include "stdio.h"
-#include "string.h"
-#include "stddef.h"
-#include "netinet/in.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <stddef.h>
+#include <syslog.h>
+#include <netinet/in.h>
 
 #include "routeflow-common.h"
+#include "getopt.h"
 #include "util.h"
 #include "dblist.h"
 #include "if.h"
@@ -19,6 +21,11 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "thread.h"
+#include "log.h"
+#include "vty.h"
+#include "vector.h"
+#include "command.h"
+#include "debug.h"
 #include "vconn.h"
 #include "ospf6_top.h"
 #include "sisis.h"
@@ -26,10 +33,25 @@
 #include "sibling_ctrl.h"
 #include "sibling.h"
 
+#define DEFAULT_CONFIG_FILE "ospf6-sibling.conf"
+
+/* ospf6d options */
+struct option longopts[] =
+{
+  { "config_file", required_argument, NULL, 'f'},
+  { "interface_name", required_argument, NULL, 'i'},
+  { 0 }
+};
+
+/* Default configuration file path. */
+char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
+
 struct thread_master * master;
 
 int main(int argc, char *argv[])
 {
+  int opt;
+  char * config_file = "/etc/zebralite/ospf6_sibling.conf";
   struct vconn * vconn;
   int retval;
   struct rfpbuf * buffer;
@@ -38,15 +60,37 @@ int main(int argc, char *argv[])
   int sisis_fd;
   uint64_t host_num = 1;
 
-  if(optind !=  argc-1)
+  /* Command line argument treatment. */
+  while(1)
   {
-    printf("usage: sibling <interface>\n");
-    exit(1);
+    opt = getopt_long(argc, argv, "f:i:", longopts, 0);
+
+    if(opt == EOF)
+      break;
+
+    switch(opt)
+    {
+      case 'f':
+        config_file = optarg;
+        break;
+
+      case 'i':
+        interface_name = optarg;
+
+    }
   }
+
+  zlog_default = openzlog(argv[0], ZLOG_OSPF6_SIBLING, LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  
+  cmd_init(1);
+  vty_init(master);
+
+  ospf6_sibling_debug_init();
+
+  vty_read_config(config_file, config_default);
+
   /* thread master */
   master = thread_master_create();
-
-  interface_name = argv[optind];
 
   // TODO: signal_init
 
@@ -88,6 +132,8 @@ int main(int argc, char *argv[])
   free(ctrl_addrs);
   
   ospf6_top_init(interface_name);
+
+  zlog_notice("OSPF6 Sibling starting");
 
   /* Start finite state machine, here we go! */
   while(thread_fetch(master, &thread))

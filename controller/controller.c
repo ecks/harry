@@ -1,8 +1,11 @@
+#include "config.h"
+
 #include "stdio.h"
 #include "stdint.h"
 #include "stdbool.h"
 #include "stdlib.h"
 #include "stddef.h"
+#include <syslog.h>
 #include "errno.h"
 
 #include "util.h"
@@ -10,6 +13,10 @@
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "thread.h"
+#include "log.h"
+#include "vty.h"
+#include "vector.h"
+#include "command.h"
 #include "rconn.h"
 #include "router.h"
 #include "sib_router.h"
@@ -20,6 +27,11 @@
 
 #define MAX_ROUTERS 16
 #define MAX_LISTENERS 16
+
+#define DEFAULT_CONFIG_FILE "controller.conf"
+
+/* Default configuration file path. */
+char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 struct thread_master * master;
 
@@ -51,6 +63,8 @@ new_sib_router(struct sib_router **, struct vconn *, const char *, struct router
 
 int main(int argc, char *argv[])
 {
+  char * config_file = "/etc/zebralite/controller.conf";
+
   struct thread thread;
   int n_nb_listeners, n_sib_ospf6_listeners, n_sib_bgp_listeners;
   struct pvconn * nb_listeners[MAX_LISTENERS];
@@ -66,6 +80,15 @@ int main(int argc, char *argv[])
 //  signal(SIGABRT, );
 //  signal(SIGTERM, );
 //  signal(SIGINT, );
+
+  zlog_default = openzlog(argv[0], ZLOG_CONTROLLER, LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+
+  cmd_init(1);
+  vty_init(master);
+
+  controller_debug_init();
+
+  vty_read_config(config_file, config_default);
 
   /* thread master */
   master = thread_master_create();
@@ -119,7 +142,9 @@ int main(int argc, char *argv[])
 //  }
 
 //    poll_block();
-  
+ 
+  zlog_notice("Controller starting");
+
   // spin forever
   while(thread_fetch(master, &thread))
   {

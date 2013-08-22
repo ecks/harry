@@ -5,6 +5,8 @@
 #include <string.h>
 #include <netinet/in.h>
 
+#include "util.h"
+#include "debug.h"
 #include "dblist.h"
 #include "rfpbuf.h"
 #include "routeflow-common.h"
@@ -28,14 +30,19 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
   size_t n_ports = ((ntohs(rrf->header.length)
                                      - offset)
                         / sizeof(*rrf->ports));
-  printf("number of ports: %d\n", n_ports);
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_notice("number of ports: %d", n_ports);
+  }
   for(i = 0; i < n_ports; i++)
   {  
     const struct rfp_phy_port * rpp = &rrf->ports[i];
     ifindex = ntohs(rpp->port_no);
     mtu = ntohl(rpp->mtu);
-    printf("port #: %d, name: %s, mtu: %d\n", ifindex, rpp->name, mtu);
-
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+    {
+      zlog_notice("port #: %d, name: %s, mtu: %d", ifindex, rpp->name, mtu);
+    }
     /* create new interface if not created */
     ifp = if_get_by_name(rpp->name);
 
