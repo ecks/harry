@@ -18,7 +18,7 @@ static struct raw_instance *raw_instance_get(const struct raw_info *,
 static uint32_t
 alloc_xid(void)
 {
-    static uint32_t next_xid = 1;
+    static uint32_t next_xid = 0;
     return htonl(next_xid++);
 }
 

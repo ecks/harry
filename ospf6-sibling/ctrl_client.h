@@ -7,6 +7,8 @@ struct ctrl_client
 
   struct in6_addr * ctrl_addr;
 
+  unsigned int current_xid;
+
   int fail;
 
   struct rfpbuf * ibuf;

@@ -46,9 +46,10 @@ static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const c
 
 //static void sib_router_send_features_request(struct sib_router *);
 //static int sib_router_process_features(struct sib_router * rt, void *rh);
-//static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
-static void sib_router_send_features_reply();
-static void sib_router_redistribute(struct sib_router * sr);
+static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
+static void sib_router_send_features_reply(struct sib_router * sr, unsigned int xid);
+static void sib_router_redistribute(struct sib_router * sr, unsigned int xid);
+static void state_transition(struct sib_router * sr, enum sib_router_state state);
 
 sib_router_init(struct router ** my_routers, int * my_n_routers_p)
 {
@@ -169,9 +170,10 @@ sib_router_create(struct rconn *rconn)
 
   rt = malloc(sizeof *rt);
   rt->rconn = rconn;
-  rt->state = S_CONNECTING;
+  state_transition(rt, SIB_CONNECTING);
   list_init(&rt->msgs_rcvd_queue);
 
+  rt->current_egress_xid = 0;
 //  for(i = 0; i < MAX_PORTS; i++)
 //  {
 //    rt->port_states[i] = P_DISABLED;
@@ -185,6 +187,25 @@ sib_router_create(struct rconn *rconn)
 //{
 //  sib_router_send_features_request(rt);
 //}
+
+static bool 
+majority_have_msg_rcvd()
+{
+  int i;
+  for(i = 0; i < n_ospf6_siblings; i++)
+  {
+    if((ospf6_siblings[i]->state != SIB_DISCONNECTED) && (!list_empty(&ospf6_siblings[i]->msgs_rcvd_queue)))
+    {
+      i++;
+    }
+  }
+  if(((float)i/OSPF6_NUM_SIBS) > 0.5)
+  {
+    return true;
+  }
+
+  return false;
+}
 
 static bool 
 all_have_msg_rcvd()
@@ -208,49 +229,76 @@ vote_majority()
   }
 
   bool all_same = true;
+  bool seen_before = false;
+  int num_of_equal_msgs = 0;
   int i;
   // the first message gets compared with the second message, second message
   // gets compared with third message, etc
   struct rfpbuf * a = rfpbuf_from_list(list_peek_front(&ospf6_siblings[0]->msgs_rcvd_queue));
   for(i = 1; i < n_ospf6_siblings; i++)
   {
-    struct rfpbuf * b = rfpbuf_from_list(list_peek_front(&ospf6_siblings[i]->msgs_rcvd_queue));
-
-    struct ospf6_header * a_oh = (void *)a->data + sizeof(struct rfp_header);
-    struct ospf6_hello * a_hello = (void *)a_oh + sizeof(struct ospf6_header);
-
-    struct ospf6_header * b_oh = (void *)b->data + sizeof(struct rfp_header);
-    struct ospf6_hello * b_hello = (void *)b_oh + sizeof(struct ospf6_header);
-
-    if(!rfpbuf_equal(a, b))
+    if((ospf6_siblings[i]->state == SIB_DISCONNECTED) || (list_empty(&ospf6_siblings[i]->msgs_rcvd_queue)))
     {
-      all_same = false;
-      break;
+      seen_before = false;
     }
     else
     {
-      a = b;
+      struct rfpbuf * b = rfpbuf_from_list(list_peek_front(&ospf6_siblings[i]->msgs_rcvd_queue));
+
+      struct ospf6_header * a_oh = (void *)a->data + sizeof(struct rfp_header);
+      struct ospf6_hello * a_hello = (void *)a_oh + sizeof(struct ospf6_header);
+
+      struct ospf6_header * b_oh = (void *)b->data + sizeof(struct rfp_header);
+      struct ospf6_hello * b_hello = (void *)b_oh + sizeof(struct ospf6_header);
+
+      if(!rfpbuf_equal(a, b))
+      {
+        seen_before = false;
+      }
+      else
+      {
+        if(!seen_before)
+        {
+          num_of_equal_msgs = num_of_equal_msgs + 2;
+        }
+          else
+        {
+          num_of_equal_msgs++;
+        }
+        seen_before = true;
+        a = b;
+      }
     }
   }
 
-  if(all_same)
+  if(((float)num_of_equal_msgs/OSPF6_NUM_SIBS) > 0.5)
   {
-    // delete members from beginning of queue since they all matched
+    // delete members from beginning of queue for the majority that matched
     for(i = 0; i < n_ospf6_siblings; i++)
     {
-      struct rfpbuf * msg_to_delete = rfpbuf_from_list(list_pop_front(&ospf6_siblings[i]->msgs_rcvd_queue));
-      if(msg_to_delete != a)
+      if(!list_empty(&ospf6_siblings[i]->msgs_rcvd_queue))
       {
-        rfpbuf_delete(msg_to_delete);
+        struct rfpbuf * msg_to_delete = rfpbuf_from_list(list_pop_front(&ospf6_siblings[i]->msgs_rcvd_queue));
+        if(msg_to_delete != a)
+        {
+          rfpbuf_delete(msg_to_delete);
+        }
       }
     }
     for(i = 0; i < *n_routers_p; i++)
     {
       if(CONTROLLER_DEBUG_MSG)
       {
-        zlog_debug("forward ospf6 packet: sibling => controller");
+        struct rfp_header * rh = rfpbuf_at_assert(a, 0, a->size);
+        zlog_debug("forward ospf6 packet: sibling => controller, xid %d", ntohl(rh->xid));
       }
       router_forward(routers[i], a);
+    }
+
+    // increase all the xid of all the siblings
+    for(i = 0; i < n_ospf6_siblings; i++)
+    {
+      ospf6_siblings[i]->current_egress_xid++;
     }
   }  
 }
@@ -262,12 +310,12 @@ int sib_router_run(struct thread * t)
 
   rconn_run(rt->rconn);
 
-  if(rt->state == S_CONNECTING)
+  if(rt->state == SIB_CONNECTING)
   {
 //    if(rconn_get_version(rt->rconn) != -1)
 //    {
 //      sib_router_handshake(rt);
-      rt->state = S_FEATURES_REPLY;
+      state_transition(rt, SIB_FEATURES_REPLY);
 //    }
     sib_router_wait(rt);
     return;
@@ -311,14 +359,16 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
 {
   enum rfptype type;
   struct rfp_header * rh;
+  unsigned int xid;
   int i;
 
   rh = msg->data;
+  xid = ntohl(rh->xid);
 
   switch(rh->type)
   {
     case RFPT_FEATURES_REPLY:
-      if(sr->state == S_FEATURES_REPLY)
+      if(sr->state == SIB_FEATURES_REPLY)
       {
         printf("features reply\n");
 //        if(!sib_router_process_features(rt, msg->data))
@@ -335,27 +385,63 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
     case RFPT_FEATURES_REQUEST:
       if(IS_CONTROLLER_DEBUG_MSG)
       {
-        zlog_debug("features request\n");
+        zlog_debug("features request, xid: %d from %s", xid, sr->rconn->target);
       }
-      sib_router_send_features_reply(sr);   
+      if(xid == sr->current_egress_xid)
+      {
+        sr->current_egress_xid++;
+        sib_router_send_features_reply(sr, xid);   
+      }
+      else
+      {
+        if(IS_CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("features request, xid mismatch");
+        }
+      }
       break;
 
     case RFPT_REDISTRIBUTE_REQUEST:
       if(IS_CONTROLLER_DEBUG_MSG)
       {
-        zlog_debug("redistribute request\n");
+        zlog_debug("redistribute request, xid: %d from %s", xid, sr->rconn->target);
       }
-      sib_router_redistribute(sr);
+      if(xid == sr->current_egress_xid)
+      {
+        sr->current_egress_xid++;
+        sib_router_redistribute(sr, xid);
+      }
+      else
+      {
+        if(IS_CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("redistribute request, xid mismatch");
+        }
+      }
       break;
 
     case RFPT_FORWARD_OSPF6:
       {
-        struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
-        list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
-        if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
-           (all_have_msg_rcvd()))
+        if(xid == sr->current_egress_xid)
         {
-          vote_majority();
+          zlog_debug("forward ospf6 packet: xids %d matched", xid);
+          struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
+          list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
+          // first we check if all siblings are connected,
+          // then we check if majority have received the messages
+          if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
+             (majority_have_msg_rcvd()))
+          {
+            // increment the current xid inside vote_majority
+            vote_majority();
+          }
+        }
+        else
+        {
+          if(CONTROLLER_DEBUG_MSG)
+          {
+            zlog_debug("forward ospf6 packet: rejected, xid %d", xid);
+          }
         }
       }
       break;
@@ -369,6 +455,19 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_ACK:
+      if(CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("ACK for a previous RFPT message received");
+      }
+      if(xid == sr->current_ingress_xid)
+      {
+        if(CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("xid in ACK corresponds to a previously sent message");
+        }
+      }
+      break;
 
     default:
       printf("unknown packet\n");
@@ -383,17 +482,27 @@ sib_router_is_alive(const struct sib_router *rt)
 
 /* Destroys 'sw'. */
 void
-sib_router_destroy(struct sib_router *sw)
+sib_router_destroy(struct sib_router * sr)
 {
-  if(sw)
+  state_transition(sr, SIB_DISCONNECTED);
+
+  // free the list
+  while(!list_empty(&sr->msgs_rcvd_queue))
   {
-    rconn_destroy(sw->rconn);
-    free(sw);
+    struct rfpbuf * msg = rfpbuf_from_list(list_pop_front(&sr->msgs_rcvd_queue));
+    rfpbuf_delete(msg);
+  }
+
+  if(sr)
+  {
+    rconn_destroy(sr->rconn);
   } 
+
+
 }
 
 static void
-sib_router_send_features_reply(struct sib_router * sr)
+sib_router_send_features_reply(struct sib_router * sr, unsigned int xid)
 {
   if(routers == NULL)
     printf("router is empty\n");
@@ -407,7 +516,7 @@ sib_router_send_features_reply(struct sib_router * sr)
     int j;
     int retval;
 
-    buffer = routeflow_alloc_xid(RFPT_FEATURES_REPLY, RFP10_VERSION, 0, sizeof(struct rfp_router_features));
+    buffer = routeflow_alloc_xid(RFPT_FEATURES_REPLY, RFP10_VERSION, xid, sizeof(struct rfp_router_features));
   
     rfr = buffer->l2;
 
@@ -438,13 +547,14 @@ sib_router_send_features_reply(struct sib_router * sr)
 
 
 static void
-sib_router_send_route_reply(enum rfp_type type, struct sib_router * sr, struct prefix * p, struct rib * rib)
+sib_router_send_route_reply(enum rfp_type type, struct sib_router * sr, struct prefix * p, 
+                            unsigned int xid, struct rib * rib)
 {
   struct rfpbuf * buffer;
   struct rfp_ipv4_route * rir;
   int retval;
 
-  buffer = routeflow_alloc_xid(type, RFP10_VERSION, 0, sizeof(struct rfp_ipv4_route));
+  buffer = routeflow_alloc_xid(type, RFP10_VERSION, xid, sizeof(struct rfp_ipv4_route));
 
   rir = buffer->l2;
 
@@ -462,7 +572,7 @@ sib_router_send_route_reply(enum rfp_type type, struct sib_router * sr, struct p
 }
 
 static void
-sib_router_redistribute(struct sib_router * sr)
+sib_router_redistribute(struct sib_router * sr, unsigned int xid)
 {
   struct rib * newrib;
   struct route_table * table;
@@ -474,10 +584,10 @@ sib_router_redistribute(struct sib_router * sr)
       for (newrib = rn->info; newrib; newrib = newrib->next)
         if(newrib->distance != DISTANCE_INFINITY)
 //            && zebra_check_addr (&rn->p)) // TODO: implement function
-          sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, newrib);
+          sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, xid, newrib);
 }
 
-void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_xid)
+void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_xid)
 {
   int i;
   int retval;
@@ -485,7 +595,7 @@ void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_xid)
   for(i = 0; i < n_ospf6_siblings; i++)
   {
     struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-    ospf6_siblings[i]->last_xid = current_xid;
+    ospf6_siblings[i]->current_ingress_xid = current_ingress_xid;
     retval = rconn_send(ospf6_siblings[i]->rconn, msg_copy);
     if(retval)
     {
@@ -509,6 +619,11 @@ void sib_router_forward_bgp(struct rfpbuf * msg)
     		  rconn_get_target(ospf6_siblings[i]->rconn), strerror(retval));
     }
   }
+}
+
+static void state_transition(struct sib_router * sr, enum sib_router_state state)
+{
+  sr->state = state;
 }
 
 /*

@@ -49,7 +49,8 @@ int ospf6_hello_send(struct thread * thread)
   /* set next thread */
   oi->thread_send_hello = thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval);
 
-  oi->ctrl_client->obuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_header));
+  oi->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION, 
+                                              htonl(oi->ctrl_client->current_xid), sizeof(struct rfp_header));
 
 
   oh = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_header));
@@ -127,13 +128,18 @@ int ospf6_hello_send(struct thread * thread)
 
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);
+
+  // increment the xid after we send the message
+  oi->ctrl_client->current_xid++;
   return 0;
 }
 
-static void ospf6_hello_recv(struct ospf6_header * oh, struct ospf6_interface * oi)
+static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_header * oh, 
+                             struct ospf6_interface * oi, unsigned int xid)
 {
   struct ospf6_hello * hello;
   struct ospf6_neighbor * on;
+  int retval;
 
   hello = (struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header));
 
@@ -164,31 +170,49 @@ static void ospf6_hello_recv(struct ospf6_header * oh, struct ospf6_interface * 
 
   /* Execute neighbor events */
   thread_execute(master, hello_received, on, 0);
+
+  // send an ACK back to the controller
+  ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
+                                          htonl(xid), sizeof(struct rfp_header));
+  retval = ctrl_send_message(ctrl_client);
 }
 
-static void ospf6_dbdesc_recv(struct ospf6_header * oh, struct ospf6_interface * oi)
+static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
+                              struct ospf6_header * oh, 
+                              struct ospf6_interface * oi,
+                              unsigned int xid)
 {
   struct ospf6_neighbor * on;
   struct ospf6_dbdesc * dbdesc;
-
+  int retval;
 
   printf("Received DBDESC message\n");
 
+  // send an ACK back to the controller
+  ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
+                                          htonl(xid), sizeof(struct rfp_header));
+  retval = ctrl_send_message(ctrl_client);
 }
-int ospf6_receive(struct rfp_header * rh, struct ospf6_interface * oi)
+
+int ospf6_receive(struct ctrl_client * ctrl_client, 
+                  struct rfp_header * rh, 
+                  struct ospf6_interface * oi)
 {
   struct ospf6_header * oh;
+  unsigned int xid;
+
+  xid = ntohl(rh->xid);
 
   oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
 
   switch(oh->type)
   {
     case OSPF6_MESSAGE_TYPE_HELLO:
-      ospf6_hello_recv(oh, oi);
+      ospf6_hello_recv(ctrl_client, oh, oi, xid);
       break; 
 
     case OSPF6_MESSAGE_TYPE_DBDESC:
-      ospf6_dbdesc_recv(oh, oi);
+      ospf6_dbdesc_recv(ctrl_client, oh, oi, xid);
       break;
 
     debault:

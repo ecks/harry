@@ -42,6 +42,7 @@ enum rfp_version {
 
 enum rfp_type {
     RFPT_HELLO,               /* Symmetric message */
+    RFPT_ACK,
     RFPT_ERROR,               /* Symmetric message */
     RFPT_ECHO_REQUEST,        /* Symmetric message */
     RFPT_ECHO_REPLY,          /* Symmetric message */
@@ -75,7 +76,7 @@ struct rfp_header {
 };
 RFP_ASSERT(sizeof(struct rfp_header) == 8);
 
-/* OFPT_HELLO.  This message has an empty body, but implementations must
+/* RFPT_HELLO.  This message has an empty body, but implementations must
  * ignore any data included in the body, to allow for future extensions. */
 struct rfp_hello {
     struct rfp_header header;
