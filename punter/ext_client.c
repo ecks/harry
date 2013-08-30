@@ -2,6 +2,7 @@
 #include "stdbool.h"
 #include "stdlib.h"
 #include "stdint.h"
+#include "stddef.h"
 #include "assert.h"
 #include "sys/socket.h"
 
