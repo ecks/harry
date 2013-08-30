@@ -17,6 +17,7 @@
 #include "rfpbuf.h"
 #include "rconn.h"
 #include "rib.h"
+#include "debug.h"
 #include "if.h"
 #include "sib_router.h"
 #include "router.h"
@@ -183,10 +184,14 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
     case RFPT_FORWARD_OSPF6:
       if(rt->state == R_ROUTING)
       {
-        // forward to all siblings
-        printf("forward ospf6 packet: controller => sibling, xid: %d\n", ntohl(rh->xid));
+        if(IS_CONTROLLER_DEBUG_MSG)
+        {
+          // forward to all siblings
+          zlog_debug("forward ospf6 packet: controller => sibling, xid: %d", ntohl(rh->xid));
+        }
         struct rfpbuf * msg_copy = rfpbuf_clone(msg);
         sib_router_forward_ospf6(msg_copy, ntohl(rh->xid));
+
         // sent the data, no longer needed
         rfpbuf_delete(msg_copy);
       }

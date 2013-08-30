@@ -52,10 +52,13 @@ int main(int argc, char *argv[])
 {
   int opt;
   char * config_file = "/etc/zebralite/ospf6_sibling.conf";
+  char * sisis_addr;
+  struct in6_addr * sibling_addr;
   struct vconn * vconn;
   int retval;
   struct rfpbuf * buffer;
   struct thread thread;
+  struct in6_addr * ctrl_addr;
 
   int sisis_fd;
   uint64_t host_num = 1;
@@ -97,14 +100,19 @@ int main(int argc, char *argv[])
   // initialize our interface list
   if_init();
 
-  if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_OSPF6_SBLING) < 0))
+  sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
+  if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_OSPF6_SBLING) < 0))
   {
     printf("sisis_init error\n");
     exit(1);
   }
 
+  sibling_addr = calloc(1, sizeof(struct in6_addr));
+  zlog_debug("sibling sisis addr: %s", sisis_addr);
+  inet_pton(AF_INET6, sisis_addr, sibling_addr);
+
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
-  printf("num of controllers: %d\n", num_of_controllers);
+  zlog_debug("num of controllers: %d", num_of_controllers);
  
   struct list * ctrl_addrs = get_ctrl_addrs();
   struct route_ipv6 * route_iter;
@@ -113,12 +121,13 @@ int main(int argc, char *argv[])
     
     char s_addr[INET6_ADDRSTRLEN+1];
     inet_ntop(AF_INET6, &route_iter->p->prefix, s_addr, INET6_ADDRSTRLEN+1);
-    printf("done getting ctrl addr: %s\n", s_addr);
+    zlog_debug("done getting ctrl addr: %s", s_addr);
 
     struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
     memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
-    sibling_ctrl_init(ctrl_addr, interface_name);
+    sibling_ctrl_init(ctrl_addr, sibling_addr, interface_name);
   }
+
 
   // free  the list, no longer needed
   while(!list_empty(ctrl_addrs))
@@ -133,7 +142,7 @@ int main(int argc, char *argv[])
   
   ospf6_top_init(interface_name);
 
-  zlog_notice("OSPF6 Sibling starting");
+  zlog_notice("OSPF6 Sibling starting: %d", getpid());
 
   /* Start finite state machine, here we go! */
   while(thread_fetch(master, &thread))

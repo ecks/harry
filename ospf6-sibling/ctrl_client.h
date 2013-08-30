@@ -6,7 +6,7 @@ struct ctrl_client
   int sock;
 
   struct in6_addr * ctrl_addr;
-
+  struct in6_addr * sibling_addr;
   unsigned int current_xid;
 
   int fail;
@@ -28,11 +28,15 @@ struct ctrl_client
 };
 
 extern struct ctrl_client * ctrl_client_new();
-extern void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr, char * interface_name);
+extern void ctrl_client_init(struct ctrl_client * ctrl_client, 
+                             struct in6_addr * ctrl_addr, 
+                             struct in6_addr * sibling_addr,
+                             char * interface_name);
 int fwd_message_send(struct ctrl_client * ctrl_client);
 int ctrl_client_start(struct ctrl_client * ctrl_client);
 
 /* TCP socket connection to controller */
-extern int ctrl_client_socket(struct in6_addr * ctrl_addr);
+extern int ctrl_client_socket(struct in6_addr * ctrl_addr,
+                              struct in6_addr * sibling_addr);
 
 #endif

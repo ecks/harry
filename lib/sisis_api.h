@@ -96,7 +96,7 @@ int sisis_register(unsigned int ptype, unsigned int host_num, unsigned int pid, 
 /**
  * Need to free outside of function
  */
-void sisis_register_host(uint64_t host_num, uint64_t ptype, uint64_t ptype_version);
+void sisis_register_host(char * sisis_addr, uint64_t host_num, uint64_t ptype, uint64_t ptype_version);
 
 /**
  * Unregisters SIS-IS process.

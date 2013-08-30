@@ -70,6 +70,7 @@ int main(int argc, char *argv[])
   struct pvconn * nb_listeners[MAX_LISTENERS];
   struct pvconn * nb_pvconn;   // north-bound interface connection
   struct pvconn * sib_pvconn;  // sibling channel interface
+  char * sisis_addr;
   int retval;
   int i;
 
@@ -101,7 +102,9 @@ int main(int argc, char *argv[])
   int sisis_fd;
   uint64_t host_num = 1;
 
-  if((sisis_fd = sisis_init(host_num, SISIS_PTYPE_CTRL)) < 0)
+  sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
+
+  if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_CTRL)) < 0)
   {
     printf("sisis_init error\n");
     exit(1);

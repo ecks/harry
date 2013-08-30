@@ -15,12 +15,12 @@
 #include "netlink.h"
 #include "sisis_process_types.h"
 
-int sisis_init(uint64_t host_num, uint64_t ptype)
+int sisis_init(char * sisis_addr, uint64_t host_num, uint64_t ptype)
 {
   // not used for now
   int sockfd = 0;
 
-  sisis_register_host(host_num, ptype, SISIS_VERSION);
+  sisis_register_host(sisis_addr, host_num, ptype, SISIS_VERSION);
 
   kernel_init();
 

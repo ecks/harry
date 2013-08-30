@@ -40,11 +40,15 @@ struct ctrl_client * ctrl_client_new()
   return ctrl_client;
 }
 
-void ctrl_client_init(struct ctrl_client * ctrl_client, struct in6_addr * ctrl_addr, char * interface_name)
+void ctrl_client_init(struct ctrl_client * ctrl_client, 
+                      struct in6_addr * ctrl_addr, 
+                      struct in6_addr * sibling_addr, 
+                      char * interface_name)
 {
   ctrl_client->sock = -1;
 
   ctrl_client->ctrl_addr = ctrl_addr;
+  ctrl_client->sibling_addr = sibling_addr;
   ctrl_client->current_xid = 0;
   ctrl_client->state = CTRL_CONNECTING;
   ctrl_client->interface_name = interface_name;
@@ -74,7 +78,7 @@ void ctrl_client_stop(struct ctrl_client * ctrl_client)
 //  ctrl_client->fail = 0;
 }
 
-int ctrl_client_socket(struct in6_addr * ctrl_addr)
+int ctrl_client_socket(struct in6_addr * ctrl_addr, struct in6_addr * sibling_addr)
 {
   char c_addr[INET6_ADDRSTRLEN+1];
   int sock;
@@ -89,6 +93,13 @@ int ctrl_client_socket(struct in6_addr * ctrl_addr)
   hints.ai_family = AF_INET6;     // IPv6
   hints.ai_socktype = SOCK_STREAM;  // TCP
 
+  // Set up source address
+  struct sockaddr_in6 sin6;
+  memset(&sin6, 0, sizeof(struct sockaddr_in6));
+  sin6.sin6_family = AF_INET6;
+  memcpy(&sin6.sin6_addr, sibling_addr, sizeof(struct in6_addr));
+  sin6.sin6_port = 0; // specify an unused local port
+
   char port_str[8];
   sprintf(port_str, "%u", OSPF6_CTRL_SISIS_PORT);
   if((status = getaddrinfo(c_addr, port_str, &hints, &addr)) != 0)
@@ -101,6 +112,12 @@ int ctrl_client_socket(struct in6_addr * ctrl_addr)
   if (sock < 0)
   {
     printf("Network: can't create socket.\n");
+  }
+
+  ret = bind(sock, (struct sockaddr *)&sin6, sizeof sin6);
+  if(ret < 0)
+  {
+    perror("bind");
   }
 
   printf("ctrl_client TCP socket: creating socket %d\n", sock);
@@ -172,7 +189,7 @@ int ctrl_client_start(struct ctrl_client * ctrl_client)
     return 0;
 
   /* Make socket */
-  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr);
+  ctrl_client->sock = ctrl_client_socket (ctrl_client->ctrl_addr, ctrl_client->sibling_addr);
   if (ctrl_client->sock < 0)
   {
     printf("ctrl_client connection fail\n");

@@ -3,7 +3,7 @@
 
 enum sib_router_state {
     SIB_CONNECTING,               /* Waiting for connection to complete. */
-    SIB_FEATURES_REPLY,           /* Waiting for features reply. */
+    SIB_FEATURES_REQUEST,           /* Waiting for features reply. */
     SIB_ROUTING,                  /* Switching flows. */
     SIB_DISCONNECTED,             /* Disconnected. */
 };
@@ -11,8 +11,25 @@ enum sib_router_state {
 struct sib_router {
     struct rconn *rconn;
     enum sib_router_state state;
+
+    // ip address set in a string
+    char * name;
+
+    // xid of the current ingress msg
     unsigned int current_ingress_xid;
+
+    // is the ack for the ingress msg received?
+    bool current_ingress_ack_rcvd;
+
+    // timeout for an ingress ack
+    u_int16_t ingress_ack_timeout;
+
+    // thread corresponding to checking for timeout
+    struct thread * thread_timeout_ingress;
+
+    // xid of the current egress msg
     unsigned int current_egress_xid;
+
     struct list msgs_rcvd_queue;
 };
 

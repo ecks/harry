@@ -206,12 +206,16 @@ ptcp6_accept(int fd, const struct sockaddr *sa, size_t sa_len,
             struct stream **streamp)
 {
   const struct sockaddr_in6 *sin6 = (const struct sockaddr_in6 *) sa;
-  char name[128];
+  char name[INET6_ADDRSTRLEN];
 
   if (sa_len == sizeof(struct sockaddr_in6) && sin6->sin6_family == AF_INET6) 
   {
-      sprintf(name, "tcp:"IP6_FMT, IP6_ARGS(&sin6->sin6_addr));
-      sprintf(strchr(name, '\0'), ":%"PRIu16, ntohs(sin6->sin6_port));
+      inet_ntop(AF_INET6, &sin6->sin6_addr, name, sizeof(name));
+      zlog_debug("connected address: %s\n", name);
+
+      // not needed, IPv6 address is not right anyway :(((
+//      sprintf(name, "tcp:"IP6_FMT, IP6_ARGS(&sin6->sin6_addr));
+//      sprintf(strchr(name, '\0'), ":%"PRIu16, ntohs(sin6->sin6_port));
   } 
   else 
   {

@@ -258,9 +258,19 @@ rconn_recv(struct rconn *rc)
           }
           return buffer;
      } 
-     else if (error != EAGAIN) {
-       printf("An error has occured\n");
-       rconn_disconnect(rc);
+     else if (error != EAGAIN) 
+     {
+       if(error == ECONNRESET)
+       {
+         printf("The connection has been closed\n");
+         rconn_disconnect(rc);
+         return NULL;
+       }
+       else
+       {
+         printf("An error has occured\n");
+         rconn_disconnect(rc);
+       }
      }
   }
   return NULL;

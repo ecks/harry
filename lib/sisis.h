@@ -1,7 +1,7 @@
 #ifndef SISIS_H
 #define SISIS_H
 
-int sisis_init(uint64_t host_num, uint64_t ptype);
+int sisis_init(char * sisis_addr, uint64_t host_num, uint64_t ptype);
 
 struct list * get_ctrl_addrs(void);
 

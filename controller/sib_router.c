@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include "string.h"
 #include "stdlib.h"
 #include "stdint.h"
@@ -5,6 +7,7 @@
 #include "stdbool.h"
 #include "stddef.h"
 #include "string.h"
+#include "signal.h"
 #include "errno.h"
 #include "netinet/in.h"
 
@@ -20,8 +23,10 @@
 #include "rfp-msgs.h"
 #include "prefix.h"
 #include "table.h"
+#include "sisis_api.h"
 #include "rib.h"
 #include "debug.h"
+#include "thread.h"
 #include "router.h"
 #include "sib_router.h"
 
@@ -167,13 +172,19 @@ sib_router_create(struct rconn *rconn)
 {
   struct sib_router * rt;
   size_t i;
+  char * name = rconn->target;
 
   rt = malloc(sizeof *rt);
+ 
+  rt->name = malloc(strlen(name)); 
+  strncpy(rt->name, name, strlen(name));
+
   rt->rconn = rconn;
   state_transition(rt, SIB_CONNECTING);
   list_init(&rt->msgs_rcvd_queue);
 
   rt->current_egress_xid = 0;
+  rt->ingress_ack_timeout = 5;
 //  for(i = 0; i < MAX_PORTS; i++)
 //  {
 //    rt->port_states[i] = P_DISABLED;
@@ -315,7 +326,7 @@ int sib_router_run(struct thread * t)
 //    if(rconn_get_version(rt->rconn) != -1)
 //    {
 //      sib_router_handshake(rt);
-      state_transition(rt, SIB_FEATURES_REPLY);
+      state_transition(rt, SIB_FEATURES_REQUEST);
 //    }
     sib_router_wait(rt);
     return;
@@ -367,21 +378,6 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
 
   switch(rh->type)
   {
-    case RFPT_FEATURES_REPLY:
-      if(sr->state == SIB_FEATURES_REPLY)
-      {
-        printf("features reply\n");
-//        if(!sib_router_process_features(rt, msg->data))
-//        {
-//          rt->state = S_ROUTING;
-//        }
-//        else
-//        {
-//          rconn_disconnect(rt->rconn);
-//        }
-      }
-      break;
-
     case RFPT_FEATURES_REQUEST:
       if(IS_CONTROLLER_DEBUG_MSG)
       {
@@ -391,6 +387,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         sr->current_egress_xid++;
         sib_router_send_features_reply(sr, xid);   
+        state_transition(sr, SIB_ROUTING);
       }
       else
       {
@@ -458,10 +455,12 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
     case RFPT_ACK:
       if(CONTROLLER_DEBUG_MSG)
       {
-        zlog_debug("ACK for a previous RFPT message received");
+        zlog_debug("ACK for a previous RFPT message received, xid: %d", xid);
       }
       if(xid == sr->current_ingress_xid)
       {
+        sr->current_ingress_ack_rcvd = true;
+
         if(CONTROLLER_DEBUG_MSG)
         {
           zlog_debug("xid in ACK corresponds to a previously sent message");
@@ -587,6 +586,43 @@ sib_router_redistribute(struct sib_router * sr, unsigned int xid)
           sib_router_send_route_reply (RFPT_IPV4_ROUTE_ADD, sr, &rn->p, xid, newrib);
 }
 
+int sib_router_timeout_forward_ospf6(struct thread * thread)
+{
+  struct sib_router * sr;
+
+  sr = (struct sib_router *)THREAD_ARG(thread);
+
+  if(!sr->current_ingress_ack_rcvd)
+  {
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("Ack %d not received in time", sr->current_ingress_xid);
+    }
+
+    // Parse components
+    uint64_t prefix, sisis_version, process_type, process_version, sys_id, pid, ts; 
+    if(get_sisis_addr_components(sr->name, &prefix, &sisis_version, &process_type, &process_version, &sys_id, &pid, &ts) == 0)
+      {
+        if(CONTROLLER_DEBUG_MSG)
+        {        
+          zlog_debug("For address %s, %d\t%d\t%d\t%d\t%d\n", sr->name, process_type, process_version, sys_id, pid, ts);
+        }
+
+        // kill the sibling
+        kill(pid, SIGKILL);
+      }                                                                             
+  }
+  else
+  {
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("Ack %d was received in time", sr->current_ingress_xid);
+    }
+  }
+
+  return 0;
+}
+
 void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_xid)
 {
   int i;
@@ -594,13 +630,24 @@ void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_
 
   for(i = 0; i < n_ospf6_siblings; i++)
   {
-    struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-    ospf6_siblings[i]->current_ingress_xid = current_ingress_xid;
-    retval = rconn_send(ospf6_siblings[i]->rconn, msg_copy);
-    if(retval)
+    if(ospf6_siblings[i]->state == SIB_ROUTING)
     {
-      printf("send to %s failed: %s\n",
-    		  rconn_get_target(ospf6_siblings[i]->rconn), strerror(retval));
+      struct rfpbuf * msg_copy = rfpbuf_clone(msg);
+      ospf6_siblings[i]->current_ingress_xid = current_ingress_xid;
+      ospf6_siblings[i]->current_ingress_ack_rcvd = false;
+
+      // set a timeout for receiving the ack
+      ospf6_siblings[i]->thread_timeout_ingress = thread_add_timer(master,
+                                                                   sib_router_timeout_forward_ospf6,
+                                                                   ospf6_siblings[i], 
+                                                                   ospf6_siblings[i]->ingress_ack_timeout);
+
+      retval = rconn_send(ospf6_siblings[i]->rconn, msg_copy);
+      if(retval)
+      {
+        printf("send to %s failed: %s\n",
+    		    rconn_get_target(ospf6_siblings[i]->rconn), strerror(retval));
+      }
     }
   }
 }

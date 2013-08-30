@@ -597,10 +597,9 @@ int sisis_register(char * sisis_addr, ...)
 	return rtn;
 }
 
-void sisis_register_host(uint64_t host_num, uint64_t ptype, uint64_t ptype_version)
+void sisis_register_host(char * sisis_addr, uint64_t host_num, uint64_t ptype, uint64_t ptype_version)
 {
   uint64_t pid, timestamp;
-  char sisis_addr[INET6_ADDRSTRLEN];
 
   // Get pid
   pid = getpid();        // Get start time
@@ -704,10 +703,9 @@ int sisis_register(unsigned int ptype, unsigned int host_num, unsigned int pid, 
 	return rtn;
 }
 
-void sisis_register_host(uint64_t host_num, uint64_t ptype, uint64_t ptype_version)
+void sisis_register_host(char * sisis_addr, uint64_t host_num, uint64_t ptype, uint64_t ptype_version)
 {
   uint64_t pid, timestamp;
-  char sisis_addr[INET_ADDRSTRLEN];
 
   // Get pid
   pid = getpid();        // Get start time
