@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <stddef.h>
 #include <sys/un.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 
+#include "util.h"
 #include "dblist.h"
 #include "rfpbuf.h"
 #include "zl_client_network.h"

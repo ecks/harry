@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h> 
 #include <stdbool.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "util.h"
 #include "lib/routeflow-common.h"
 #include "lib/dblist.h"
 #include "vector.h"

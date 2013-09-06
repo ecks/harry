@@ -3,9 +3,11 @@
 #include "unistd.h"
 #include "netdb.h"
 #include "stdbool.h"
+#include "stddef.h"
 #include "stdio.h"
 #include "stdlib.h"
 
+#include "util.h"
 #include "routeflow-common.h"
 #include "socket-util.h"
 #include "dblist.h"
