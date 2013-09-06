@@ -25,6 +25,7 @@ struct ctrl_client
   /* Pointer to the callback functions */
   int (*features_reply) (struct ctrl_client *, struct rfpbuf *);
   int (*routes_reply) (struct ctrl_client *, struct rfpbuf *);
+  int (*leader_elect) ();
 };
 
 extern struct ctrl_client * ctrl_client_new();

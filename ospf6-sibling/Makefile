@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib
 EXECUTABLE = ospf6-sibling
 LIBS = -pthread -lrt
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c log.c command.c vty.c debug.c vector.c
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c log.c command.c vty.c debug.c vector.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -84,6 +84,9 @@ ospf6_message.o: ospf6_message.c
 	$(CC) $(CFLAGS) -c $^
 
 ospf6_neighbor.o: ospf6_neighbor.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_replica.o: ospf6_replica.c
 	$(CC) $(CFLAGS) -c $^
 
 log.o: log.c

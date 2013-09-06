@@ -302,6 +302,10 @@ static int ctrl_client_read(struct thread * t)
   
       ctrl_client_event(CTRL_CLIENT_CONNECTED, ctrl_client);
       break;
+
+    case RFPT_LEADER_ELECT:
+      ret = ctrl_client->leader_elect();
+      break;
     
     case RFPT_FEATURES_REPLY:
       ret = ctrl_client->features_reply(ctrl_client, ctrl_client->ibuf);

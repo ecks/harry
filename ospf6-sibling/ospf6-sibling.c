@@ -28,7 +28,9 @@
 #include "debug.h"
 #include "vconn.h"
 #include "ospf6_top.h"
+#include "ospf6_replica.h"
 #include "sisis.h"
+#include "sisis_api.h"
 #include "sisis_process_types.h"
 #include "sibling_ctrl.h"
 #include "sibling.h"
@@ -109,10 +111,19 @@ int main(int argc, char *argv[])
 
   sibling_addr = calloc(1, sizeof(struct in6_addr));
   zlog_debug("sibling sisis addr: %s", sisis_addr);
+
   inet_pton(AF_INET6, sisis_addr, sibling_addr);
 
+  ospf6_replica_init(sibling_addr);
+
+  free(sisis_addr);
+
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
-  zlog_debug("num of controllers: %d", num_of_controllers);
+
+  if(IS_OSPF6_SIBLING_DEBUG_SISIS)
+  {
+    zlog_debug("num of controllers: %d", num_of_controllers);
+  }
  
   struct list * ctrl_addrs = get_ctrl_addrs();
   struct route_ipv6 * route_iter;
@@ -141,6 +152,14 @@ int main(int argc, char *argv[])
   free(ctrl_addrs);
   
   ospf6_top_init(interface_name);
+
+  // Monitor rib changes in the case that we need to restart it
+  struct subscribe_to_rib_changes_info info;
+  info.rib_add_ipv4_route = rib_monitor_add_ipv4_route;
+  info.rib_remove_ipv4_route = rib_monitor_remove_ipv4_route;
+  info.rib_add_ipv6_route = rib_monitor_add_ipv6_route;
+  info.rib_remove_ipv6_route = rib_monitor_remove_ipv6_route;
+  subscribe_to_rib_changes(&info);
 
   zlog_notice("OSPF6 Sibling starting: %d", getpid());
 

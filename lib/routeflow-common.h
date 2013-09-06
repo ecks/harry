@@ -43,6 +43,7 @@ enum rfp_version {
 enum rfp_type {
     RFPT_HELLO,               /* Symmetric message */
     RFPT_ACK,
+    RFPT_LEADER_ELECT,
     RFPT_ERROR,               /* Symmetric message */
     RFPT_ECHO_REQUEST,        /* Symmetric message */
     RFPT_ECHO_REPLY,          /* Symmetric message */

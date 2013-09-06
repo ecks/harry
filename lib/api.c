@@ -16,9 +16,9 @@
 #include "routeflow-common.h"
 #include "api.h"
 
-int rib_add_ipv4 (struct route_ipv4 * route, struct list * list);
+int rib_add_ipv4 (struct route_ipv4 * route, void * data);
 #ifdef HAVE_IPV6
-int rib_add_ipv6 (struct route_ipv6 * route, struct list * list);
+int rib_add_ipv6 (struct route_ipv6 * route, void * data);
 #endif /* HAVE_IPV6 */
 
 void api_init()
@@ -73,16 +73,18 @@ int interface_list(struct list * list, int (*add_port)(int index, unsigned int f
 }
 
 /* Add an IPv4 Address to RIB. */
-int rib_add_ipv4 (struct route_ipv4 * route, struct list * list)
+int rib_add_ipv4 (struct route_ipv4 * route, void * data)
 {
+  struct list * list = (struct list *)data;
   list_push_back(list, &route->node);
 
   return 0;
 }
 
 #ifdef HAVE_IPV6
-int rib_add_ipv6 (struct route_ipv6 * route, struct list * list)
+int rib_add_ipv6 (struct route_ipv6 * route, void * data)
 {
+  struct list * list = (struct list *)data;
   list_push_back(list, &route->node);
   return 0;
 }

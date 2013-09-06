@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -8,12 +10,14 @@
 #include "util.h"
 #include "debug.h"
 #include "dblist.h"
+#include "prefix.h"
 #include "rfpbuf.h"
 #include "routeflow-common.h"
 #include "thread.h"
 #include "prefix.h"
 #include "if.h"
 #include "ospf6_interface.h"
+#include "ospf6_replica.h"
 #include "ctrl_client.h"
 #include "sibling_ctrl.h"
 
@@ -85,4 +89,5 @@ void sibling_ctrl_init(struct in6_addr * ctrl_addr,
   ctrl_client_init(ctrl_client, ctrl_addr, sibling_addr, interface_name);
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
+  ctrl_client->leader_elect = ospf6_leader_elect;
 }

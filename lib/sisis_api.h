@@ -122,9 +122,9 @@ int sisis_unregister(unsigned int ptype, unsigned int host_num, unsigned int pid
 int sisis_dump_kernel_ipv6_routes_to_tables(struct list * rib);
 #endif
 
-int sisis_rib_add_ipv4 (struct route_ipv4 * route, struct list * list);
+int sisis_rib_add_ipv4 (struct route_ipv4 * route, void *);
 #ifdef HAVE_IPV6
-int sisis_rib_add_ipv6 (struct route_ipv6 *, struct list *);
+int sisis_rib_add_ipv6 (struct route_ipv6 *, void *);
 #endif /* HAVE_IPV6 */
 
 /** Callback functions when receiving RIB updates. */
@@ -137,8 +137,14 @@ struct subscribe_to_rib_changes_info
 	int (*rib_remove_ipv6_route)(struct route_ipv6 *, void *);
 	#endif /* HAVE_IPV6 */
 	void * data;
-	struct sisis_netlink_routing_table_info * subscribe_info;
+	struct netlink_routing_table_info * subscribe_info;
 };
+
+/** Subscribe to route add/remove messages */
+int subscribe_to_rib_changes(struct subscribe_to_rib_changes_info * info);
+
+/** Unsubscribe to route add/remove messages */
+int unsubscribe_to_rib_changes(struct subscribe_to_rib_changes_info * info);
 
 #ifdef HAVE_IPV6
 /**

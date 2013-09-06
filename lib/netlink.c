@@ -332,7 +332,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 						
 						// Note: Receivers responsibilty to free memory for route
 						
-						(h->nlmsg_type == RTM_NEWROUTE) ? real_info->rib_add_ipv4_route(route, real_info->ipv4_rib) : real_info->rib_remove_ipv4_route(route, real_info->ipv4_rib);
+						(h->nlmsg_type == RTM_NEWROUTE) ? real_info->rib_add_ipv4_route(route, (void *)real_info->ipv4_rib) : real_info->rib_remove_ipv4_route(route, (void *)real_info->ipv4_rib);
 					}
 				}
 			}
@@ -514,6 +514,47 @@ int netlink_link_read(struct netlink_port_info * info)
   if (ret < 0)
     return ret;
 
+  return 0;
+}
+
+/* Thread to wait for and process rib changes on a socket. */
+void * netlink_wait_for_rib_changes(void * info)
+{
+  struct netlink_wait_for_rib_changes_info * real_info = (struct netlink_wait_for_rib_changes_info *)info;
+  netlink_parse_info(netlink_routing_table, real_info->netlink_rib, (void*)real_info->info);
+}
+
+/* Subscribe to routing table table using netlink interface. */
+int netlink_subscribe_to_rib_changes(struct netlink_routing_table_info * info)
+{
+  // Set up kernel socket
+  struct nlsock * netlink_rib  = malloc(sizeof(struct nlsock));
+  if (netlink_rib == NULL)
+    return -1; 
+  
+  netlink_rib->sock = -1; 
+  netlink_rib->seq = 0;
+  memset(&netlink_rib->snl, 0, sizeof(netlink_rib->snl));
+  netlink_rib->name = "netlink";
+  
+  // Set up groups to listen for
+  unsigned long groups= RTMGRP_IPV4_ROUTE;
+#ifdef HAVE_IPV6
+  groups |= RTMGRP_IPV6_ROUTE;
+#endif /* HAVE_IPV6 */
+  int rtn = netlink_socket (netlink_rib, groups);
+  if (rtn < 0)
+    return rtn;
+  
+  // Start thread
+  pthread_t * thread = malloc(sizeof(pthread_t));
+  info->nl_info = malloc(sizeof(*info->nl_info));
+  if (thread == NULL || info->nl_info == NULL)
+    return -1; 
+  info->nl_info->netlink_rib = netlink_rib;
+  info->nl_info->info = info;
+  pthread_create(thread, NULL, netlink_wait_for_rib_changes, info->nl_info);
+                                                                                                                                                                                   
   return 0;
 }
 

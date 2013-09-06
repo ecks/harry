@@ -42,6 +42,7 @@ int * n_routers_p;
 
 static struct sib_router * ospf6_siblings[MAX_OSPF6_SIBLINGS];
 int n_ospf6_siblings;
+int n_ospf6_siblings_routing; // number of ospf6 siblings that have transitioned to routing state
 
 static struct sib_router * bgp_siblings[MAX_BGP_SIBLINGS];
 int n_bgp_siblings;
@@ -54,6 +55,7 @@ static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const c
 static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
 static void sib_router_send_features_reply(struct sib_router * sr, unsigned int xid);
 static void sib_router_redistribute(struct sib_router * sr, unsigned int xid);
+static void sib_router_send_leader_elect();
 static void state_transition(struct sib_router * sr, enum sib_router_state state);
 
 sib_router_init(struct router ** my_routers, int * my_n_routers_p)
@@ -70,6 +72,8 @@ sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   n_bgp_siblings = 0;
 
   n_sib_listeners = 0;
+
+  n_ospf6_siblings_routing = 0;
 
   retval = pvconn_open("ptcp6:6634", &sib_ospf6_pvconn, DSCP_DEFAULT);
   if(!retval)
@@ -145,23 +149,17 @@ static int sib_listener_accept(struct thread * t)
 
 static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name)
 {
-    struct rconn * rconn;
+  struct rconn * rconn;
+  int i;
+  int retval;
   
-    rconn = rconn_create();
-    rconn_connect_unreliably(rconn, vconn, NULL);
+  rconn = rconn_create();
+  rconn_connect_unreliably(rconn, vconn, NULL);
 
-    // expect to have only one interface for now
-//    if(*n_routers_p == 1)  // dereference the pointer
-//    {
-      *sr = sib_router_create(rconn);
+  *sr = sib_router_create(rconn);
 
-      // schedule an event to call sib_router_run
-      thread_add_event(master, sib_router_run, *sr, 0);
-//    }
-//    else
-//    {
-//      exit(1);  // error condition
-//    }
+  // schedule an event to call sib_router_run
+  thread_add_event(master, sib_router_run, *sr, 0);
 }
 
 /* Creates and returns a new learning switch whose configuration is given by
@@ -184,7 +182,10 @@ sib_router_create(struct rconn *rconn)
   list_init(&rt->msgs_rcvd_queue);
 
   rt->current_egress_xid = 0;
+
+  rt->current_ingress_xid = 0;
   rt->ingress_ack_timeout = 5;
+
 //  for(i = 0; i < MAX_PORTS; i++)
 //  {
 //    rt->port_states[i] = P_DISABLED;
@@ -326,7 +327,7 @@ int sib_router_run(struct thread * t)
 //    if(rconn_get_version(rt->rconn) != -1)
 //    {
 //      sib_router_handshake(rt);
-      state_transition(rt, SIB_FEATURES_REQUEST);
+      state_transition(rt, SIB_CONNECTED);
 //    }
     sib_router_wait(rt);
     return;
@@ -387,7 +388,16 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         sr->current_egress_xid++;
         sib_router_send_features_reply(sr, xid);   
-        state_transition(sr, SIB_ROUTING);
+
+        // state transition
+        if(sr->state == SIB_CONNECTED)
+        {
+          state_transition(sr, SIB_FEATURES_REQ_RCVD);
+        }
+        else if(sr->state == SIB_REDISTRIBUTE_REQ_RCVD)
+        {
+          state_transition(sr, SIB_ROUTING);
+        }
       }
       else
       {
@@ -407,6 +417,16 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         sr->current_egress_xid++;
         sib_router_redistribute(sr, xid);
+
+        // state transition
+        if(sr->state == SIB_CONNECTED)
+        {
+          state_transition(sr, SIB_REDISTRIBUTE_REQ_RCVD);
+        }
+        else if(sr->state == SIB_FEATURES_REQ_RCVD)
+        {
+          state_transition(sr, SIB_ROUTING);
+        }
       }
       else
       {
@@ -668,9 +688,42 @@ void sib_router_forward_bgp(struct rfpbuf * msg)
   }
 }
 
+void sib_router_send_leader_elect()
+{
+  int i;
+  int retval;
+
+  for(i = 0; i < n_ospf6_siblings; i++)
+  {
+    struct rfpbuf * buffer = routeflow_alloc_xid(RFPT_LEADER_ELECT, RFP10_VERSION, 
+                                   ospf6_siblings[i]->current_ingress_xid, sizeof(struct rfp_header));
+    retval = rconn_send(ospf6_siblings[i]->rconn, buffer);
+ 
+  }
+}
+
 static void state_transition(struct sib_router * sr, enum sib_router_state state)
 {
+  // transition from a *_msg_received to routing
+  if((sr->state == SIB_FEATURES_REQ_RCVD || sr->state == SIB_REDISTRIBUTE_REQ_RCVD) &&
+      state == SIB_ROUTING)
+  {
+    n_ospf6_siblings_routing++;
+  }
+
+  // transition from routing to disconnected
+  if(sr->state == SIB_ROUTING &&
+     state == SIB_DISCONNECTED)
+  {
+    n_ospf6_siblings_routing--;
+  }
+
   sr->state = state;
+
+  if(n_ospf6_siblings_routing == OSPF6_NUM_SIBS)
+  {
+    sib_router_send_leader_elect();
+  }
 }
 
 /*

@@ -3,7 +3,9 @@
 
 enum sib_router_state {
     SIB_CONNECTING,               /* Waiting for connection to complete. */
-    SIB_FEATURES_REQUEST,           /* Waiting for features reply. */
+    SIB_CONNECTED,                /* Exchanged hellos */
+    SIB_FEATURES_REQ_RCVD,        /* Received features request. */
+    SIB_REDISTRIBUTE_REQ_RCVD,    /* Received redistribute request */
     SIB_ROUTING,                  /* Switching flows. */
     SIB_DISCONNECTED,             /* Disconnected. */
 };
