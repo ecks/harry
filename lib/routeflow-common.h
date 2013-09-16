@@ -20,6 +20,7 @@
 #define RFP_SSL_PORT  6633
 
 #define OSPF6_CTRL_SISIS_PORT 6634
+#define OSPF6_SIBLING_PORT    6636
 #define OSPF6_NUM_SIBS 3
 
 #define BGP_CTRL_SISIS_PORT   6635
@@ -44,6 +45,7 @@ enum rfp_type {
     RFPT_HELLO,               /* Symmetric message */
     RFPT_ACK,
     RFPT_LEADER_ELECT,
+    RFPT_REPLICA_EX,
     RFPT_ERROR,               /* Symmetric message */
     RFPT_ECHO_REQUEST,        /* Symmetric message */
     RFPT_ECHO_REPLY,          /* Symmetric message */
@@ -195,6 +197,12 @@ struct ospf6_dbdesc
   u_char    bits;
   u_int32_t seqnum;
   /* Followed by LSA Headers */
+};
+
+/* Replica Exchange */
+struct ospf6_replica_ex
+{
+  u_int32_t id;
 };
 
 /* BGP Header */

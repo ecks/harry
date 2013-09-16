@@ -1,10 +1,26 @@
 #ifndef OSPF6_REPLICA
 #define OSPF6_REPLICA
 
-struct ospf6_replica
+struct sibling
 {
   struct in6_addr * sibling_addr;
+  // right now, only our own sibling can be a leader, 
+  // would need to modify the algorithm otherwise
   bool leader;
+  unsigned int id;
+  struct list node;
+};
+
+struct ospf6_replica
+{
+  unsigned int sock;
+  struct rfpbuf * ibuf;
+  struct rfpbuf * obuf;
+  int fail;
+  struct thread * t_read;
+  struct sibling * own_replica;
+  // canonically, our own sibling should always be in the beginning of the list
+  struct list replicas;
 };
 
 int rib_monitor_add_ipv4_route(struct route_ipv4 * route, void * data);

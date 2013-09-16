@@ -92,12 +92,10 @@ int main(int argc, char *argv[])
 
   ospf6_sibling_debug_init();
 
-  vty_read_config(config_file, config_default);
+  // TODO: signal_init
 
   /* thread master */
   master = thread_master_create();
-
-  // TODO: signal_init
 
   // initialize our interface list
   if_init();
@@ -117,6 +115,9 @@ int main(int argc, char *argv[])
   ospf6_replica_init(sibling_addr);
 
   free(sisis_addr);
+
+  // this is where the command actually gets executed
+  vty_read_config(config_file, config_default);
 
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
 
