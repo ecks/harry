@@ -7,6 +7,7 @@ struct sibling
   // right now, only our own sibling can be a leader, 
   // would need to modify the algorithm otherwise
   bool leader;
+  unsigned int sock;
   unsigned int id;
   struct list node;
 };
