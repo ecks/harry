@@ -7,6 +7,7 @@ struct sibling
   // right now, only our own sibling can be a leader, 
   // would need to modify the algorithm otherwise
   bool leader;
+  bool valid; // when sibling is not valid, it needs to be deleted
   unsigned int sock;
   unsigned int id;
   struct list node;
@@ -29,5 +30,6 @@ int rib_monitor_remove_ipv4_route(struct route_ipv4 * route, void * data);
 int rib_monitor_add_ipv6_route(struct route_ipv6 * route, void * data);
 int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data);
 int ospf6_leader_elect();
+void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas);
 
 #endif

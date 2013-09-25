@@ -203,6 +203,7 @@ struct ospf6_dbdesc
 struct ospf6_replica_ex
 {
   u_int32_t id;
+  u_int8_t  leader;
 };
 
 /* BGP Header */

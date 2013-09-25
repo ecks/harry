@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "util.h"
 #include "dblist.h"
@@ -30,6 +31,9 @@ enum event {REPLICA_READ};
 
 extern struct thread_master * master;
 
+void ospf6_replica_restart(unsigned int id);
+static bool ospf6_replica_own(struct in6_addr * addr);
+static struct sibling * find_replica_from_addr(struct in6_addr * addr);
 static void send_ids();
 static int ospf6_replica_send_msg(unsigned int);
 static void ospf6_replica_event(enum event);
@@ -91,31 +95,36 @@ int rib_monitor_add_ipv6_route(struct route_ipv6 * route, void * data)
 
 int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
 {
+  struct sibling * sibling;
+
   if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
   {
     char prefix_str[INET6_ADDRSTRLEN];
-    if (inet_ntop(AF_INET6, &(route->p->prefix.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+    if (inet_ntop(AF_INET6, &(route->p->prefix), prefix_str, INET6_ADDRSTRLEN) != 1)
       zlog_debug("Removed route: %s/%d [%u/%u]", prefix_str, route->p->prefixlen, route->distance, route->metric);
   }
-                    
+ 
+  sibling = find_replica_from_addr(&route->p->prefix);
+  sibling->valid = false; // may need to wrap this around in a mutex
+
   // Free memory
   free(route);
 
 
-  struct sibling * sibling = ospf6_replica->own_replica;
-
-  if(sibling->leader)
+  if(ospf6_replica->own_replica->leader)
   {
     // try to restart the replica
-    ospf6_replicas_restart();
+    ospf6_replica_restart(sibling->id);
   }
 }
 
-void ospf6_create_sibling(struct in6_addr * addr, bool own)
+static struct sibling * ospf6_create_replica(struct in6_addr * addr, bool own)
 {
   struct sibling * sibling = calloc(1, sizeof(struct sibling));
   sibling->sibling_addr = calloc(1, sizeof(struct in6_addr));
   memcpy(sibling->sibling_addr, addr, sizeof(struct in6_addr));
+  sibling->leader = false;
+  sibling->valid = true;
  
   if(own)
   {
@@ -136,27 +145,92 @@ void ospf6_create_sibling(struct in6_addr * addr, bool own)
   }
   else
   {
-    struct sibling * own_sibling = ospf6_replica->own_replica;
+    struct sibling * own_replica = ospf6_replica->own_replica;
 
     // create a socket that corresponds to the sibling
-    sibling->sock = ospf6_sibling_socket(own_sibling->sibling_addr, sibling->sibling_addr);
+    sibling->sock = ospf6_sibling_socket(own_replica->sibling_addr, sibling->sibling_addr);
 
     // push back the new address to the list
     list_init(&sibling->node);
     list_push_back(&ospf6_replica->replicas, &sibling->node);
   }
+
+  return sibling;
+}
+
+static void ospf6_add_replicas(struct list * replicas)
+{
+  struct route_ipv6 * route_iter;
+  LIST_FOR_EACH(route_iter, struct route_ipv6, node, replicas)
+  {
+    if(!ospf6_replica_own(&route_iter->p->prefix))
+    {
+      ospf6_create_replica(&route_iter->p->prefix, false);
+    }
+  }
+}
+
+static struct sibling * ospf6_update_replicas(struct in6_addr * addr)
+{
+  struct sibling * sibling;
+  if((sibling = find_replica_from_addr(addr)) == NULL)
+  {
+    sibling = ospf6_create_replica(addr, false);
+  }
+
+  return sibling;
+}
+
+static bool ospf6_replica_own(struct in6_addr * addr)
+{
+  if(memcmp(addr, ospf6_replica->own_replica->sibling_addr, sizeof(struct in6_addr)) == 0)
+  {
+    return true;
+  }
+
+  return false;
+}
+
+static void ospf6_remove_replica(struct sibling * sibling)
+{
+  free(sibling->sibling_addr);
+
+  list_remove(&sibling->node);
+
+  free(sibling);
+}
+
+static struct sibling * find_replica_from_addr(struct in6_addr * addr)
+{
+  struct sibling * sibling_iter;
+  LIST_FOR_EACH(sibling_iter, struct sibling, node, &ospf6_replica->replicas)
+  {
+    if(sibling_iter->valid == false)
+    {
+      ospf6_remove_replica(sibling_iter);
+    }
+    else
+    {
+      if(memcmp(sibling_iter->sibling_addr, addr, sizeof(struct in6_addr)) == 0)
+      {
+        return sibling_iter;
+      }
+    }
+  }
+
+  return NULL;
 }
 
 int ospf6_leader_elect()
 {
   char sisis_addr[INET6_ADDRSTRLEN];
   unsigned int num_of_siblings = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_OSPF6_SBLING);
-  struct sibling * own_sibling = ospf6_replica->own_replica;
+  struct sibling * own_replica = ospf6_replica->own_replica;
    
 
   if(num_of_siblings == OSPF6_NUM_SIBS)
   {
-    inet_ntop(AF_INET6, own_sibling->sibling_addr, sisis_addr, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, own_replica->sibling_addr, sisis_addr, INET6_ADDRSTRLEN);
 
     uint64_t own_prefix, own_sisis_version, own_process_type, own_process_version, own_sys_id, own_pid, own_ts; 
     if(get_sisis_addr_components(sisis_addr, 
@@ -175,8 +249,9 @@ int ospf6_leader_elect()
       {
         char addr[INET6_ADDRSTRLEN];
         inet_ntop(AF_INET6, &route_iter->p->prefix, addr, INET6_ADDRSTRLEN);
+        struct sibling * sibling;
 
-        if(memcmp(&route_iter->p->prefix, own_sibling->sibling_addr, sizeof(struct in6_addr)) == 0)
+        if(memcmp(&route_iter->p->prefix, own_replica->sibling_addr, sizeof(struct in6_addr)) == 0)
         {
           // we came across our own timestamp
           continue;
@@ -198,6 +273,10 @@ int ospf6_leader_elect()
               oldest_sibling = false;
             }
           }
+          else 
+          {
+            perror("Leader election");
+          }
 
           if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
           {
@@ -205,7 +284,18 @@ int ospf6_leader_elect()
           }
 
           // create a sibling, not our own
-          ospf6_create_sibling(&route_iter->p->prefix, false);
+          sibling = ospf6_update_replicas(&route_iter->p->prefix);
+
+          if(ts == own_ts && sibling->leader)
+          {
+            // assume that if leader for a sibling is filled in,
+            // then it was received from the id message
+            // we have the same timestamp, use ids for tie breaking
+            if(sibling->id < own_replica->id)
+            {
+              oldest_sibling = false;
+            }
+          }
         }
       }
 
@@ -214,7 +304,8 @@ int ospf6_leader_elect()
         if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
         {
           zlog_debug("I am the oldest sibling");
-          own_sibling->leader = true;
+          own_replica->leader = true;
+
         }
       }
       else
@@ -222,7 +313,7 @@ int ospf6_leader_elect()
         if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
         {
           zlog_debug("I am not the oldest sibling");
-          own_sibling->leader = false;
+          own_replica->leader = false;
         }
       }
 
@@ -363,27 +454,32 @@ static void send_ids()
 {
   int retval;
   struct ospf6_replica_ex * r_ex;
-  struct sibling * own_sibling = ospf6_replica->own_replica;
+  struct sibling * own_replica = ospf6_replica->own_replica;
 
   ospf6_replica->obuf = routeflow_alloc_xid(RFPT_REPLICA_EX, RFP10_VERSION, htonl(0), sizeof(struct rfp_header));
   r_ex = rfpbuf_put_uninit(ospf6_replica->obuf, sizeof(struct ospf6_replica_ex));
-  r_ex->id = htons(own_sibling->id);
+  r_ex->id = htonl(own_replica->id);
+  r_ex->leader = own_replica->leader == true ? 1 : 0;
       
   rfpmsg_update_length(ospf6_replica->obuf);
 
   struct sibling * sibling_iter;
   LIST_FOR_EACH(sibling_iter, struct sibling, node, &ospf6_replica->replicas)
   {
-    char addr[INET6_ADDRSTRLEN];
-
-    inet_ntop(AF_INET6, sibling_iter->sibling_addr, addr, INET6_ADDRSTRLEN);
-
-    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    if(sibling_iter->valid)
     {
-      zlog_debug("Sending id %d out to %s", own_sibling->id, addr);
-    }
+      char addr[INET6_ADDRSTRLEN];
+
+      inet_ntop(AF_INET6, sibling_iter->sibling_addr, addr, INET6_ADDRSTRLEN);
+
+      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+      {
+        zlog_debug("Sending id %d, leader %d out to %s", own_replica->id, own_replica->leader == true ? 1 : 0, addr);
+      }
 
     retval = ospf6_replica_send_msg(sibling_iter->sock);
+
+    }
   }
     
   // Clean up after sending the messages
@@ -392,6 +488,70 @@ static void send_ids()
 
 }
 
+static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id)
+{
+  struct sockaddr_in6 * ip6addr;
+  struct sibling * sibling;
+
+  if(addr->sa_family == AF_INET6)
+  {
+    ip6addr = (struct sockaddr_in6 *)addr;
+    if((sibling = find_replica_from_addr(&ip6addr->sin6_addr)) != NULL)
+    {
+      // for debugging
+      char s_addr[INET6_ADDRSTRLEN];
+      inet_ntop(AF_INET6, sibling->sibling_addr, s_addr, INET6_ADDRSTRLEN);
+
+      sibling->id = id;
+
+      sibling->leader = leader == 1 ? true : false;
+
+      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+      {
+        zlog_debug("sibling %s now has id set to %d, leader: %d", s_addr, sibling->id, leader);
+      }
+
+      if(leader && ospf6_replica->own_replica->leader)
+      {
+        // we have more than one leader, let the id be our tiebreaker
+        if(ospf6_replica->own_replica->id < sibling->id)
+        {
+          sibling->leader = false;
+
+          if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+          {
+            zlog_debug("changed %s to not be leader", s_addr);
+          }
+        }
+        else
+        {
+          ospf6_replica->own_replica->leader = false;
+          if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+          {
+            zlog_debug("changed own replica to not be leader");
+          }
+        }
+      }
+    }
+    else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+      {
+        char s_addr[INET6_ADDRSTRLEN];
+        inet_ntop(AF_INET6, &ip6addr->sin6_addr, s_addr, INET6_ADDRSTRLEN);
+
+        zlog_debug("could not find sibling to set id to: %s", s_addr);
+      }
+    }
+  }
+  else
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    {
+      zlog_debug("udp received on an address which is not ipv6");
+    }
+  }
+}
 
 static int ospf6_replica_read(struct thread * t)
 {
@@ -401,6 +561,8 @@ static int ospf6_replica_read(struct thread * t)
   uint16_t rfp6_length;
   uint16_t length;
   uint8_t type;
+  unsigned int id;
+  unsigned int leader;
   size_t rh_size = sizeof(struct rfp_header);
 
   if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
@@ -454,6 +616,8 @@ static int ospf6_replica_read(struct thread * t)
   }
 
   p = rfpbuf_tail(ospf6_replica->ibuf);
+  
+  // receive the full packet
   if(((nbyte = recvfrom(ospf6_replica->sock, p, length, 0, (struct sockaddr *)&src, &len)) == 0) ||
      (nbyte == -1))
   {
@@ -488,10 +652,17 @@ static int ospf6_replica_read(struct thread * t)
   {
     case RFPT_REPLICA_EX:
       r_ex = rfpbuf_at_assert(ospf6_replica->ibuf, rh_size, sizeof(struct ospf6_replica_ex));
+
       if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
       {
-        zlog_debug("received RFPT_REPLICA_EX: id %d", ntohs(r_ex->id));
+        zlog_debug("received RFPT_REPLICA_EX: id %d, leader %d", ntohs(r_ex->id), r_ex->leader);
       }
+
+      id = ntohl(r_ex->id);
+      leader = r_ex->leader;
+      fill_id((struct sockaddr *)&src, leader, id);
+
+
       break;
   }
 
@@ -501,33 +672,45 @@ static int ospf6_replica_read(struct thread * t)
   ospf6_replica_event(REPLICA_READ);
 }
 
-void ospf6_replica_restart()
+void ospf6_replica_restart(unsigned int id)
 {
-  // TODO: execute a qsub command
-}
+  pid_t pid;
+  int ret;
+  char num_id[15];
 
-void ospf6_replicas_restart()
-{  
-  unsigned int num_of_siblings = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_OSPF6_SBLING);
-  unsigned int num_of_siblings_needed;
-  int i;
+  sprintf(num_id, "%d", id);
+  char * args[] = {"qsub", "-V", "-t", num_id, "-d", "/home/hasenov/zebralite/ospf6-sibling", "run_sibling.sh", NULL};
+  
+//  char *args[] = {"echo", "Hello world", NULL};
 
-  if(num_of_siblings < OSPF6_NUM_SIBS)
+  if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
   {
-    num_of_siblings_needed = OSPF6_NUM_SIBS - num_of_siblings;
-    for(i = 0; i < num_of_siblings_needed; i++)
+    zlog_debug("About to restart sibling with id %d", id);
+  }
+
+  if((pid = vfork()) == 0)
+  {
+    if((ret = execvp("qsub", args)) < 0)
     {
-      ospf6_replica_restart();
+      zlog_debug("error on execvp");
     }
+      
+  }
+
+  if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+  {
+    zlog_debug("Return from fork");
   }
 }
 
-void ospf6_replica_init(struct in6_addr * own_sibling_addr)
+void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas)
 {
   ospf6_replica = calloc(1, sizeof(struct ospf6_replica));
   list_init(&ospf6_replica->replicas);
 
-  ospf6_create_sibling(own_sibling_addr, true);
+  ospf6_create_replica(own_replica_addr, true);
+
+  ospf6_add_replicas(replicas);
 
   install_element(CONFIG_NODE, &get_id_cmd);
 }

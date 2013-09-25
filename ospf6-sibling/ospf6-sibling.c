@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
   char * config_file = "/etc/zebralite/ospf6_sibling.conf";
   char * sisis_addr;
   struct in6_addr * sibling_addr;
+  struct list * replicas;
   struct vconn * vconn;
   int retval;
   struct rfpbuf * buffer;
@@ -108,16 +109,21 @@ int main(int argc, char *argv[])
   }
 
   sibling_addr = calloc(1, sizeof(struct in6_addr));
-  zlog_debug("sibling sisis addr: %s", sisis_addr);
 
   inet_pton(AF_INET6, sisis_addr, sibling_addr);
 
-  ospf6_replica_init(sibling_addr);
+  replicas = get_ospf6_sibling_addrs();
 
-  free(sisis_addr);
+  ospf6_replicas_init(sibling_addr, replicas);
 
   // this is where the command actually gets executed
   vty_read_config(config_file, config_default);
+
+  zlog_notice("<---- OSPF6 Sibling starting: %d ---->", getpid());
+
+  zlog_debug("sibling sisis addr: %s", sisis_addr);
+
+  free(sisis_addr);
 
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
 
@@ -161,8 +167,6 @@ int main(int argc, char *argv[])
   info.rib_add_ipv6_route = rib_monitor_add_ipv6_route;
   info.rib_remove_ipv6_route = rib_monitor_remove_ipv6_route;
   subscribe_to_rib_changes(&info);
-
-  zlog_notice("OSPF6 Sibling starting: %d", getpid());
 
   /* Start finite state machine, here we go! */
   while(thread_fetch(master, &thread))
