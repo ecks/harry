@@ -1,6 +1,8 @@
 #ifndef RFPBUF_H
 #define RFPBUF_H
 
+#include <util.h>
+
 typedef enum  
 {
     RFPBUF_MALLOC,              /* Obtained via malloc(). */
@@ -55,6 +57,8 @@ struct rfpbuf *rfpbuf_clone_data_with_headroom(const void *, size_t,
 static inline struct rfpbuf *rfpbuf_from_list(const struct list * list)
 {
   return CONTAINER_OF(list, struct rfpbuf, list_node);
+//  return ((struct rfpbuf *) (void *) ((char *) (list) - offsetof(struct rfpbuf, list_node)));
+
 }
 
 void rfpbuf_delete(struct rfpbuf *);

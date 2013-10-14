@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <sys/socket.h>
+#include <assert.h>
 
 #include "util.h"
 #include "routeflow-common.h"
@@ -15,10 +16,16 @@
 #include "rfp-msgs.h"
 #include "if.h"
 #include "ctrl_client.h"
+#include "ospf6_top.h"
 #include "ospf6_proto.h"
+#include "ospf6_lsa.h"
+#include "ospf6_lsdb.h"
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
+
+/* global ospf6d variable */
+struct ospf6 *ospf6;
 
 extern struct thread_master * master;
 
@@ -43,7 +50,7 @@ int ospf6_hello_send(struct thread * thread)
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    zlog_notice("About to send hello message");
+    zlog_debug("About to send hello message");
   }
 
   /* set next thread */
@@ -120,9 +127,9 @@ int ospf6_hello_send(struct thread * thread)
   // instance id
   // reserved
   // *NOTE* filled in with zeroes for testing purposes only
-  oh->router_id = htonl(0);
+  oh->router_id = ospf6->router_id;  // should really be oi->area->ospf6->router_id
   oh->area_id = htonl(0);
-  oh->checksum = htons(0);
+//  oh->checksum = htons(0);
   oh->instance_id = htons(0);
   oh->reserved = htons(0);
 
@@ -139,7 +146,14 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
 {
   struct ospf6_hello * hello;
   struct ospf6_neighbor * on;
+  char * p;
+  int twoway = 0;
   int retval;
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("ospf6 hello received");
+  }
 
   hello = (struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header));
 
@@ -168,13 +182,169 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   on->ifindex = ntohl(hello->interface_id);
 //  memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
 
+  /* TwoWay check */
+  for(p = (char *)((void *)hello + sizeof(struct ospf6_hello));
+      p + sizeof(u_int32_t) <= OSPF6_MESSAGE_END(oh);
+      p += sizeof(u_int32_t))
+  {
+    u_int32_t * router_id = (u_int32_t *)p;
+
+    if(*router_id  == ospf6->router_id)  // should really be oi->area->ospf6->router_id
+      twoway++;
+  }
+
   /* Execute neighbor events */
   thread_execute(master, hello_received, on, 0);
+  if(twoway)
+    thread_execute(master, twoway_received, on, 0);
+  else
+    thread_execute(master, oneway_received, on, 0);
 
   // send an ACK back to the controller
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
                                           htonl(xid), sizeof(struct rfp_header));
   retval = ctrl_send_message(ctrl_client);
+}
+
+static void ospf6_dbdesc_recv_master(struct ospf6_header * oh,
+                                     struct ospf6_neighbor * on)
+{
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("router is master");
+  }
+}
+
+static void ospf6_dbdesc_recv_slave(struct ospf6_header * oh,
+                                    struct ospf6_neighbor * on)
+{
+  struct ospf6_dbdesc * dbdesc;
+  char * p;
+
+  if(OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("router is slave");
+  }
+
+  dbdesc = (struct ospf6_dbdesc *)((void *)oh + sizeof(struct ospf6_header));
+
+  if(on->state < OSPF6_NEIGHBOR_INIT)
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      zlog_debug("Neighbor state less than Init, ignore");
+      return;
+  }
+
+  switch(on->state)
+  {
+    case OSPF6_NEIGHBOR_TWOWAY:
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+        zlog_debug("Neighbor state is 2-Way, ignore");
+      return;
+
+    case OSPF6_NEIGHBOR_INIT:
+      thread_execute(master, twoway_received, on, 0);
+      if(on->state != OSPF6_NEIGHBOR_EXSTART)
+      {
+        if(IS_OSPF6_SIBLING_DEBUG_MSG)
+          zlog_debug("Neighbor state is not ExStart, ignore");
+        return;
+      }
+      /* else fall through to ExStart */
+
+    case OSPF6_NEIGHBOR_EXSTART:
+      /* If the neighbor is Master, act as Slave. Schedule negotiation_done
+          and process LSA Headers. Otherwise, ignore this message */
+      if (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_IBIT) &&
+          CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MBIT) &&
+          CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MSBIT) &&
+          ntohs (oh->length) == sizeof (struct ospf6_header) +
+                                sizeof (struct ospf6_dbdesc))
+      {    
+        /* set the master/slave bit to slave */
+        UNSET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
+
+        /* set the DD sequence number to one specified by master */
+        on->dbdesc_seqnum = ntohl (dbdesc->seqnum);
+
+        /* schedule NegotiationDone */
+        thread_execute (master, negotiation_done, on, 0);
+
+        /* Record neighbor options */
+        memcpy (on->options, dbdesc->options, sizeof (on->options));
+      }    
+      else 
+      {    
+        if (IS_OSPF6_SIBLING_DEBUG_MSG)
+          zlog_debug ("Negotiation failed");
+          return;
+      }    
+      break;
+
+    case OSPF6_NEIGHBOR_EXCHANGE:
+
+    case OSPF6_NEIGHBOR_LOADING:
+    case OSPF6_NEIGHBOR_FULL:
+      break;
+
+    default:
+      assert(0);
+      break;
+  }
+
+  /* Process LSA headers */
+  for(p = (char *) ((void *)dbdesc + sizeof(struct ospf6_dbdesc));
+      p + sizeof(struct ospf6_lsa_header) <= OSPF6_MESSAGE_END(oh);
+      p += sizeof(struct ospf6_lsa_header))
+  {
+    struct ospf6_lsa * his, * mine;
+    struct ospf6_lsdb * lsdb = NULL;
+
+    his = ospf6_lsa_create_headeronly((struct ospf6_lsa_header *) p);
+
+    switch(OSPF6_LSA_SCOPE(his->header->type))
+    {
+      case OSPF6_SCOPE_LINKLOCAL:
+        lsdb = on->ospf6_if->lsdb;
+        break;
+      case OSPF6_SCOPE_AREA:
+        // NOT IMPLEMENTED
+        break;
+      case OSPF6_SCOPE_AS:
+        lsdb = ospf6->lsdb;
+        break;
+      case OSPF6_SCOPE_RESERVED:
+        ospf6_lsa_delete(his);
+        break;
+    }
+
+    // E-bit mismatch
+
+    mine = ospf6_lsdb_lookup(his->header->type, his->header->id,
+                             his->header->adv_router, lsdb);
+    if(mine == NULL || ospf6_lsa_compare(his, mine) < 0)
+    {
+      ospf6_lsdb_add(his, on->request_list);
+    }
+    else
+      ospf6_lsa_delete(his);
+  }
+
+  if(p != OSPF6_MESSAGE_END(oh))
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      zlog_debug("Trailing garbage ignored");
+
+  }
+
+  /* Set sequence number to Master's */
+  on->dbdesc_seqnum = ntohl(dbdesc->seqnum);
+
+//  THREAD_OFF(on->thread_send_dbdesc);
+
+
+  /* save last received dbdesc */
+  memcpy(&on->dbdesc_last, dbdesc, sizeof(struct ospf6_dbdesc));
 }
 
 static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
@@ -186,7 +356,39 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
   struct ospf6_dbdesc * dbdesc;
   int retval;
 
-  printf("Received DBDESC message\n");
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("Received DBDESC message");
+  }
+
+  on = ospf6_neighbor_lookup(oh->router_id, oi);
+  if(on == NULL)
+  {
+    printf("Neighbor not found, ignore");   
+    return;
+  }
+
+  dbdesc = (struct ospf6_dbdesc *)((void *)oh + sizeof(struct ospf6_header));
+
+  /* Interface MTU check */
+  if(ntohs(dbdesc->ifmtu) != oi->ifmtu)
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+    {
+      zlog_debug("I/F MTU mismatch");
+      return;
+    }
+
+  // reserved bits
+  
+  if(ntohl(oh->router_id) < ntohl(ospf6->router_id))
+    ospf6_dbdesc_recv_master(oh, on);
+  else if(ntohl(ospf6->router_id) < ntohl(oh->router_id))
+    ospf6_dbdesc_recv_slave(oh, on);
+  else
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      zlog_debug("Can't decide which is master, ignore");
+  }
 
   // send an ACK back to the controller
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
@@ -218,4 +420,6 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
     debault:
       break;
   }
+
+  return 0;
 }

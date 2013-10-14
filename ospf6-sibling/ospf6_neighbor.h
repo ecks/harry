@@ -12,6 +12,10 @@ struct ospf6_neighbor
 
   struct list node;
   u_char state;
+
+  /* timestamp of last changing state */
+  struct timeval last_changed;
+
   u_int32_t router_id;
 
   /* Neighbor Interface ID */
@@ -24,6 +28,28 @@ struct ospf6_neighbor
   u_int32_t bdrouter;
   u_int32_t prev_drouter;
   u_int32_t prev_bdrouter;
+
+  /* Options field (Capability) */
+  char options[3];
+
+  /* For Database Exchange */
+  u_char dbdesc_bits;
+  u_int32_t dbdesc_seqnum;
+
+  /* Last received Database Description packet */
+  struct ospf6_dbdesc  dbdesc_last;
+
+  /* LS-list */
+  struct ospf6_lsdb *summary_list;
+  struct ospf6_lsdb *request_list;
+  struct ospf6_lsdb *retrans_list;
+
+  /* LSA list for message transmission */
+  struct ospf6_lsdb *dbdesc_list;
+  struct ospf6_lsdb *lsreq_list;
+  struct ospf6_lsdb *lsupdate_list;
+  struct ospf6_lsdb *lsack_list;
+
 };
 
 /* Neighbor state */
@@ -36,7 +62,11 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_LOADING  7
 #define OSPF6_NEIGHBOR_FULL     8
 
-int hello_received(struct thread * thread);
+extern int hello_received(struct thread *);
+extern int twoway_received(struct thread *);
+extern int negotiation_done(struct thread *);
+extern int adj_ok(struct thread *);
+extern int oneway_received(struct thread *);
 
 struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, struct ospf6_interface *oi);
 

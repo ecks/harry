@@ -15,6 +15,7 @@ struct host
 enum node_type 
 {
   CONFIG_NODE,			/* Config node. Default mode of config file. */
+  OSPF6_NODE,                   /* OSPF protocol for IPv6 mode */
 };
 
 /* Node which has some commands and prompt string and configuration
@@ -104,10 +105,22 @@ struct desc
 
 /* Some macroes */
 #define CMD_OPTION(S)   ((S[0]) == '[')
-#define CMD_VARIABLE(S) (((S[1]) >= 'A' && (S[0]) <= 'Z') || ((S[0]) == '<'))
+#define CMD_VARIABLE(S) (((S[0]) >= 'A' && (S[0]) <= 'Z') || ((S[0]) == '<'))
 #define CMD_VARARG(S)   ((S[0]) == '.')
 
+#define CMD_IPV4(S)        ((strcmp ((S), "A.B.C.D") == 0))
+#define CMD_IPV4_PREFIX(S) ((strcmp ((S), "A.B.C.D/M") == 0))
+
+/* Common descriptions. */
+#define NO_STR "Negate a command or set its defaults\n"
 #define DEBUG_STR "Debugging functions (see also 'undebug')\n"
+#define ROUTER_STR "Enable a routing process\n"
+#define V4NOTATION_STR "specify by IPv4 address notation(e.g. 0.0.0.0)\n"
+#define IFNAME_STR "Interface name(e.g. ep0)\n"
+#define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"
+
+extern void install_node (struct cmd_node *, int (*) (struct vty *));
+extern void install_default (enum node_type);
 
 extern int config_from_file (struct vty *, FILE *);
 extern void host_config_set (char *);

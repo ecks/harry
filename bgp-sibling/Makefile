@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib
 EXECUTABLE = bgp-sibling
 LIBS = -pthread -lrt
-SRCS = prefix.c sisis.c sisis_api.c thread.c dblist.c netlink.c bgp_sibling_ctrl.c bgp_ctrl_client.c socket-util.c util.c rfpbuf.c rfp-msgs.c if.c
+SRCS = rfpbuf.c rfp-msgs.c prefix.c sisis.c sisis_api.c thread.c dblist.c netlink.c bgp_sibling_ctrl.c bgp_ctrl_client.c socket-util.c util.c if.c log.c command.c vty.c vector.c
 OBJECTS = $(SRCS:.c=.o)
 VPATH = ../lib
 
@@ -36,6 +36,18 @@ bgp_ctrl_client.o: bgp_ctrl_client.c
 	$(CC) $(CFLAGS) -c $^
 
 socket-util.o: socket-util.c
+	$(CC) $(CFLAGS) -c $^
+
+log.o: log.c
+	$(CC) $(CFLAGS) -c $^
+
+command.o: command.c
+	$(CC) $(CFLAGS) -c $^
+
+vty.o: vty.c
+	$(CC) $(CFLAGS) -c $^
+
+vector.o: vector.c
 	$(CC) $(CFLAGS) -c $^
 
 util.o: util.c

@@ -78,3 +78,8 @@ int if_is_up(struct interface * ifp)
 {
   return ifp->state == RFPPS_FORWARD;
 }
+
+int if_is_pointtopoint(struct interface * ifp)
+{
+  return 0;  // disable p2p for now
+}

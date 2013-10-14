@@ -6,6 +6,7 @@ struct bgp_ctrl_client
   int sock;
 
   struct in6_addr * ctrl_addr;
+  unsigned int current_xid;
 
   int fail;
 

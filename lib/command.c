@@ -298,6 +298,142 @@ enum match_type
   exact_match 
 };
 
+static enum match_type
+cmd_ipv4_match (const char *str)
+{
+  const char *sp;
+  int dots = 0, nums = 0;
+  char buf[4];
+
+  if (str == NULL)
+    return partly_match;
+
+  for (;;)
+    {
+      memset (buf, 0, sizeof (buf));
+      sp = str;
+      while (*str != '\0')
+	{
+	  if (*str == '.')
+	    {
+	      if (dots >= 3)
+		return no_match;
+
+	      if (*(str + 1) == '.')
+		return no_match;
+
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      dots++;
+	      break;
+	    }
+	  if (!isdigit ((int) *str))
+	    return no_match;
+
+	  str++;
+	}
+
+      if (str - sp > 3)
+	return no_match;
+
+      strncpy (buf, sp, str - sp);
+      if (atoi (buf) > 255)
+	return no_match;
+
+      nums++;
+
+      if (*str == '\0')
+	break;
+
+      str++;
+    }
+
+  if (nums < 4)
+    return partly_match;
+
+  return exact_match;
+}
+
+static enum match_type
+cmd_ipv4_prefix_match (const char *str)
+{
+  const char *sp;
+  int dots = 0;
+  char buf[4];
+
+  if (str == NULL)
+    return partly_match;
+
+  for (;;)
+    {
+      memset (buf, 0, sizeof (buf));
+      sp = str;
+      while (*str != '\0' && *str != '/')
+	{
+	  if (*str == '.')
+	    {
+	      if (dots == 3)
+		return no_match;
+
+	      if (*(str + 1) == '.' || *(str + 1) == '/')
+		return no_match;
+
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      dots++;
+	      break;
+	    }
+
+	  if (!isdigit ((int) *str))
+	    return no_match;
+
+	  str++;
+	}
+
+      if (str - sp > 3)
+	return no_match;
+
+      strncpy (buf, sp, str - sp);
+      if (atoi (buf) > 255)
+	return no_match;
+
+      if (dots == 3)
+	{
+	  if (*str == '/')
+	    {
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      str++;
+	      break;
+	    }
+	  else if (*str == '\0')
+	    return partly_match;
+	}
+
+      if (*str == '\0')
+	return partly_match;
+
+      str++;
+    }
+
+  sp = str;
+  while (*str != '\0')
+    {
+      if (!isdigit ((int) *str))
+	return no_match;
+
+      str++;
+    }
+
+  if (atoi (sp) > 32)
+    return no_match;
+
+  return exact_match;
+}
+
 /* Filter vector by command character with index. */
 static enum match_type
 cmd_filter_by_string (char *command, vector v, unsigned int index)
@@ -336,6 +472,24 @@ cmd_filter_by_string (char *command, vector v, unsigned int index)
 	          match_type = vararg_match;
 		  matched++;
               }
+              else if (CMD_IPV4 (str))
+              {    
+                if (cmd_ipv4_match (command) == exact_match)
+                {    
+                  if (match_type < ipv4_match)
+                    match_type = ipv4_match;
+                    matched++;
+                }    
+              }    
+              else if (CMD_IPV4_PREFIX (str))
+              {    
+                if (cmd_ipv4_prefix_match (command) == exact_match)
+                {    
+                  if (match_type < ipv4_prefix_match)
+                    match_type = ipv4_prefix_match;
+                    matched++;
+                }    
+              }    
 	      else if (CMD_OPTION (str) || CMD_VARIABLE (str))
 	      {
 	        if (match_type < extend_match)
@@ -395,6 +549,20 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 		  if (CMD_OPTION (str) || CMD_VARIABLE (str))
 		    match++;
 		  break;
+                case ipv4_match:
+                  if (CMD_IPV4 (str))
+                    match++;
+                    break;
+                case ipv4_prefix_match:
+                  if ((ret = cmd_ipv4_prefix_match (command)) != no_match)
+                  {
+                    if (ret == partly_match)
+                      return 2;       /* There is incomplete match. */
+                       
+                    match++;
+                  }
+                  break;
+
 	      }
         }
       if (!match)
@@ -612,6 +780,13 @@ host_config_set (char *filename)
 {
 
 }
+
+void 
+install_default (enum node_type node)
+{
+  // nothing for now
+}
+
 
 /* Initialize command interface. Install basic nodes and commands. */
 void

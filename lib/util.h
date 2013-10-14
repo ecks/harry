@@ -3,6 +3,8 @@
 
 #include "compiler.h"
 
+#include <stddef.h>
+
 /* Given POINTER, the address of the given MEMBER in a STRUCT object, returns
  *    the STRUCT object. */
 #define CONTAINER_OF(POINTER, STRUCT, MEMBER)                           \
@@ -20,6 +22,10 @@
 #endif
 
 #define NOT_REACHED() abort()
+
+#define CHECK_FLAG(V,F)      ((V) & (F)) 
+#define SET_FLAG(V,F)        (V) |= (F)
+#define UNSET_FLAG(V,F)      (V) &= ~(F)
 
 char *xasprintf(const char *format, ...) PRINTF_FORMAT(1, 2) MALLOC_LIKE;
 char *xstrdup(const char *) MALLOC_LIKE;

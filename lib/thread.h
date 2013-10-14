@@ -1,6 +1,16 @@
 #ifndef THREAD_H
 #define THREAD_H
 
+#define THREAD_OFF(thread) \
+  do \
+  { \
+    if (thread) \
+    { \
+      thread_cancel (thread); \
+      thread = NULL; \
+    } \
+  } while (0)
+
 #define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
@@ -50,6 +60,11 @@ struct thread
   char * funcname;
 };
 
+/* Clocks supported by Zebralite */
+enum zebralite_clkid {
+      ZEBRALITE_CLK_MONOTONIC = 0,         /* monotonic, against an indeterminate base */
+};
+
 /* Thread types. */
 #define THREAD_READ           0
 #define THREAD_WRITE          1
@@ -88,5 +103,5 @@ extern struct thread * funcname_thread_add_event (struct thread_master *,
 extern void thread_cancel (struct thread *);
 extern struct thread * thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
-
+extern int zebralite_gettime(enum zebralite_clkid clkid, struct timeval * tv);
 #endif

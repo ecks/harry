@@ -15,6 +15,7 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "if.h"
+#include "debug.h"
 #include "routeflow-common.h"
 #include "thread.h"
 #include "ctrl_client.h"
@@ -42,8 +43,7 @@ struct ctrl_client * ctrl_client_new()
 
 void ctrl_client_init(struct ctrl_client * ctrl_client, 
                       struct in6_addr * ctrl_addr, 
-                      struct in6_addr * sibling_addr, 
-                      char * interface_name)
+                      struct in6_addr * sibling_addr)
 {
   ctrl_client->sock = -1;
 
@@ -51,9 +51,13 @@ void ctrl_client_init(struct ctrl_client * ctrl_client,
   ctrl_client->sibling_addr = sibling_addr;
   ctrl_client->current_xid = 0;
   ctrl_client->state = CTRL_CONNECTING;
-  ctrl_client->interface_name = interface_name;
 
   ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
+}
+
+void ctrl_client_interface_init(struct ctrl_client * ctrl_client, char * interface_name)
+{
+  ctrl_client->interface_name = interface_name;
 }
 
 void ctrl_client_stop(struct ctrl_client * ctrl_client)
@@ -295,7 +299,10 @@ static int ctrl_client_read(struct thread * t)
   switch(type)
   {
     case RFPT_HELLO:
-      printf("Hello message received\n");
+      if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      {
+        zlog_debug("Hello message received");
+      }
 
       if(ctrl_client->state == CTRL_RECV_HELLO)
         ctrl_client->state = CTRL_CONNECTED;
@@ -319,7 +326,11 @@ static int ctrl_client_read(struct thread * t)
       break;
 
     case RFPT_FORWARD_OSPF6:
-      printf("Forwarding message received\n");
+      if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      {
+        zlog_debug("Forwarding message received");
+      }
+
       rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
       ifp = if_get_by_name(ctrl_client->interface_name);
       oi = (struct ospf6_interface *)ifp->info;

@@ -23,7 +23,11 @@ struct vty
   
   /* Node status of this vty */
   int node;
-  
+
+  /* For current referencing point of interface, route-map,
+     access-list etc... */
+  void *index;
+
   /* Command input buffer */
   char *buf;
 };

@@ -4,6 +4,10 @@
 /* OSPF protocol version */
 #define OSPFV3_VERSION           3
 
+/* Architectural constants */
+#define MAXAGE                         3600  /* 1 hour */
+#define MAX_AGE_DIFF                    900  /* 15 min */
+
 /* OSPF options */
 /* present in HELLO, DD, LSA */
 #define OSPF6_OPT_SET(x,opt)   ((x)[2] |=  (opt))

@@ -1,4 +1,5 @@
 #include "config.h"
+#include "errno.h"
 
 #include "stdlib.h"
 #include "string.h"
@@ -80,6 +81,19 @@ static int zebralite_get_relative(struct timeval * tv)
 
   return ret;
 }
+
+int zebralite_gettime(enum zebralite_clkid clkid, struct timeval * tv)
+{
+  switch (clkid)
+  {    
+    case ZEBRALITE_CLK_MONOTONIC:
+      return zebralite_get_relative (tv);
+    default:
+      errno = EINVAL;
+      return -1;
+  }      
+}
+
 struct thread_master * thread_master_create()
 {
   return (struct thread_master *)calloc(1, sizeof(struct thread_master));

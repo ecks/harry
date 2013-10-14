@@ -37,6 +37,32 @@ route_node_new (void)
   return node;
 }
 
+struct route_node * route_prev (struct route_node *node)
+{
+  struct route_node *end;
+  struct route_node *prev = NULL;
+
+  end = node;
+  node = node->parent;
+  if (node)
+    route_lock_node (node);
+  while (node)
+  {    
+    prev = node;
+    node = route_next (node);
+    if (node == end) 
+    {    
+      route_unlock_node (node);
+      node = NULL;
+    }    
+  }    
+  route_unlock_node (end);
+  if (prev)
+    route_lock_node (prev);
+
+  return prev;
+}
+
 /* Allocate new route node with prefix set. */
 static struct route_node *
 route_node_set (struct route_table *table, struct prefix *prefix)

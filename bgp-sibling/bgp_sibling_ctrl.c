@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stddef.h>
 #include <netinet/in.h>
 
-#include "routeflow-common.h"
+#include "util.h"
 #include "dblist.h"
-#include "prefix.h"
+#include "routeflow-common.h"
+#include "if.h"
 #include "rfpbuf.h"
+#include "prefix.h"
 #include "bgp_ctrl_client.h"
 #include "bgp_sibling_ctrl.h"
 
@@ -18,7 +20,7 @@ static struct bgp_ctrl_client * bgp_ctrl_client = NULL;
 int recv_features_reply(struct bgp_ctrl_client * bgp_ctrl_client, struct rfpbuf * buffer)
 {
   struct rfp_router_features * rrf = buffer->data;
-//  struct interface * ifp;
+  struct interface * ifp;
   int i;
   unsigned int ifindex;
   int offset = offsetof(struct rfp_router_features, ports);
@@ -33,14 +35,13 @@ int recv_features_reply(struct bgp_ctrl_client * bgp_ctrl_client, struct rfpbuf 
     printf("port #: %d, name: %s\n", ifindex, rpp->name);
 
     /* create new interface if not created */
-//    ifp = if_get_by_name(rpp->name);
+    ifp = if_get_by_name(rpp->name);
 
     // fill up the interface info
-//    ifp->ifindex = ifindex;
+    ifp->ifindex = ifindex;
 
     // copy over the flags
-//    ifp->state = ntohl(rpp->state);
-//    ospf6_interface_if_add(ifp, ctrl_client);
+    ifp->state = ntohl(rpp->state);
   }
   
   return 0;

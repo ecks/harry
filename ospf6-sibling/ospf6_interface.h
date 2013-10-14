@@ -21,9 +21,15 @@ struct ospf6_interface
   u_int16_t dead_interval;
   u_int32_t rxmt_interval;
 
+  /* Linklocal LSA Database: includes Link-LSA */
+  struct ospf6_lsdb * lsdb;
+
   /* Decision of DR Election */
   u_int32_t drouter;
   u_int32_t bdrouter;
+
+  /* I/F MTU */
+  u_int32_t ifmtu;
 
   /* Interface state */
   u_char state;
@@ -43,8 +49,10 @@ struct ospf6_interface
 #define OSPF6_INTERFACE_DR               7
 #define OSPF6_INTERFACE_MAX              8
 
-struct ospf6_interface * ospf6_interface_create (struct interface *ifp);
-void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client);
-int interface_up(struct thread * thread);
+extern struct ospf6_interface * ospf6_interface_create (struct interface *ifp);
+extern void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client);
+extern int interface_up(struct thread * thread);
+extern int wait_timer(struct thread * thread);
+extern int neighbor_change(struct thread * thread);
 
 #endif

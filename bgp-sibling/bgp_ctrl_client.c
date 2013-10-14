@@ -37,9 +37,8 @@ struct bgp_ctrl_client * bgp_ctrl_client_new()
 void bgp_ctrl_client_init(struct bgp_ctrl_client * bgp_ctrl_client, struct in6_addr * ctrl_addr)
 {
   bgp_ctrl_client->sock = -1;
-
   bgp_ctrl_client->ctrl_addr = ctrl_addr;
-
+  bgp_ctrl_client->current_xid = 0;
   bgp_ctrl_client->state = BGP_CTRL_CONNECTING;
 
   bgp_ctrl_client_event(BGP_CTRL_CLIENT_SCHEDULE, bgp_ctrl_client);
@@ -146,6 +145,12 @@ int bgp_ctrl_client_start(struct bgp_ctrl_client * bgp_ctrl_client)
 
   bgp_ctrl_client_event(BGP_CTRL_CLIENT_READ, bgp_ctrl_client);
 
+  // don't increment the xids on hello
+  bgp_ctrl_client->obuf = routeflow_alloc_xid(RFPT_HELLO, RFP10_VERSION,
+                                              htonl(bgp_ctrl_client->current_xid), sizeof(struct rfp_hello));
+
+  retval = bgp_ctrl_send_message(bgp_ctrl_client);
+  
   retval = bgp_ctrl_message_send(bgp_ctrl_client, RFPT_HELLO, RFP10_VERSION);
   if(!retval)
     bgp_ctrl_client->state = BGP_CTRL_RECV_HELLO;
@@ -259,9 +264,15 @@ static int bgp_ctrl_client_connected(struct thread * t)
   int retval;
   struct bgp_ctrl_client * bgp_ctrl_client = THREAD_ARG(t);
 
-  retval = bgp_ctrl_message_send(bgp_ctrl_client, RFPT_FEATURES_REQUEST, RFP10_VERSION);
+  bgp_ctrl_client->obuf = routeflow_alloc_xid(RFPT_FEATURES_REQUEST, RFP10_VERSION,
+                                          htonl(bgp_ctrl_client->current_xid), sizeof(struct rfp_header));
+  retval = bgp_ctrl_send_message(bgp_ctrl_client);
+  bgp_ctrl_client->current_xid++;
 
-  retval = bgp_ctrl_message_send(bgp_ctrl_client, RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION);
+  bgp_ctrl_client->obuf = routeflow_alloc_xid(RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION,
+                                          htonl(bgp_ctrl_client->current_xid), sizeof(struct rfp_header));
+  retval = bgp_ctrl_send_message(bgp_ctrl_client);
+  bgp_ctrl_client->current_xid++;
 
   return 0;
 }

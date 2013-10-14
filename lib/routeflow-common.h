@@ -174,6 +174,8 @@ struct ospf6_header
   uint8_t    reserved;
 };
 
+#define OSPF6_MESSAGE_END(H)  ((void *) (H) + ntohs((H)->length))
+
 /* Hello */
 struct ospf6_hello
 {
@@ -198,6 +200,10 @@ struct ospf6_dbdesc
   u_int32_t seqnum;
   /* Followed by LSA Headers */
 };
+
+#define OSPF6_DBDESC_MSBIT (0x01) /* master/slave bit */
+#define OSPF6_DBDESC_MBIT  (0x02) /* more bit */
+#define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
 
 /* Replica Exchange */
 struct ospf6_replica_ex

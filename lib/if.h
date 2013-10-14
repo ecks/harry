@@ -31,5 +31,6 @@ struct interface *if_create (const char *name, int namelen);
 struct interface *if_lookup_by_name (const char *ifname);
 struct interface *if_get_by_name (const char *ifname);
 int if_is_up(struct interface * ifp);
+int if_is_pointtopoint(struct interface * ifp);
 
 #endif

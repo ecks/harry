@@ -657,11 +657,12 @@ void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_
       ospf6_siblings[i]->current_ingress_ack_rcvd = false;
 
       // set a timeout for receiving the ack
-      ospf6_siblings[i]->thread_timeout_ingress = thread_add_timer(master,
-                                                                   sib_router_timeout_forward_ospf6,
-                                                                   ospf6_siblings[i], 
-                                                                   ospf6_siblings[i]->ingress_ack_timeout);
-
+      // *NOTE* take this timeout out for now
+//      ospf6_siblings[i]->thread_timeout_ingress = thread_add_timer(master,
+//                                                                   sib_router_timeout_forward_ospf6,
+//                                                                   ospf6_siblings[i], 
+//                                                                   ospf6_siblings[i]->ingress_ack_timeout);
+//
       retval = rconn_send(ospf6_siblings[i]->rconn, msg_copy);
       if(retval)
       {

@@ -22,6 +22,7 @@ const char *zlog_proto_names[] =
   "PUNTER",
   "CONTROLLER",
   "OSPF-SIBLING",
+  "BGP-SIBLING",
   NULL,
 };
 
@@ -178,6 +179,8 @@ FUNCNAME(const char *format, ...) \
     vzlog (NULL, PRIORITY, format, args); \
     va_end(args); \
 }
+
+ZLOG_FUNC(zlog_warn, LOG_WARNING)
 
 ZLOG_FUNC(zlog_notice, LOG_NOTICE)
 

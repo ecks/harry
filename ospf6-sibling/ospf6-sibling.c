@@ -9,9 +9,9 @@
 #include <stddef.h>
 #include <syslog.h>
 #include <netinet/in.h>
+#include <getopt.h>
 
 #include "routeflow-common.h"
-#include "getopt.h"
 #include "util.h"
 #include "dblist.h"
 #include "if.h"
@@ -41,7 +41,6 @@
 struct option longopts[] =
 {
   { "config_file", required_argument, NULL, 'f'},
-  { "interface_name", required_argument, NULL, 'i'},
   { 0 }
 };
 
@@ -80,9 +79,6 @@ int main(int argc, char *argv[])
         config_file = optarg;
         break;
 
-      case 'i':
-        interface_name = optarg;
-
     }
   }
 
@@ -100,6 +96,9 @@ int main(int argc, char *argv[])
 
   // initialize our interface list
   if_init();
+
+  /* initialize ospf6 */
+  ospf6_top_init();
 
   sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
   if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_OSPF6_SBLING) < 0))
@@ -143,7 +142,7 @@ int main(int argc, char *argv[])
 
     struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
     memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
-    sibling_ctrl_init(ctrl_addr, sibling_addr, interface_name);
+    sibling_ctrl_init(ctrl_addr, sibling_addr);
   }
 
 
@@ -158,8 +157,6 @@ int main(int argc, char *argv[])
 
   free(ctrl_addrs);
   
-  ospf6_top_init(interface_name);
-
   // Monitor rib changes in the case that we need to restart it
   struct subscribe_to_rib_changes_info info;
   info.rib_add_ipv4_route = rib_monitor_add_ipv4_route;

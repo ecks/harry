@@ -82,12 +82,16 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 }
 
 void sibling_ctrl_init(struct in6_addr * ctrl_addr, 
-                       struct in6_addr * sibling_addr, 
-                       char * interface_name)
+                       struct in6_addr * sibling_addr)
 {
   ctrl_client = ctrl_client_new();
-  ctrl_client_init(ctrl_client, ctrl_addr, sibling_addr, interface_name);
+  ctrl_client_init(ctrl_client, ctrl_addr, sibling_addr);
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
   ctrl_client->leader_elect = ospf6_leader_elect;
+}
+
+void sibling_ctrl_interface_init(char * interface)
+{
+  ctrl_client_interface_init(ctrl_client, interface);
 }
