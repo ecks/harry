@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 
 #include "lib/dblist.h"
+#include "prefix.h"
 #include "api.h"
 #include "thread.h"
 #include "log.h"

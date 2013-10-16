@@ -35,6 +35,7 @@ int fwd_control_input(struct datapath *, const struct sender *,
                       struct rfpbuf *);
 static int forward_ospf6_msg(struct datapath * dp, const struct sender * sender, struct rfpbuf * msg);
 void get_ports(struct list * ports);
+void get_addrs(struct list * ports);
 void get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes);
 static void rfconn_run(struct datapath *, struct rfconn *);
 static void rfconn_forward_msg(struct datapath * dp, struct rfconn * rfconn, struct rfpbuf * buf);
@@ -53,7 +54,8 @@ struct datapath * dp_new(uint64_t dpid)
 
     list_init(&dp->port_list);
     get_ports(&dp->port_list);
- 
+    get_addrs(&dp->port_list);
+
     list_init(&dp->ipv4_rib_routes);
 #ifdef HAVE_IPV6
     list_init(&dp->ipv6_rib_routes);
@@ -105,6 +107,18 @@ add_controller(struct datapath *dp, const char *target)
   conn_start(conn, target);
 }
 
+struct sw_port * iface_find_port(unsigned int index, struct list * ports)
+{
+  struct sw_port * port;
+  LIST_FOR_EACH(port, struct sw_port, node, ports)
+  {
+    if(port->port_no == index)
+      return port;
+  }
+
+  return NULL;
+}
+
 int iface_add_port (unsigned int index, unsigned int flags, unsigned int mtu, char * name, struct list * list)
 {
   struct sw_port * port = malloc(sizeof *port);
@@ -122,6 +136,8 @@ int iface_add_port (unsigned int index, unsigned int flags, unsigned int mtu, ch
     }
     strncpy(port->hw_name, name, strlen(name));
     list_push_back(list, &port->node);
+
+    list_init(&port->connected);
   } 
 
   return 0;
@@ -153,23 +169,102 @@ get_ports(struct list * ports)
   } 
 }
 
+int addr_add_ipv4(int index, void * address, u_char prefixlen, struct list * list)
+{
+  struct sw_port * port;
+  struct addr * addr = calloc(1, sizeof(struct addr));
+  addr->p = calloc(1, sizeof(struct prefix_ipv4));
+
+  addr->p->family = AF_INET;
+  memcpy(&addr->p->u.prefix, address, 4);
+  addr->ifindex = index;
+
+  char prefix_str[INET_ADDRSTRLEN];
+  if(inet_ntop(AF_INET, &(addr->p->u.prefix4.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+  {
+    printf("addr_add_ipv4: %s/%d if: %d\n", prefix_str, prefixlen, index);
+  }
+
+  port = iface_find_port(index, list);
+  if(port)
+  {
+    list_push_back(&port->connected, &addr->node);
+  }
+
+  return 0;
+}
+
+int addr_add_ipv6(int index, void * address, u_char prefixlen, struct list * list)
+{
+  struct addr * addr = calloc(1, sizeof(struct addr));
+  addr->p = calloc(1, sizeof(struct prefix_ipv6));
+
+  addr->p->family = AF_INET6;
+  memcpy(&addr->p->u.prefix, address, 16);
+
+  char prefix_str[INET6_ADDRSTRLEN];
+  if(inet_ntop(AF_INET6, &(addr->p->u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+  {
+    printf("addr_add_ipv6: %s/%d if: %d\n", prefix_str, prefixlen, index);
+  }
+
+  return 0;
+}
+
+void get_addrs(struct list * ports)
+{
+  // ports is going to be for both ipv4 and ipv6 addresses
+  if(addrs_list(ports, ports, addr_add_ipv4, addr_add_ipv6) != 0)
+  {
+    exit(1);
+  }
+
+}
+
+/* Add an IPv4 Address to RIB. */
+int rib_add_ipv4 (struct route_ipv4 * route, void * data)
+{
+  struct list * list = (struct list *)data;
+  list_push_back(list, &route->node);
+
+  return 0;
+}
+
+#ifdef HAVE_IPV6
+int rib_add_ipv6 (struct route_ipv6 * route, void * data)
+{
+  struct list * list = (struct list *)data;
+  list_push_back(list, &route->node);
+  return 0;
+}
+#endif /* HAVE_IPV6 */
+
 void
 get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 {
-  if(routes_list(ipv4_rib_routes, ipv6_rib_routes) != 0)
+  if(routes_list(ipv4_rib_routes, ipv6_rib_routes, rib_add_ipv4, rib_add_ipv6) != 0)
   {
     exit(1);
   }
 
   if(IS_ZEBRALITE_DEBUG_RIB)
   {
-    struct route_ipv4 * route;
-    LIST_FOR_EACH(route, struct route_ipv4, node, ipv4_rib_routes)
+    struct route_ipv4 * route4;
+    LIST_FOR_EACH(route4, struct route_ipv4, node, ipv4_rib_routes)
     {
-      // print route
+      // print ipv4 route
       char prefix_str[INET_ADDRSTRLEN];
-      if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
-      	zlog_debug("%s/%d [%u/%u]", prefix_str, route->p->prefixlen, route->distance, route->metric);
+      if (inet_ntop(AF_INET, &(route4->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+      	zlog_debug("%s/%d [%u/%u] (%d)", prefix_str, route4->p->prefixlen, route4->distance, route4->metric, route4->ifindex);
+    }
+
+    struct route_ipv6 * route6;
+    LIST_FOR_EACH(route6, struct route_ipv6, node, ipv6_rib_routes)
+    {
+      // print ipv6 route
+      char prefix_str[INET6_ADDRSTRLEN];
+      if(inet_ntop(AF_INET6, &(route6->p->prefix.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+      	zlog_debug("%s/%d [%u/%u] (%d)", prefix_str, route6->p->prefixlen, route6->distance, route6->metric, route6->ifindex);
     }
   }
 }

@@ -9,6 +9,7 @@
 #include <linux/if.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
@@ -385,20 +386,59 @@ netlink_address (struct sockaddr_nl *snl, struct nlmsghdr *h, void * info)
 
   ifa = NLMSG_DATA(h);
 
+  if (ifa->ifa_family != AF_INET
+#ifdef HAVE_IPV6
+    && ifa->ifa_family != AF_INET6
+#endif /* HAVE_IPV6 */
+  )    
+  return 0;
+
   if(h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
     return 0;
 
-  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
+  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct ifaddrmsg));
   if (len < 0)
     return -1;
 
   memset (tb, 0, sizeof tb);
-  netlink_parse_rtattr (tb, RTA_MAX, IFA_RTA (ifa), len);
+  netlink_parse_rtattr (tb, IFA_MAX, IFA_RTA (ifa), len);
 
   index = ifa->ifa_index;
 
-  if(tb[IFA_ADDRESS])
-    address = RTA_DATA(tb[IFA_ADDRESS]);
+  if(0)  // change to 1 for debugging
+  {
+    char buf[BUFSIZ];
+    if (tb[IFA_LOCAL])
+      printf ("  IFA_LOCAL     %s/%d\n",
+              inet_ntop (ifa->ifa_family, RTA_DATA (tb[IFA_LOCAL]),
+              buf, BUFSIZ), ifa->ifa_prefixlen);
+    if (tb[IFA_ADDRESS])
+      printf ("  IFA_ADDRESS   %s/%d\n",
+              inet_ntop (ifa->ifa_family, RTA_DATA (tb[IFA_ADDRESS]),
+              buf, BUFSIZ), ifa->ifa_prefixlen);
+    if (tb[IFA_BROADCAST])
+      printf ("  IFA_BROADCAST %s/%d\n",
+              inet_ntop (ifa->ifa_family, RTA_DATA (tb[IFA_BROADCAST]),
+              buf, BUFSIZ), ifa->ifa_prefixlen);
+//  if (tb[IFA_LABEL] && strcmp (ifp->name, RTA_DATA (tb[IFA_LABEL])))
+//    printf ("  IFA_LABEL     %s\n", (char *)RTA_DATA (tb[IFA_LABEL]));
+                                                 
+    if (tb[IFA_CACHEINFO])
+    {
+      struct ifa_cacheinfo *ci = RTA_DATA (tb[IFA_CACHEINFO]);
+      printf ("  IFA_CACHEINFO pref %d, valid %d\n",
+            ci->ifa_prefered, ci->ifa_valid);
+    }
+  }
+
+  /* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
+  if (tb[IFA_LOCAL] == NULL)
+    tb[IFA_LOCAL] = tb[IFA_ADDRESS];
+  if (tb[IFA_ADDRESS] == NULL)
+    tb[IFA_ADDRESS] = tb[IFA_LOCAL];
+        
+  /* local interface address */
+  address = (tb[IFA_LOCAL] ? RTA_DATA(tb[IFA_LOCAL]) : NULL);
 
   if (ifa->ifa_family == AF_INET)
   {
@@ -492,12 +532,22 @@ int netlink_addr_read(struct netlink_addrs_info * info)
 {
   int ret;
 
-  ret = netlink_request(AF_PACKET, RTM_GETADDR, &netlink_cmd);
+  ret = netlink_request(AF_INET, RTM_GETADDR, &netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info( netlink_address, &netlink_cmd, (void*)info);
+  ret = netlink_parse_info( netlink_address, &netlink_cmd, (void *)info);
   if (ret < 0)
     return ret;
+
+#ifdef HAVE_IPV6
+  /* Get IPv6 address of the interfaces. */
+  ret = netlink_request (AF_INET6, RTM_GETADDR, &netlink_cmd);
+  if (ret < 0) 
+    return ret; 
+  ret = netlink_parse_info (netlink_address, &netlink_cmd, (void *)info);
+  if (ret < 0) 
+    return ret; 
+#endif /* HAVE_IPV6 */
 
   return 0;
 }

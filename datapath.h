@@ -9,6 +9,22 @@ struct sw_port {
     uint16_t port_no;
     unsigned int mtu;
     uint32_t state;
+    struct list connected;
+};
+
+struct sw_connected
+{
+  /* Attached interface */
+  struct interface *ifp;
+
+  /* Address of connected network. */
+  struct prefix *address;
+
+  struct list node;
+
+  /* Peer or Broadcast address, depending on whether ZEBRA_IFA_PEER is set.
+   *      Note: destination may be NULL if ZEBRA_IFA_PEER is not set. */
+  struct prefix *destination;
 };
 
 struct datapath {

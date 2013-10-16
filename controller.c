@@ -187,6 +187,51 @@ static int recv_features_request(struct conn * conn, const struct sender *sender
     return 0;
 }
 
+static void
+send_addresses_reply(struct conn * conn, const struct sender * sender)
+{
+  struct rfpbuf *buffer;
+  struct sw_port * p;
+
+  buffer = make_openflow_reply(RFPT_ADDRESSES_REPLY, RFP10_VERSION,
+                               sizeof(struct rfp_router_addresses), sender);
+    
+ LIST_FOR_EACH(p, struct sw_port, node, &conn->dp->port_list)
+ {
+   struct addr * addr;
+   LIST_FOR_EACH(addr, struct addr, node, &p->connected)
+   {
+     if(addr->p->family == AF_INET)
+     {
+       struct rfp_connected_v4 * connected = rfpbuf_put_uninit(buffer, sizeof(struct rfp_connected_v4));
+       connected->type= addr->p->family;
+       connected->prefixlen = addr->p->prefixlen;
+
+       memcpy(&connected->p, &addr->p->u.prefix, 4);
+
+       connected->ifindex = p->port_no;
+     }
+     else if(addr->p->family == AF_INET6)
+     {
+       struct rfp_connected_v6 * connected = rfpbuf_put_uninit(buffer, sizeof(struct rfp_connected_v6));
+       connected->type= addr->p->family;
+       connected->prefixlen = addr->p->prefixlen;
+
+       memcpy(&connected->p[0], &addr->p->u.prefix, 16);
+
+       connected->ifindex = p->port_no;
+     }
+   }
+ }
+}
+
+static int recv_addresses_request(struct conn * conn, const struct sender *sender,
+                      struct rfpbuf * msg)
+{
+    send_addresses_reply(conn, sender);
+    return 0;
+}
+
 static void fill_route_desc(struct route_ipv4 * route, struct rfp_route * desc)
 {
   desc->type = htons(route->type);
@@ -257,6 +302,11 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
       case RFPT_FEATURES_REQUEST:
         printf("Receiving features request message\n");
         handler = recv_features_request;
+        break;
+
+      case RFPT_ADDRESSES_REQUEST:
+        printf("Receiving addresses request message\n");
+        handler = recv_addresses_request;
         break;
 
       case RFPT_STATS_ROUTES_REQUEST:

@@ -55,9 +55,9 @@ struct route_ipv4
         struct list node;
 };
 
-struct addr_ipv4
+struct addr
 {
-  struct prefix_ipv4 *p;
+  struct prefix *p;
   unsigned int ifindex;
   struct list node;
 };
@@ -76,12 +76,6 @@ struct route_ipv6
         struct list node;
 };
 
-struct addr_ipv6
-{
-  struct prefix_ipv6 *p;
-  unsigned int ifindex;
-  struct list node;
-};
 #endif /* HAVE_IPV6 */
 
 #define IPV4_MAX_BYTELEN    4

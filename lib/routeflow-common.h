@@ -54,6 +54,8 @@ enum rfp_type {
     /* Switch configuration messages. */
     RFPT_FEATURES_REQUEST,        /* Controller/switch message */
     RFPT_FEATURES_REPLY,          /* Controller/switch message */
+    RFPT_ADDRESSES_REQUEST,       /* Controller/switch message */
+    RFPT_ADDRESSES_REPLY,         /* Controller/switch message */
     RFPT_GET_CONFIG_REQUEST,	  /* Controller/switch message */
     RFPT_GET_CONFIG_REPLY,	  /* Controller/switch message */
     RFPT_SET_CONFIG,	          /* Controller/switch message */
@@ -101,6 +103,7 @@ struct rfp_phy_port {
 //    uint32_t config;        /* Bitmap of OFPPC_* flags. */
     uint32_t state;         /* Bitmap of RFPPS_* flags. */
     uint32_t mtu;
+    
     /* Bitmaps of OFPPF_* that describe features.  All bits zeroed if
      * unsupported or unavailable. */
 //    uint32_t curr;          /* Current features. */
@@ -120,6 +123,33 @@ struct rfp_router_features {
     struct rfp_phy_port ports[0];  /* Port definitions.  The number of ports
                                       is inferred from the length field in
                                       the header. */
+};
+
+/* Connected */
+struct rfp_connected {
+  uint16_t ifindex;
+  uint16_t type;
+  uint16_t prefixlen;
+};
+
+struct rfp_connected_v4 {
+  uint16_t ifindex;
+  uint16_t type;
+  uint16_t prefixlen;
+  uint32_t p;
+};
+
+struct rfp_connected_v6 {
+  uint16_t ifindex;
+  uint16_t type;
+  uint16_t prefixlen;
+  uint32_t p[4];
+};
+
+/* Switch addresses */
+struct rfp_router_addresses {
+  struct rfp_header header;
+  struct rfp_connected connected[0];
 };
 
 struct rfp_nexthop {
