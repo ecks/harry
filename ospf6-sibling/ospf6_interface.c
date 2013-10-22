@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -12,6 +14,7 @@
 #include "debug.h"
 #include "thread.h"
 #include "if.h"
+#include "prefix.h"
 #include "ospf6_top.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -69,6 +72,26 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
     return oi;
 }
 
+static struct in6_addr *
+ospf6_intreface_get_linklocal_address(struct interface * ifp)
+{
+  struct connected * c;
+  struct in6_addr * l = (struct in6_addr *) NULL;
+ 
+  LIST_FOR_EACH(c, struct connected, node, &ifp->connected)
+  {
+    /* if family not AF_INET6, ignore */
+    if(c->address->family != AF_INET6)
+      continue;
+
+    /* linklocal scope check */
+    if(IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+        l = &c->address->u.prefix6;
+  }
+
+  return l;
+}
+
 void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client)
 {
  struct ospf6_interface * oi = (struct ospf6_interface *)ifp->info;
@@ -87,7 +110,12 @@ void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_cl
 
 void ospf6_interface_connected_route_update(struct interface * ifp)
 {
-  // not sure what this is for yet
+  struct ospf6_interface * oi;
+
+  oi = (struct ospf6_interface *)ifp->info;
+  if(oi == NULL)
+    return;
+
 }
 
 static void ospf6_interface_state_change(u_char next_state, struct ospf6_interface * oi)
@@ -284,7 +312,7 @@ int interface_up(struct thread * thread)
   /* Update ctrl client with interface name */
   sibling_ctrl_interface_init(oi->interface->name);
 
-  /* Update intreface route */
+  /* Update interface route */
   ospf6_interface_connected_route_update(oi->interface);
 
   /* Schedule Hello */

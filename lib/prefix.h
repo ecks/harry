@@ -85,10 +85,11 @@ struct route_ipv6
 #define IPV6_MAX_BYTELEN    16
 #define IPV6_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV6_MAX_BYTELEN) == 0)
 
-struct prefix * new_prefix();
-struct prefix_ipv4 * new_prefix_v4();
+struct prefix * prefix_new();
+void prefix_free(struct prefix * p);
+struct prefix_ipv4 * prefix_ipv4_new();
 #ifdef HAVE_IPV6
-struct prefix_ipv6 * new_prefix_v6();
+struct prefix_ipv6 * prefix_ipv6_new();
 #endif
 
 struct route_ipv4 * new_route();

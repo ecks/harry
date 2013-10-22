@@ -4,8 +4,10 @@
 enum router_state {
     R_CONNECTING,               /* Waiting for connection to complete. */
     R_CONNECTED,                /* The exchange of hello messages has been initiated. */
-    R_FEATURES_REPLY,           /* Waiting for features reply. */
-    R_STATS_ROUTES_REPLY,       /* Waiting for stats reply. */
+    R_FEATURES_REPLY,           /* Received features reply. */
+    R_STATS_ROUTES_REPLY,       /* Received stats reply. */
+    R_FEAT_ADDR_REPLY,          /* Received features and addr reply */
+    R_FEAT_STATS_REPLY,         /* Received features and stats reply */ 
     R_ROUTING,                  /* Switching flows. */
 };
 

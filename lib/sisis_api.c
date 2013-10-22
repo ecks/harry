@@ -899,7 +899,7 @@ struct list * get_sisis_addrs_for_prefix(struct prefix_ipv6 * p)
 				struct route_ipv6 * new_route = malloc(sizeof(*new_route));
 				if (new_route != NULL)
 				{
-                                  if((new_route->p = new_prefix_v6()) != NULL)
+                                  if((new_route->p = prefix_ipv6_new()) != NULL)
                                   {
 						memcpy(&new_route->p->prefix, &route->p->prefix, sizeof(route->p->prefix));
 						list_push_back(rtn, &new_route->node);

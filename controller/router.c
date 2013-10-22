@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -25,6 +27,7 @@
 static void router_send_features_request(struct router *);
 static void router_send_stats_routes_request(struct router *rt);
 static void router_process_packet(struct router *, struct rfpbuf *);
+static int router_process_addresses(struct router * rt, void * rh);
 static int router_process_features(struct router * rt, void *rh);
 static void router_process_phy_port(struct router * rt, void * rpp_);
 static void router_send_stats_routes_request(struct router *rt);
@@ -153,7 +156,7 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
           }
           else if(rt->state == R_STATS_ROUTES_REPLY)
           {
-            rt->state = R_ROUTING;
+            rt->state = R_FEAT_STATS_REPLY;
           }
         }
         else
@@ -163,8 +166,26 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_ADDRESSES_REPLY:
+      if(rt->state == R_FEATURES_REPLY || rt->state == R_FEAT_STATS_REPLY)
+      {
+        printf("addresses reply\n");
+        if(!router_process_addresses(rt, msg->data))
+        {
+          if(rt->state == R_FEATURES_REPLY)
+          {
+            rt->state = R_FEAT_ADDR_REPLY;
+          }
+          else if(rt->state == R_FEAT_STATS_REPLY)
+          {
+            rt->state = R_ROUTING;
+          }
+        }
+      }
+      break;
+
     case RFPT_STATS_ROUTES_REPLY:
-      if(rt->state == R_CONNECTED || rt->state == R_FEATURES_REPLY)
+      if(rt->state == R_CONNECTED || rt->state == R_FEATURES_REPLY || rt->state == R_FEAT_ADDR_REPLY)
       {
         printf("stats reply\n");
         if(!router_process_stats_routes(rt, msg->data))
@@ -174,6 +195,10 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
             rt->state = R_STATS_ROUTES_REPLY;
           }
           else if(rt->state == R_FEATURES_REPLY)
+          {
+            rt->state = R_FEAT_STATS_REPLY;
+          }
+          else if(rt->state == R_FEAT_ADDR_REPLY)
           {
             rt->state = R_ROUTING;
           }
@@ -231,6 +256,86 @@ router_destroy(struct router *rt)
 }
 
 static void
+router_send_addresses_request(struct router *rt)
+{
+  struct rfpbuf * buffer;
+ 
+  buffer = routeflow_alloc(RFPT_ADDRESSES_REQUEST, RFP10_VERSION, sizeof(struct rfp_header));
+
+  rconn_send(rt->rconn, buffer);
+}
+
+static int 
+router_process_addresses(struct router * rt, void * rh)
+{
+  struct rfp_router_addresses * rra = rh;
+  u_char * p;
+
+  struct rfp_connected * connected = rra->connected;
+  p = (u_char *)((void *)rh + sizeof(struct rfp_header));
+
+  do
+  {
+    if(connected->type == AF_INET)
+    {
+      struct rfp_connected_v4 * connected4 = (struct rfp_connected_v4 *)connected;
+      printf("v4 received\n");
+      
+      struct connected * ifc = calloc(1, sizeof(struct connected));
+      ifc->address = calloc(1, sizeof(struct prefix));
+      memcpy(&ifc->address->u.prefix, &connected4->p, 4);
+      ifc->address->prefixlen = connected4->prefixlen;
+      ifc->address->family = AF_INET;
+
+      list_init(&ifc->node);
+      char prefix_str[INET_ADDRSTRLEN];
+      if(inet_ntop(AF_INET, &(ifc->address->u.prefix4.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+      {
+        printf("v4 addr: %s/%d\n", prefix_str, connected4->prefixlen);
+      }
+
+      struct interface * ifp = if_lookup_by_index(connected4->ifindex);
+      
+      // add addresss to list of connected 
+      list_push_back(&ifp->connected, &ifc->node);
+      ifc->ifp = ifp;
+
+      p += sizeof(struct rfp_connected_v4);
+      connected = (void *)connected + sizeof(struct rfp_connected_v4);
+    }
+    else if(connected->type == AF_INET6)
+    {
+      struct rfp_connected_v6 * connected6 = (struct rfp_connected_v6 *)connected;
+      printf("v6 received\n");
+
+      struct connected * ifc = calloc(1, sizeof(struct connected));
+      ifc->address = calloc(1, sizeof(struct prefix));
+      memcpy(&ifc->address->u.prefix, &connected6->p, 16);
+      ifc->address->prefixlen = connected6->prefixlen;
+      ifc->address->family = AF_INET6;
+
+      char prefix_str[INET6_ADDRSTRLEN];
+      if(inet_ntop(AF_INET6, &(ifc->address->u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+      {
+        printf("v6 addr: %s/%d\n", prefix_str, connected6->prefixlen);
+      }
+
+      struct interface * ifp = if_lookup_by_index(connected6->ifindex);
+      
+      // add addresss to list of connected 
+      list_push_back(&ifp->connected, &ifc->node);
+      ifc->ifp = ifp;
+
+      p += sizeof(struct rfp_connected_v6);
+      connected = (void *)connected + sizeof(struct rfp_connected_v6);
+     }
+  }
+  while(p < ((void *)rh + ntohs(((struct rfp_header *)rh)->length)));
+
+  return 0;
+}
+
+static void
 router_send_features_request(struct router *rt)
 {
   struct rfpbuf * buffer;
@@ -256,6 +361,9 @@ router_process_features(struct router * rt, void * rh)
   {
     router_process_phy_port(rt, &rrf->ports[i]);
   }
+
+  router_send_addresses_request(rt);
+
   return 0;
 }
 
@@ -337,7 +445,7 @@ router_process_route(struct router * rt, void * rr_)
   unsigned int distance;
   unsigned long int metric;
 
-  route->p = new_prefix_v4();
+  route->p = prefix_ipv4_new();
   route->p->family = AF_INET;
   memcpy(&route->p->prefix, &rr->p, 4);
   route->p->prefixlen = ntohs(rr->prefixlen);

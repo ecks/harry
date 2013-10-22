@@ -318,6 +318,14 @@ static int ctrl_client_read(struct thread * t)
       ret = ctrl_client->features_reply(ctrl_client, ctrl_client->ibuf);
       break;
 
+    case RFPT_IPV4_ADDRESS_ADD:
+      ret = ctrl_client->address_add_v4(ctrl_client, ctrl_client->ibuf);
+      break;
+
+    case RFPT_IPV6_ADDRESS_ADD:
+      ret = ctrl_client->address_add_v6(ctrl_client, ctrl_client->ibuf);
+      break;
+
     case RFPT_GET_CONFIG_REPLY:
       break;
 
@@ -356,6 +364,18 @@ static int ctrl_client_connected(struct thread * t)
   ctrl_client->current_xid++;
 
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION, 
+                                          htonl(ctrl_client->current_xid), sizeof(struct rfp_header));
+  retval = ctrl_send_message(ctrl_client);
+  ctrl_client->current_xid++;
+
+  return 0;
+}
+
+int ctrl_client_if_addr_req(struct ctrl_client * ctrl_client)
+{
+  int retval;
+
+  ctrl_client->obuf = routeflow_alloc_xid(RFPT_IF_ADDRESS_REQ, RFP10_VERSION,
                                           htonl(ctrl_client->current_xid), sizeof(struct rfp_header));
   retval = ctrl_send_message(ctrl_client);
   ctrl_client->current_xid++;

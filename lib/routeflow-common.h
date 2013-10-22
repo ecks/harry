@@ -63,7 +63,9 @@ enum rfp_type {
     RFPT_STATS_ROUTES_REPLY,      /* Controller/switch message */
     RFPT_REDISTRIBUTE_REQUEST,    /* Sibling/controller message */
     RFPT_IPV4_ROUTE_ADD,          /* Controller/sibling message */
-
+    RFPT_IF_ADDRESS_REQ,         /* Sibling/controller message */
+    RFPT_IPV4_ADDRESS_ADD,        /* Controller/sibling message */
+    RFPT_IPV6_ADDRESS_ADD,        /* Controller/sibling message */
     /* Data forwarding messages. */
     RFPT_FORWARD_OSPF6,
     RFPT_FORWARD_BGP,
@@ -180,6 +182,21 @@ struct rfp_ipv4_route {
   struct rfp_header header;
   uint16_t prefixlen;
   uint32_t p;
+};
+
+struct rfp_ipv4_address {
+  struct rfp_header header;
+  uint16_t ifindex;
+  uint16_t prefixlen;
+  uint32_t p;
+};
+
+struct rfp_ipv6_address {
+  struct rfp_header header;
+  uint16_t ifindex;
+  uint16_t prefixlen;
+  uint32_t p[4];
+
 };
 
 /* OSPF6 Types */

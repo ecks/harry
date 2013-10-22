@@ -6,6 +6,8 @@ enum sib_router_state {
     SIB_CONNECTED,                /* Exchanged hellos */
     SIB_FEATURES_REQ_RCVD,        /* Received features request. */
     SIB_REDISTRIBUTE_REQ_RCVD,    /* Received redistribute request */
+    SIB_FEATURES_REDIS_REQ_RCVD,  /* Received features and interface address request */
+    SIB_FEATURES_ADDR_REQ_RCVD,   /* Received features and redistribute request */
     SIB_ROUTING,                  /* Switching flows. */
     SIB_DISCONNECTED,             /* Disconnected. */
 };

@@ -19,18 +19,23 @@ static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 #define PNBBY 8
 #endif /* PNBBY */
 
-struct prefix * new_prefix()
+struct prefix * prefix_new()
 {
   return calloc(1, sizeof(struct prefix));
 }
 
-struct prefix_ipv4 * new_prefix_v4()
+void prefix_free(struct prefix * p)
+{
+  free(p);
+}
+
+struct prefix_ipv4 * prefix_ipv4_new()
 {
   return calloc(1, sizeof(struct prefix_ipv4));
 }
 
 #ifdef HAVE_IPV6
-struct prefix_ipv6 * new_prefix_v6()
+struct prefix_ipv6 * prefix_ipv6_new()
 {
   return calloc(1, sizeof(struct prefix_ipv6));
 }

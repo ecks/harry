@@ -25,6 +25,8 @@ struct ctrl_client
   /* Pointer to the callback functions */
   int (*features_reply) (struct ctrl_client *, struct rfpbuf *);
   int (*routes_reply) (struct ctrl_client *, struct rfpbuf *);
+  int (*address_add_v4)(struct ctrl_client *, struct rfpbuf *);
+  int (*address_add_v6)(struct ctrl_client *, struct rfpbuf *);
   int (*leader_elect) ();
 };
 
@@ -35,7 +37,7 @@ extern void ctrl_client_init(struct ctrl_client * ctrl_client,
 extern void ctrl_client_interface_init(struct ctrl_client *, char *);
 int fwd_message_send(struct ctrl_client * ctrl_client);
 int ctrl_client_start(struct ctrl_client * ctrl_client);
-
+extern int ctrl_client_if_addr_req(struct ctrl_client * ctrl_client);
 /* TCP socket connection to controller */
 extern int ctrl_client_socket(struct in6_addr * ctrl_addr,
                               struct in6_addr * sibling_addr);

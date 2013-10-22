@@ -55,6 +55,7 @@ static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const c
 static void sib_router_process_phy_port(struct sib_router * rt, void * rpp_);
 static void sib_router_send_features_reply(struct sib_router * sr, unsigned int xid);
 static void sib_router_redistribute(struct sib_router * sr, unsigned int xid);
+static void sib_router_if_addr_add(struct sib_router * sr, unsigned int xid);
 static void sib_router_send_leader_elect();
 static void state_transition(struct sib_router * sr, enum sib_router_state state);
 
@@ -384,7 +385,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         zlog_debug("features request, xid: %d from %s", xid, sr->rconn->target);
       }
-      if(xid == sr->current_egress_xid)
+      if(xid == sr->current_egress_xid && (sr->state == SIB_CONNECTED || sr->state == SIB_REDISTRIBUTE_REQ_RCVD))
       {
         sr->current_egress_xid++;
         sib_router_send_features_reply(sr, xid);   
@@ -396,7 +397,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
         }
         else if(sr->state == SIB_REDISTRIBUTE_REQ_RCVD)
         {
-          state_transition(sr, SIB_ROUTING);
+          state_transition(sr, SIB_FEATURES_REDIS_REQ_RCVD);
         }
       }
       else
@@ -408,12 +409,41 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_IF_ADDRESS_REQ:
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("interface address add request, xid: %d from %s", xid, sr->rconn->target);
+      }
+      if(xid == sr->current_egress_xid && (sr->state == SIB_FEATURES_REQ_RCVD || SIB_FEATURES_REDIS_REQ_RCVD))
+      {
+        sr->current_egress_xid++;
+        sib_router_if_addr_add(sr, xid);
+
+        // state transititon
+        if(sr->state == SIB_FEATURES_REQ_RCVD)
+        {
+          state_transition(sr, SIB_FEATURES_ADDR_REQ_RCVD);
+        }
+        else if(sr->state == SIB_FEATURES_REDIS_REQ_RCVD)
+        {
+          state_transition(sr, SIB_ROUTING);
+        }
+      } 
+      else
+      {
+        if(IS_CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("interface address request, xid mismatch");
+        }
+      }
+       break;
+
     case RFPT_REDISTRIBUTE_REQUEST:
       if(IS_CONTROLLER_DEBUG_MSG)
       {
         zlog_debug("redistribute request, xid: %d from %s", xid, sr->rconn->target);
       }
-      if(xid == sr->current_egress_xid)
+      if(xid == sr->current_egress_xid && (sr->state == SIB_CONNECTED || sr->state == SIB_FEATURES_REQ_RCVD || sr->state == SIB_FEATURES_ADDR_REQ_RCVD))
       {
         sr->current_egress_xid++;
         sib_router_redistribute(sr, xid);
@@ -424,6 +454,10 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
           state_transition(sr, SIB_REDISTRIBUTE_REQ_RCVD);
         }
         else if(sr->state == SIB_FEATURES_REQ_RCVD)
+        {
+          state_transition(sr, SIB_FEATURES_REDIS_REQ_RCVD);
+        }
+        else if(sr->state == SIB_FEATURES_ADDR_REQ_RCVD)
         {
           state_transition(sr, SIB_ROUTING);
         }
@@ -564,6 +598,72 @@ sib_router_send_features_reply(struct sib_router * sr, unsigned int xid)
   } 
 }
 
+static void
+sib_router_send_address_reply(enum rfp_type type, struct sib_router * sr, struct connected * ifc, unsigned int ifindex, unsigned int xid)
+{
+  struct rfpbuf * buffer;
+  int retval;
+
+  if(type == RFPT_IPV4_ADDRESS_ADD)
+  {
+    struct rfp_ipv4_address * addr;
+
+    buffer = routeflow_alloc_xid(type, RFP10_VERSION, xid, sizeof(struct rfp_ipv4_address));
+
+    addr = buffer->l2;
+
+    addr->ifindex = ifindex;
+    addr->prefixlen = ifc->address->prefixlen;
+    memcpy(&addr->p, &ifc->address->u.prefix, 4);
+  }
+  else if(type == RFPT_IPV6_ADDRESS_ADD)
+  {
+    struct rfp_ipv6_address * addr;
+
+    buffer = routeflow_alloc_xid(type, RFP10_VERSION, xid, sizeof(struct rfp_ipv6_address));
+
+    addr = buffer->l2;
+
+    addr->ifindex = ifindex;
+    addr->prefixlen = ifc->address->prefixlen;
+    memcpy(&addr->p, &ifc->address->u.prefix, 16);
+  }
+
+  rfpmsg_update_length(buffer);
+  retval = rconn_send(sr->rconn, buffer);
+
+   if(retval)
+  {
+    printf("send to %s failed: %s",
+           rconn_get_target(sr->rconn), strerror(retval));
+  }
+}
+
+static void
+sib_router_if_addr_add(struct sib_router * sr, unsigned int xid)
+{
+  int i;
+  for(i = 0; i < *n_routers_p; i++)
+  {
+    struct if_list * if_node;
+    LIST_FOR_EACH(if_node, struct if_list, node, &routers[i]->port_list)
+    {
+      struct interface * ifp = if_node->ifp;
+      struct connected * ifc;
+      LIST_FOR_EACH(ifc, struct connected, node, &ifp->connected)
+      {
+        if(ifc->address->family == AF_INET)
+        {
+          sib_router_send_address_reply(RFPT_IPV4_ADDRESS_ADD, sr, ifc, ifp->ifindex, xid);
+        }
+        else if(ifc->address->family == AF_INET6)
+        {
+          sib_router_send_address_reply(RFPT_IPV6_ADDRESS_ADD, sr, ifc, ifp->ifindex, xid);
+        }
+      }
+    }
+  }
+}
 
 static void
 sib_router_send_route_reply(enum rfp_type type, struct sib_router * sr, struct prefix * p, 
