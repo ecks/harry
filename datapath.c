@@ -177,6 +177,8 @@ int addr_add_ipv4(int index, void * address, u_char prefixlen, struct list * lis
 
   addr->p->family = AF_INET;
   memcpy(&addr->p->u.prefix, address, 4);
+  addr->p->prefixlen = prefixlen;
+
   addr->ifindex = index;
 
   char prefix_str[INET_ADDRSTRLEN];
@@ -196,16 +198,26 @@ int addr_add_ipv4(int index, void * address, u_char prefixlen, struct list * lis
 
 int addr_add_ipv6(int index, void * address, u_char prefixlen, struct list * list)
 {
+  struct sw_port * port;
   struct addr * addr = calloc(1, sizeof(struct addr));
   addr->p = calloc(1, sizeof(struct prefix_ipv6));
 
   addr->p->family = AF_INET6;
   memcpy(&addr->p->u.prefix, address, 16);
+  addr->p->prefixlen = prefixlen;
+
+  addr->ifindex = index;
 
   char prefix_str[INET6_ADDRSTRLEN];
   if(inet_ntop(AF_INET6, &(addr->p->u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
   {
     printf("addr_add_ipv6: %s/%d if: %d\n", prefix_str, prefixlen, index);
+  }
+
+  port = iface_find_port(index, list);
+  if(port)
+  {
+    list_push_back(&port->connected, &addr->node);
   }
 
   return 0;

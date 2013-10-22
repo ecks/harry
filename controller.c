@@ -223,6 +223,8 @@ send_addresses_reply(struct conn * conn, const struct sender * sender)
      }
    }
  }
+
+ send_routeflow_buffer(buffer, sender);
 }
 
 static int recv_addresses_request(struct conn * conn, const struct sender *sender,
