@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -ggdb -I../lib
 EXECUTABLE = ospf6-sibling
 LIBS = -pthread -lrt
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c log.c command.c vty.c debug.c vector.c table.c
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c ospf6_route.c ospf6_area.c log.c ospf6_intra.c command.c vty.c debug.c vector.c table.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -96,6 +96,15 @@ ospf6_lsa.o: ospf6_lsa.c
 	$(CC) $(CFLAGS) -c $^
 
 ospf6_flood.o: ospf6_flood.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_route.o: ospf6_route.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_intra.o: ospf6_intra.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_area.o: ospf6_area.c
 	$(CC) $(CFLAGS) -c $^
 
 log.o: log.c

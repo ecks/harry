@@ -24,7 +24,7 @@ struct route_node
   unsigned int lock;
 
   /* Each node of route. */
-  void *info;
+  void * info;
 
   int valid;
   int label;

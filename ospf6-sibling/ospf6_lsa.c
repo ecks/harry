@@ -11,6 +11,8 @@
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 
+extern struct thread_master * master;
+
 /* ospf6 age functions */
 /* calculate birth */
 static void ospf6_lsa_age_set (struct ospf6_lsa *lsa)
@@ -45,6 +47,34 @@ ospf6_lsa_is_changed (struct ospf6_lsa *lsa1,
 
   return memcmp (OSPF6_LSA_HEADER_END (lsa1->header),
                  OSPF6_LSA_HEADER_END (lsa2->header), length);
+}
+
+/* RFC2328: Section 13.2 */
+int
+ospf6_lsa_is_differ (struct ospf6_lsa *lsa1,
+                         struct ospf6_lsa *lsa2)
+{
+  int len; 
+
+  assert (OSPF6_LSA_IS_SAME (lsa1, lsa2));
+
+  /* XXX, Options ??? */
+
+  ospf6_lsa_age_current (lsa1);
+  ospf6_lsa_age_current (lsa2);
+  if (ntohs (lsa1->header->age) == MAXAGE &&
+      ntohs (lsa2->header->age) != MAXAGE)
+    return 1;
+  if (ntohs (lsa1->header->age) != MAXAGE &&
+      ntohs (lsa2->header->age) == MAXAGE)
+    return 1;
+
+  /* compare body */
+  if (ntohs (lsa1->header->length) != ntohs (lsa2->header->length))
+    return 1;
+
+  len = ntohs (lsa1->header->length) - sizeof (struct ospf6_lsa_header);
+  return memcmp (lsa1->header + 1, lsa2->header + 1, len);
 }
 
 /* this function calculates current age from its birth,
@@ -82,6 +112,16 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
 
   lsa->header->age = htons (age);
   return age; 
+}
+
+void
+ospf6_lsa_premature_aging(struct ospf6_lsa * lsa)
+{
+  THREAD_OFF(lsa->expire);
+  THREAD_OFF(lsa->refresh);
+
+  lsa->header->age = htons(MAXAGE);
+  thread_execute(master, ospf6_lsa_expire, lsa, 0);
 }
 
 /* check which is more recent. if a is more recent, return -1;
@@ -249,3 +289,65 @@ void ospf6_lsa_unlock(struct ospf6_lsa * lsa)
 
   ospf6_lsa_delete (lsa);
 }
+
+int ospf6_lsa_expire (struct thread *thread)
+{
+  struct ospf6_lsa *lsa;
+
+  lsa = (struct ospf6_lsa *) THREAD_ARG (thread);
+
+  return 0;
+}
+
+int ospf6_lsa_refresh(struct thread * thread)
+{
+  struct ospf6_lsa *old, *self, *new;
+
+  old = (struct ospf6_lsa *) THREAD_ARG (thread);
+
+  return 0;
+}
+
+/* enhanced Fletcher checksum algorithm, RFC1008 7.2 */
+#define MODX                4102
+#define LSA_CHECKSUM_OFFSET   15
+
+unsigned short
+ospf6_lsa_checksum (struct ospf6_lsa_header *lsa_header)
+{
+  u_char *sp, *ep, *p, *q;
+  int c0 = 0, c1 = 0;
+  int x, y;
+  u_int16_t length;
+
+  lsa_header->checksum = 0;
+  length = ntohs (lsa_header->length) - 2;
+  sp = (u_char *) &lsa_header->type;
+
+  for (ep = sp + length; sp < ep; sp = q)
+  {
+    q = sp + MODX;
+    if (q > ep)
+      q = ep;
+    for (p = sp; p < q; p++)
+    {
+      c0 += *p;
+      c1 += c0;
+    }
+    c0 %= 255;
+    c1 %= 255;
+  }
+
+  /* r = (c1 << 8) + c0; */
+  x = ((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
+  if (x <= 0)
+     x += 255;
+   y = 510 - c0 - x;
+   if (y > 255)
+     y -= 255;
+
+   lsa_header->checksum = htons ((x << 8) + y);
+
+   return (lsa_header->checksum);
+}
+

@@ -1,6 +1,13 @@
 #ifndef OSPF6_LSA_H
 #define OSPF6_LSA_H
 
+/* LSA definition */
+
+#define OSPF6_MAX_LSASIZE      4096
+
+/* Type */
+#define OSPF6_LSTYPE_LINK             0x0008
+
 /* Masks for LS Type : RFC 2740 A.4.2.1 "LS type" */
 #define OSPF6_LSTYPE_UBIT_MASK        0x8000
 #define OSPF6_LSTYPE_SCOPE_MASK       0x6000
@@ -36,6 +43,7 @@ struct ospf6_lsa_header
     ((L1)->header->adv_router == (L2)->header->adv_router && \
         (L1)->header->id == (L2)->header->id && \
         (L1)->header->type == (L2)->header->type)
+#define OSPF6_LSA_IS_DIFFER(L1, L2)  ospf6_lsa_is_differ (L1, L2)
 #define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == MAXAGE)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 
@@ -43,7 +51,8 @@ struct ospf6_lsa
 {
   char name[64]; /* dump string */
 
-  struct list node;
+  struct ospf6_lsa * prev;
+  struct ospf6_lsa * next;
 
   unsigned char lock; /* reference counter */
   unsigned char flag; /* special meaning (e.g. floodback) */
@@ -66,9 +75,65 @@ struct ospf6_lsa
 
 #define OSPF6_LSA_HEADERONLY 0x01
 
+/* Macro for LSA Origination */
+/* addr is (struct prefix *) */
+#define CONTINUE_IF_ADDRESS_LINKLOCAL(debug,addr)      \
+  if (IN6_IS_ADDR_LINKLOCAL (&(addr)->u.prefix6))      \
+    {                                                  \
+      char buf[64];                                    \
+      prefix2str (addr, buf, sizeof (buf));            \
+      if (debug)                                       \
+        zlog_debug ("Filter out Linklocal: %s", buf);  \
+      continue;                                        \
+    }
+
+#define CONTINUE_IF_ADDRESS_UNSPECIFIED(debug,addr)    \
+  if (IN6_IS_ADDR_UNSPECIFIED (&(addr)->u.prefix6))    \
+    {                                                  \
+      char buf[64];                                    \
+      prefix2str (addr, buf, sizeof (buf));            \
+      if (debug)                                       \
+        zlog_debug ("Filter out Unspecified: %s", buf);\
+      continue;                                        \
+    }
+
+#define CONTINUE_IF_ADDRESS_LOOPBACK(debug,addr)       \
+  if (IN6_IS_ADDR_LOOPBACK (&(addr)->u.prefix6))       \
+    {                                                  \
+      char buf[64];                                    \
+      prefix2str (addr, buf, sizeof (buf));            \
+      if (debug)                                       \
+        zlog_debug ("Filter out Loopback: %s", buf);   \
+      continue;                                        \
+    }
+
+#define CONTINUE_IF_ADDRESS_V4COMPAT(debug,addr)       \
+  if (IN6_IS_ADDR_V4COMPAT (&(addr)->u.prefix6))       \
+    {                                                  \
+      char buf[64];                                    \
+      prefix2str (addr, buf, sizeof (buf));            \
+      if (debug)                                       \
+        zlog_debug ("Filter out V4Compat: %s", buf);   \
+      continue;                                        \
+    }
+
+#define CONTINUE_IF_ADDRESS_V4MAPPED(debug,addr)       \
+  if (IN6_IS_ADDR_V4MAPPED (&(addr)->u.prefix6))       \
+    {                                                  \
+      char buf[64];                                    \
+      prefix2str (addr, buf, sizeof (buf));            \
+      if (debug)                                       \
+        zlog_debug ("Filter out V4Mapped: %s", buf);   \
+      continue;                                        \
+    }
+
 extern u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
+extern void ospf6_lsa_premature_aging (struct ospf6_lsa *);
 extern int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
-extern struct ospf6_lsa * ospf6_lsa_copy (struct ospf6_lsa *lsa);
-extern struct ospf6_lsa * ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header);
+extern struct ospf6_lsa * ospf6_lsa_copy (struct ospf6_lsa *);
+extern struct ospf6_lsa * ospf6_lsa_create(struct ospf6_lsa_header *);
+extern struct ospf6_lsa * ospf6_lsa_create_headeronly (struct ospf6_lsa_header *);
+extern int ospf6_lsa_expire (struct thread *);
+extern int ospf6_lsa_refresh (struct thread *);
 
 #endif

@@ -50,6 +50,8 @@ struct ospf6_neighbor
   struct ospf6_lsdb *lsupdate_list;
   struct ospf6_lsdb *lsack_list;
 
+  /* Thread for sending message */
+  struct thread *thread_send_dbdesc;
 };
 
 /* Neighbor state */

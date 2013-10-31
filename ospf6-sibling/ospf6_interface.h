@@ -11,6 +11,9 @@ struct ospf6_interface
   /* list of ospf6 neighbors */
   struct list neighbor_list;
 
+  /* linklocal address of this I/F */
+  struct in6_addr *linklocal_addr;
+
   struct ctrl_client * ctrl_client;
 
   /* Router Priority */
@@ -20,9 +23,6 @@ struct ospf6_interface
   u_int16_t hello_interval;
   u_int16_t dead_interval;
   u_int32_t rxmt_interval;
-
-  /* Linklocal LSA Database: includes Link-LSA */
-  struct ospf6_lsdb * lsdb;
 
   /* Decision of DR Election */
   u_int32_t drouter;
@@ -34,8 +34,19 @@ struct ospf6_interface
   /* Interface state */
   u_char state;
 
+  /* Linklocal LSA Database: includes Link-LSA */
+  struct ospf6_lsdb * lsdb;;
+  struct ospf6_lsdb * lsdb_self;
+
+  struct ospf6_lsdb * lsupdate_list;
+  struct ospf6_lsdb * lsack_list;
+
   /* Ongoing tasks */
   struct thread *thread_send_hello;
+
+  struct thread * thread_link_lsa;
+
+  struct ospf6_route_table * route_connected;
 };
 
 /* interface state */

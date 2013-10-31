@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -32,9 +34,9 @@ route_table_finish (struct route_table *rt)
 static struct route_node *
 route_node_new (void)
 {
-  struct route_node *node;
-  node = calloc (1, sizeof (struct route_node));
-  return node;
+  struct route_node *rn;
+  rn = calloc (1, sizeof (struct route_node));
+  return rn;
 }
 
 struct route_node * route_prev (struct route_node *node)

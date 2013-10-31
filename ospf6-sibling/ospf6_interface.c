@@ -7,6 +7,7 @@
 #include <string.h>
 #include <assert.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include "routeflow-common.h"
 #include "util.h"
@@ -18,6 +19,8 @@
 #include "ospf6_top.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_route.h"
+#include "ospf6_intra.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_message.h"
@@ -66,6 +69,11 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
     oi->lsdb = ospf6_lsdb_create(oi);
     oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
     oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
+    oi->lsdb_self = ospf6_lsdb_create(oi);
+
+    oi->route_connected = OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
+    oi->route_connected->scope = oi;
+
     oi->interface = ifp;
     ifp->info = oi;
 
@@ -73,7 +81,7 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
 }
 
 static struct in6_addr *
-ospf6_intreface_get_linklocal_address(struct interface * ifp)
+ospf6_interface_get_linklocal_address(struct interface * ifp)
 {
   struct connected * c;
   struct in6_addr * l = (struct in6_addr *) NULL;
@@ -111,11 +119,51 @@ void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_cl
 void ospf6_interface_connected_route_update(struct interface * ifp)
 {
   struct ospf6_interface * oi;
+  struct ospf6_route * route;
+  struct connected * ifc;
 
   oi = (struct ospf6_interface *)ifp->info;
   if(oi == NULL)
     return;
 
+  /* reset linklocal pointer */
+  oi->linklocal_addr = ospf6_interface_get_linklocal_address(ifp);
+
+  // if area is null (no area for now)
+
+  /* update "route to advertise" interface route table */
+  ospf6_route_remove_all(oi->route_connected);
+
+  LIST_FOR_EACH(ifc, struct connected, node, &ifp->connected)
+  {
+    if(ifc->address->family != AF_INET6)
+      continue;
+
+   CONTINUE_IF_ADDRESS_LINKLOCAL (IS_OSPF6_SIBLING_DEBUG_INTERFACE, ifc->address);
+   CONTINUE_IF_ADDRESS_UNSPECIFIED (IS_OSPF6_SIBLING_DEBUG_INTERFACE, ifc->address);
+   CONTINUE_IF_ADDRESS_LOOPBACK (IS_OSPF6_SIBLING_DEBUG_INTERFACE, ifc->address);
+   CONTINUE_IF_ADDRESS_V4COMPAT (IS_OSPF6_SIBLING_DEBUG_INTERFACE, ifc->address);
+   CONTINUE_IF_ADDRESS_V4MAPPED (IS_OSPF6_SIBLING_DEBUG_INTERFACE, ifc->address);
+
+   /* apply filter */
+
+   route = ospf6_route_create();
+   memcpy(&route->prefix, ifc->address, sizeof(struct prefix));
+   apply_mask(&route->prefix);
+   route->type = OSPF6_DEST_TYPE_NETWORK;
+   // TODO: path
+//   route->path.area_id = oi->area->area_id;
+//   route->path.type = OSPF6_PATH_TYPE_INTRA;
+//   route->path.cost = oi->cost;
+   route->nexthop[0].ifindex = oi->interface->ifindex;
+   inet_pton(AF_INET6, "::1", &route->nexthop[0].address);
+   ospf6_route_add(route, oi->route_connected);
+  }
+
+  /* create new Link-LSA */
+  OSPF6_LINK_LSA_SCHEDULE(oi);
+//  OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
+//  OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 }
 
 static void ospf6_interface_state_change(u_char next_state, struct ospf6_interface * oi)

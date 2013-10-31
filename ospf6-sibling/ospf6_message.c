@@ -141,6 +141,45 @@ int ospf6_hello_send(struct thread * thread)
   return 0;
 }
 
+int ospf6_dbdesc_send(struct thread * thread)
+{
+  // TODO
+/*  struct ospf6_neighbor * on;
+
+  on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+  on->thread_send_dbdesc = (struct thread *) NULL;
+
+  if (on->state < OSPF6_NEIGHBOR_EXSTART)
+  {
+    return 0;
+  } */
+
+  /* set next thread if master */
+/*  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT))
+    on->thread_send_dbdesc =
+      thread_add_timer (master, ospf6_dbdesc_send, on,
+                        on->ospf6_if->rxmt_interval);
+
+  on->ospf6_if->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION,
+                                                        htonl(on->ospf6_if->ctrl_client->current_xid), sizeof(struct rfpbuf_header));
+
+  oh = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_header));
+  dbdesc = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_dbdesc));
+
+
+  rfpmsg_update_length(on->ospf6_if->ctrl_client->obuf);
+  retval = fwd_message_send(on->ospf6_if->ctrl_client);
+*/
+  // increment the xid after we send the message
+/*  oi->ctrl_client->current_xid++;
+  return 0; */
+}
+
+int ospf6_dbdesc_send_newone(struct thread * thread)
+{
+
+}
+
 static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_header * oh, 
                              struct ospf6_interface * oi, unsigned int xid)
 {
@@ -340,8 +379,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header * oh,
   /* Set sequence number to Master's */
   on->dbdesc_seqnum = ntohl(dbdesc->seqnum);
 
-//  THREAD_OFF(on->thread_send_dbdesc);
-
+  THREAD_OFF(on->thread_send_dbdesc);
+  on->thread_send_dbdesc = thread_add_event(master, ospf6_dbdesc_send_newone, on, 0);
 
   /* save last received dbdesc */
   memcpy(&on->dbdesc_last, dbdesc, sizeof(struct ospf6_dbdesc));

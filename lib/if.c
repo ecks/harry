@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -138,4 +140,6 @@ struct connected * connected_add_by_prefix(struct interface * ifp, struct prefix
   }
 
   list_push_back(&ifp->connected, &ifc->node);
+
+  return ifc;
 }

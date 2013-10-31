@@ -20,6 +20,7 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_proto.h"
 #include "ospf6_interface.h"
+#include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 
 /* global ospf6d variable */
@@ -116,8 +117,8 @@ int twoway_received(struct thread * thread)
   SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
   SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
-//  THREAD_OFF(on->thread_send_dbdesc);
-//  on->thread_send_dbdesc = thread_add_event(master, ospf6_dbdesc_send, on, 0);
+  THREAD_OFF(on->thread_send_dbdesc);
+  on->thread_send_dbdesc = thread_add_event(master, ospf6_dbdesc_send, on, 0);
 
   return 0;
 }
@@ -140,30 +141,24 @@ int negotiation_done(struct thread * thread)
   ospf6_lsdb_remove_all(on->summary_list);
   ospf6_lsdb_remove_all(on->request_list);
 
-  struct list * retrans_list = ospf6_lsdb_head(on->retrans_list);
-  if(retrans_list)
+  for(lsa = ospf6_lsdb_head(on->retrans_list); lsa;
+      lsa = ospf6_lsdb_next(lsa))
   {
-    LIST_FOR_EACH(lsa, struct ospf6_lsa, node, retrans_list)
-    {
-      ospf6_decrement_retrans_count(lsa);
-      ospf6_lsdb_remove(lsa, on->retrans_list);
-    }
+    ospf6_decrement_retrans_count(lsa);
+    ospf6_lsdb_remove(lsa, on->retrans_list);
   }
 
   /* Interface scoped LSAs */
-  struct list * if_lsdb_list = ospf6_lsdb_head(on->ospf6_if->lsdb);
-  if(if_lsdb_list)
+  for(lsa = ospf6_lsdb_head(on->ospf6_if->lsdb); lsa;
+      lsa = ospf6_lsdb_next(lsa))
   {
-    LIST_FOR_EACH(lsa, struct ospf6_lsa, node, ospf6_lsdb_head(on->ospf6_if->lsdb))
+    if (OSPF6_LSA_IS_MAXAGE (lsa))
     {
-      if(OSPF6_LSA_IS_MAXAGE(lsa))
-      {
-        ospf6_increment_retrans_count(lsa);
-        ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-      }
-      else
-        ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
+      ospf6_increment_retrans_count(lsa);
+      ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
     }
+    else
+      ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->summary_list);
   }
 
   /* Area scoped LSAs - no area implemented yet */
@@ -173,19 +168,16 @@ int negotiation_done(struct thread * thread)
 //  }
 
   /* AS scoped LSAs */
-  struct list * top_lsdb_list = ospf6_lsdb_head(ospf6->lsdb);
-  if(top_lsdb_list)
+  for(lsa = ospf6_lsdb_head(ospf6->lsdb); lsa;
+      lsa = ospf6_lsdb_next(lsa))
   {
-    LIST_FOR_EACH(lsa, struct ospf6_lsa, node, ospf6_lsdb_head(ospf6->lsdb))
+    if(OSPF6_LSA_IS_MAXAGE(lsa))
     {
-      if(OSPF6_LSA_IS_MAXAGE(lsa))
-      {
-        ospf6_increment_retrans_count(lsa);
-        ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-      }
-      else
-        ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->summary_list);
+      ospf6_increment_retrans_count(lsa);
+      ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
     }
+    else
+      ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->summary_list);
   }
  
 

@@ -19,6 +19,16 @@ static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 #define PNBBY 8
 #endif /* PNBBY */
 
+int
+prefix2str (const struct prefix *p, char *str, int size)
+{
+  char buf[BUFSIZ];
+
+  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ);
+  snprintf (str, size, "%s/%d", buf, p->prefixlen);
+  return 0;
+}
+
 struct prefix * prefix_new()
 {
   return calloc(1, sizeof(struct prefix));
@@ -147,8 +157,7 @@ ip_masklen (struct in_addr netmask)
 }
 
 /* Apply mask to IPv4 prefix. */
-void
-apply_mask_ipv4 (struct prefix_ipv4 *p)
+void apply_mask_ipv4 (struct prefix_ipv4 *p)
 {
   u_char *pnt;
   int index;
@@ -167,6 +176,45 @@ apply_mask_ipv4 (struct prefix_ipv4 *p)
       while (index < 4)
         pnt[index++] = 0;
     }
+}
+
+void apply_mask_ipv6(struct prefix_ipv6 * p)
+{
+  u_char *pnt;
+  int index;
+  int offset;
+
+  index = p->prefixlen / 8;
+
+  if (index < 16) 
+  {   
+    pnt = (u_char *) &p->prefix;
+    offset = p->prefixlen % 8;
+
+    pnt[index] &= maskbit[offset];
+    index++;
+
+    while (index < 16) 
+      pnt[index++] = 0;
+  }  
+}
+
+void apply_mask(struct prefix * p)
+{
+  switch(p->family)
+  {
+    case AF_INET:
+      apply_mask_ipv4((struct prefix_ipv4 *)p);
+      break;
+#ifdef HAVE_IPV6
+    case AF_INET6:
+      apply_mask_ipv6((struct prefix_ipv6 *)p);
+      break;
+#endif
+  default:
+    break;
+  }
+  return;
 }
 
 struct route_ipv4 * new_route()

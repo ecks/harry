@@ -40,6 +40,11 @@ struct prefix
   } u __attribute__ ((aligned (8)));
 };
 
+/* Max bit/byte length of IPv4 address. */
+#define IPV4_MAX_PREFIXLEN 32
+
+/* Max bit/byte length of IPv6 address. */
+#define IPV6_MAX_PREFIXLEN 128
 
 struct route_ipv4
 {
@@ -85,9 +90,10 @@ struct route_ipv6
 #define IPV6_MAX_BYTELEN    16
 #define IPV6_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV6_MAX_BYTELEN) == 0)
 
-struct prefix * prefix_new();
-void prefix_free(struct prefix * p);
-struct prefix_ipv4 * prefix_ipv4_new();
+extern struct prefix * prefix_new();
+extern void prefix_free(struct prefix * p);
+extern struct prefix_ipv4 * prefix_ipv4_new();
+extern int prefix2str (const struct prefix *, char *, int);
 #ifdef HAVE_IPV6
 struct prefix_ipv6 * prefix_ipv6_new();
 #endif
@@ -103,5 +109,9 @@ prefix_bit (const u_char *prefix, const u_char prefixlen)
 
   return (prefix[offset] >> shift) & 1;
 }
+
+void apply_mask(struct prefix * p);
+void apply_mask_ipv4 (struct prefix_ipv4 *p);
+void apply_mask_ipv6(struct prefix_ipv6 * p);
 
 #endif

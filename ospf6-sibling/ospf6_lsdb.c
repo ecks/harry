@@ -10,7 +10,6 @@
 #include "util.h"
 #include "dblist.h"
 #include "prefix.h"
-#include "prefix.h"
 #include "table.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -30,6 +29,7 @@ struct ospf6_lsdb * ospf6_lsdb_create(void * data)
 
   lsdb->data = data;
   lsdb->table = route_table_init();
+
   return lsdb;
 }
 
@@ -60,7 +60,7 @@ struct ospf6_lsa * ospf6_lsdb_lookup(u_int16_t type, u_int32_t id, u_int32_t adv
   node = route_node_lookup(lsdb->table, (struct prefix *)&key);
   if(node == NULL || node->info == NULL)
     return NULL;
-  return (struct ospf6_lsa *)CONTAINER_OF(node->info, struct ospf6_lsa, node);
+  return (struct ospf6_lsa *)node->info;
 }
 
 void
@@ -68,7 +68,7 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 {
   struct prefix_ipv6 key;
   struct route_node *current, *nextnode, *prevnode;
-  struct list *next, *prev, *old = NULL;
+  struct ospf6_lsa *next, *prev, *old = NULL;
 
   memset (&key, 0, sizeof (key));
   ospf6_lsdb_set_key (&key, &lsa->header->type, sizeof (lsa->header->type));
@@ -78,17 +78,17 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
   current = route_node_get (lsdb->table, (struct prefix *) &key);
   old = current->info;
-  current->info = &lsa->node;
+  current->info = lsa;
   ospf6_lsa_lock (lsa);
 
   if (old)
   {   
     if (old->prev)
-      old->prev->next = &lsa->node;
+      old->prev->next = lsa;
     if (old->next)
-      old->next->prev = &lsa->node;
-    lsa->node.next = old->next;
-    lsa->node.prev = old->prev;
+      old->next->prev = lsa;
+    lsa->next = old->next;
+    lsa->prev = old->prev;
   }   
   else
   {   
@@ -100,12 +100,12 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
       nextnode = route_next (nextnode);
     } while (nextnode && nextnode->info == NULL);
     if (nextnode == NULL)
-      lsa->node.next = NULL;
+      lsa->next = NULL;
     else
     {   
       next = nextnode->info;
-      lsa->node.next = next;
-      next->prev = &lsa->node;
+      lsa->next = next;
+      next->prev = lsa;
       route_unlock_node (nextnode);
     }
 
@@ -117,12 +117,12 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
       prevnode = route_prev (prevnode);
     } while (prevnode && prevnode->info == NULL);
     if (prevnode == NULL)
-      lsa->node.prev = NULL;
+      lsa->prev = NULL;
     else
     {
       prev = prevnode->info;
-      lsa->node.prev = prev;
-      prev->next = &lsa->node;
+      lsa->prev = prev;
+      prev->next = lsa;
       route_unlock_node (prevnode);
     }
 
@@ -137,11 +137,11 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
       {
         if (lsdb->hook_remove)
         {
-          (*lsdb->hook_remove) (CONTAINER_OF(old, struct ospf6_lsa, node));
+          (*lsdb->hook_remove) (old);
           (*lsdb->hook_remove) (lsa);
         }
       }
-      else if (OSPF6_LSA_IS_MAXAGE (CONTAINER_OF(old, struct ospf6_lsa, node)))
+      else if (OSPF6_LSA_IS_MAXAGE (old))
       {
         if (lsdb->hook_add)
           (*lsdb->hook_add) (lsa);
@@ -149,7 +149,7 @@ ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
       else
       {
         if (lsdb->hook_remove)
-          (*lsdb->hook_remove) (CONTAINER_OF(old, struct ospf6_lsa, node));
+          (*lsdb->hook_remove) (old);
         if (lsdb->hook_add)
           (*lsdb->hook_add) (lsa);
       }
@@ -184,7 +184,7 @@ void ospf6_lsdb_remove(struct ospf6_lsa * lsa, struct ospf6_lsdb * lsdb)
 }
 
 /* Interation function */
-struct list * ospf6_lsdb_head(struct ospf6_lsdb * lsdb)
+struct ospf6_lsa * ospf6_lsdb_head(struct ospf6_lsdb * lsdb)
 {
   struct route_node *node;
 
@@ -200,11 +200,11 @@ struct list * ospf6_lsdb_head(struct ospf6_lsdb * lsdb)
 
   route_unlock_node (node);
   if (node->info)
-    ospf6_lsa_lock ((struct ospf6_lsa *) CONTAINER_OF(node->info, struct ospf6_lsa, node));
-  return (struct list *) node->info;
+    ospf6_lsa_lock ((struct ospf6_lsa *) node->info);
+  return (struct ospf6_lsa *) node->info;
 }
 
-/*struct ospf6_lsa * ospf6_lsdb_next(struct ospf6_lsa * lsa)
+struct ospf6_lsa * ospf6_lsdb_next(struct ospf6_lsa * lsa)
 {
   struct ospf6_lsa *next = lsa->next;
 
@@ -213,19 +213,30 @@ struct list * ospf6_lsdb_head(struct ospf6_lsdb * lsdb)
     ospf6_lsa_lock (next);
 
   return next;
-} */
+} 
 
 void ospf6_lsdb_remove_all(struct ospf6_lsdb * lsdb)
 {
   struct ospf6_lsa * lsa;
-  struct list * lsa_list = ospf6_lsdb_head(lsdb);
+  for(lsa = ospf6_lsdb_head(lsdb); lsa; lsa = ospf6_lsdb_next(lsa))
+    ospf6_lsdb_remove(lsa, lsdb);
+}
 
-  // check that list is initialized
-  if(lsa_list)
-  {
-    LIST_FOR_EACH(lsa, struct ospf6_lsa, node, ospf6_lsdb_head(lsdb))
-    {
-      ospf6_lsdb_remove(lsa, lsdb);
-    }
-  }
+/* Decide new LS sequence number to originate.
+   note return value is network byte order */
+u_int32_t
+ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id, u_int32_t adv_router,
+                         struct ospf6_lsdb *lsdb)
+{
+  struct ospf6_lsa *lsa;
+  signed long seqnum = 0;
+
+  /* if current database copy not found, return InitialSequenceNumber */
+  lsa = ospf6_lsdb_lookup (type, id, adv_router, lsdb);
+  if (lsa == NULL)
+    seqnum = INITIAL_SEQUENCE_NUMBER;
+  else
+    seqnum = (signed long) ntohl (lsa->header->seqnum) + 1;
+
+  return ((u_int32_t) htonl (seqnum));
 }

@@ -180,7 +180,11 @@ FUNCNAME(const char *format, ...) \
     va_end(args); \
 }
 
+ZLOG_FUNC(zlog_err, LOG_ERR)
+
 ZLOG_FUNC(zlog_warn, LOG_WARNING)
+
+ZLOG_FUNC(zlog_info, LOG_INFO)
 
 ZLOG_FUNC(zlog_notice, LOG_NOTICE)
 

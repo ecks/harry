@@ -68,29 +68,39 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
 int if_address_add_v4(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
   const struct rfp_ipv4_address * address = buffer->data;
-
   struct interface * ifp = if_lookup_by_index(address->ifindex);
+  struct connected * ifc;
 
-  struct connected * ifc = calloc(1, sizeof(struct connected));
-  ifc->address = calloc(1, sizeof(struct prefix));
-  memcpy(&ifc->address->u.prefix, &address->p, 4); 
-  ifc->address->prefixlen = address->prefixlen;
-  ifc->address->family = AF_INET;
+  struct prefix p;
 
-  list_init(&ifc->node);
+  memcpy(&p.u.prefix, &address->p, 4);
+  p.prefixlen = address->prefixlen;
+  p.family = AF_INET;
+
+  ifc = connected_add_by_prefix(ifp, &p, NULL);
+  if(ifc == NULL)
+    return 1;
+
+//  struct connected * ifc = calloc(1, sizeof(struct connected));
+//  ifc->address = calloc(1, sizeof(struct prefix));
+//  memcpy(&ifc->address->u.prefix, &address->p, 4); 
+//  ifc->address->prefixlen = address->prefixlen;
+//  ifc->address->family = AF_INET;
+
+//  list_init(&ifc->node);
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     char prefix_str[INET_ADDRSTRLEN];
-    if(inet_ntop(AF_INET, &(ifc->address->u.prefix4.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+    if(inet_ntop(AF_INET, &(p.u.prefix4.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
     {   
       zlog_debug("v4 addr: %s/%d", prefix_str, ifc->address->prefixlen);
     }   
   }
 
   // add addresss to list of connected 
-  list_push_back(&ifp->connected, &ifc->node);
-  ifc->ifp = ifp;
+//  list_push_back(&ifp->connected, &ifc->node);
+//  ifc->ifp = ifp;
 
   return 0;
 }
@@ -98,29 +108,42 @@ int if_address_add_v4(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 int if_address_add_v6(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
   const struct rfp_ipv6_address * address = buffer->data;
-
   struct interface * ifp = if_lookup_by_index(address->ifindex);
+  struct connected * ifc;
 
-  struct connected * ifc = calloc(1, sizeof(struct connected));
-  ifc->address = calloc(1, sizeof(struct prefix));
-  memcpy(&ifc->address->u.prefix, &address->p, 16); 
-  ifc->address->prefixlen = address->prefixlen;
-  ifc->address->family = AF_INET6;
+  struct prefix p;
 
-  list_init(&ifc->node);
+  memcpy(&p.u.prefix, &address->p, 16);
+  p.prefixlen = address->prefixlen;
+  p.family = AF_INET6;
+
+  ifc = connected_add_by_prefix(ifp, &p, NULL);
+  if(ifc == NULL)
+    return 1;
+
+//  struct connected * ifc = calloc(1, sizeof(struct connected));
+//  ifc->address = calloc(1, sizeof(struct prefix));
+//  memcpy(&ifc->address->u.prefix, &address->p, 16); 
+//  ifc->address->prefixlen = address->prefixlen;
+//  ifc->address->family = AF_INET6;
+
+//  list_init(&ifc->node);
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     char prefix_str[INET6_ADDRSTRLEN];
-    if(inet_ntop(AF_INET6, &(ifc->address->u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+    if(inet_ntop(AF_INET6, &(p.u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
     {   
       zlog_debug("v6 addr: %s/%d", prefix_str, ifc->address->prefixlen);
     }   
   }
 
   // add addresss to list of connected 
-  list_push_back(&ifp->connected, &ifc->node);
-  ifc->ifp = ifp;
+//  list_push_back(&ifp->connected, &ifc->node);
+//  ifc->ifp = ifp;
+
+  // since connected address is AF_INET6, needs to be updated
+  ospf6_interface_connected_route_update(ifc->ifp);
 
   return 0;
 }

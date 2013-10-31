@@ -5,6 +5,11 @@
 
 #include <stddef.h>
 
+/* Flag manipulation macros. */
+#define CHECK_FLAG(V,F)      ((V) & (F))
+#define SET_FLAG(V,F)        (V) |= (F)
+#define UNSET_FLAG(V,F)      (V) &= ~(F)
+
 /* Given POINTER, the address of the given MEMBER in a STRUCT object, returns
  *    the STRUCT object. */
 #define CONTAINER_OF(POINTER, STRUCT, MEMBER)                           \

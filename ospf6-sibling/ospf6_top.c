@@ -14,6 +14,7 @@
 #include "if.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_top.h"
 
@@ -41,7 +42,9 @@ static struct ospf6 * ospf6_create(void)
   o->lsdb = ospf6_lsdb_create(o);
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
-  
+ 
+ list_init(&o->area_list);
+
   return o;
 }
 
@@ -96,8 +99,13 @@ DEFUN(ospf6_interface_area,
       "Specify the OSPF6 area ID\n"
       "OSPF6 area ID in IPv4 address notation\n")
 {
+  struct ospf6 *o;
+  struct ospf6_area *oa;
   struct interface * ifp;
   struct ospf6_interface * oi;
+  u_int32_t area_id;
+
+  o = (struct ospf6 *)vty->index;
 
   /* find/create ospf6 interface */
   ifp = if_get_by_name(argv[0]);
@@ -106,6 +114,19 @@ DEFUN(ospf6_interface_area,
   {
     oi = ospf6_interface_create(ifp);
   }
+
+  /* parse Area-ID */
+  if (inet_pton (AF_INET, argv[1], &area_id) != 1) 
+  {
+    printf("Invalid Area-ID: %s\n", argv[1]);
+  }
+
+  /* find/create ospf6 area */
+  oa = ospf6_area_lookup (area_id, o);
+  if(oa == NULL)
+    oa = ospf6_area_create(area_id, o);
+
+  oi->area = oa;
 
   /* start up */
   thread_add_event(master, interface_up, oi, 0);
