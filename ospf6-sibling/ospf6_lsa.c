@@ -114,6 +114,18 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
   return age; 
 }
 
+/* update age field of LSA header with adding InfTransDelay */
+void
+ospf6_lsa_age_update_to_send (struct ospf6_lsa *lsa, u_int32_t transdelay)
+{
+  unsigned short age; 
+
+  age = ospf6_lsa_age_current (lsa) + transdelay;
+  if (age > MAXAGE)
+    age = MAXAGE;
+  lsa->header->age = htons (age);
+}
+
 void
 ospf6_lsa_premature_aging(struct ospf6_lsa * lsa)
 {

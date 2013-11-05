@@ -128,6 +128,7 @@ struct ospf6_lsa
     }
 
 extern u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
+extern void ospf6_lsa_age_update_to_send (struct ospf6_lsa *, u_int32_t);
 extern void ospf6_lsa_premature_aging (struct ospf6_lsa *);
 extern int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
 extern struct ospf6_lsa * ospf6_lsa_copy (struct ospf6_lsa *);

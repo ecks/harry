@@ -14,6 +14,9 @@ struct ospf6_interface
   /* linklocal address of this I/F */
   struct in6_addr *linklocal_addr;
 
+  /* I/F transmission delay */
+  u_int32_t transdelay;
+
   struct ctrl_client * ctrl_client;
 
   /* Router Priority */

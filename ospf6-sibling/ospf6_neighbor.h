@@ -67,6 +67,7 @@ struct ospf6_neighbor
 extern int hello_received(struct thread *);
 extern int twoway_received(struct thread *);
 extern int negotiation_done(struct thread *);
+extern int exchange_done (struct thread *);
 extern int adj_ok(struct thread *);
 extern int oneway_received(struct thread *);
 

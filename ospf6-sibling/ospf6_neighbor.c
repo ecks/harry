@@ -187,6 +187,35 @@ int negotiation_done(struct thread * thread)
   return 0;
 }
 
+int exchange_done(struct thread * thread)
+{
+  struct ospf6_neighbor *on;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG (thread);
+  assert (on);
+
+  if (on->state != OSPF6_NEIGHBOR_EXCHANGE)
+    return 0;
+
+  if (IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
+    zlog_debug ("Neighbor Event %s: *ExchangeDone*", on->name);
+
+  THREAD_OFF (on->thread_send_dbdesc);
+  ospf6_lsdb_remove_all (on->dbdesc_list);
+
+/* XXX
+  thread_add_timer (master, ospf6_neighbor_last_dbdesc_release, on,
+                    on->ospf6_if->dead_interval);
+*/
+
+  if (on->request_list->count == 0)
+    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on);
+  else
+    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on);
+
+  return 0;
+}
+
 int adj_ok(struct thread * thread)
 {
   struct ospf6_neighbor * on;

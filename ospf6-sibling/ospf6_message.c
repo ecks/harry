@@ -21,6 +21,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_interface.h"
+#include "ospf6_area.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 
@@ -28,6 +29,22 @@
 struct ospf6 *ospf6;
 
 extern struct thread_master * master;
+
+static void ospf6_fill_header(struct ospf6_interface * oi, struct ospf6_header * oh)
+{
+  /* fill OSPF header */
+  oh->version = OSPFV3_VERSION;
+
+  /* message type must be set before */
+  /* message length must be set before */
+  oh->router_id = oi->area->ospf6->router_id;
+  oh->area_id = oi->area->area_id;
+  // *NOTE* filled in with zeroes for testing purposes only
+  oh->instance_id = htons(0);
+  oh->reserved = htons(0);
+
+
+}
 
 int ospf6_hello_send(struct thread * thread)
 {
@@ -119,19 +136,7 @@ int ospf6_hello_send(struct thread * thread)
   oh->type = OSPF6_MESSAGE_TYPE_HELLO;
   oh->length = htons(p - (u_char *)(oh));
 
-  /* fill OSPF header */
-  oh->version = OSPFV3_VERSION;
-
-  // router id
-  // area id
-  // instance id
-  // reserved
-  // *NOTE* filled in with zeroes for testing purposes only
-  oh->router_id = ospf6->router_id;  // should really be oi->area->ospf6->router_id
-  oh->area_id = htonl(0);
-//  oh->checksum = htons(0);
-  oh->instance_id = htons(0);
-  oh->reserved = htons(0);
+  ospf6_fill_header(oi, oh);
 
   rfpmsg_update_length(oi->ctrl_client->obuf);
   retval = fwd_message_send(oi->ctrl_client);
@@ -143,8 +148,12 @@ int ospf6_hello_send(struct thread * thread)
 
 int ospf6_dbdesc_send(struct thread * thread)
 {
-  // TODO
-/*  struct ospf6_neighbor * on;
+  struct ospf6_neighbor * on;
+  struct ospf6_header * oh;
+  struct ospf6_dbdesc * dbdesc;
+  int retval;
+  u_char * p;
+  struct ospf6_lsa * lsa;
 
   on = (struct ospf6_neighbor *)THREAD_ARG(thread);
   on->thread_send_dbdesc = (struct thread *) NULL;
@@ -152,32 +161,113 @@ int ospf6_dbdesc_send(struct thread * thread)
   if (on->state < OSPF6_NEIGHBOR_EXSTART)
   {
     return 0;
-  } */
+  }
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("About to send dbdesc message");
+  }
 
   /* set next thread if master */
-/*  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT))
+  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT))
     on->thread_send_dbdesc =
       thread_add_timer (master, ospf6_dbdesc_send, on,
                         on->ospf6_if->rxmt_interval);
 
   on->ospf6_if->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION,
-                                                        htonl(on->ospf6_if->ctrl_client->current_xid), sizeof(struct rfpbuf_header));
+                                                        htonl(on->ospf6_if->ctrl_client->current_xid), sizeof(struct rfp_header));
 
   oh = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_header));
   dbdesc = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_dbdesc));
 
+  /* if this is initial one, initialize sequence number for DbDesc */
+  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
+  {    
+    struct timeval tv;
+    if (zebralite_gettime (ZEBRALITE_CLK_MONOTONIC, &tv) < 0) 
+                                tv.tv_sec = 1; 
+                            on->dbdesc_seqnum = tv.tv_sec;
+  }    
+
+  dbdesc->options[0] = on->ospf6_if->area->options[0];
+  dbdesc->options[1] = on->ospf6_if->area->options[1];
+  dbdesc->options[2] = on->ospf6_if->area->options[2];
+
+  dbdesc->ifmtu = htons (on->ospf6_if->ifmtu);
+  dbdesc->bits = on->dbdesc_bits;
+  dbdesc->seqnum = htonl (on->dbdesc_seqnum);
+
+  /* if this is not initial one, set LSA headers in dbdesc */
+  p = (u_char *)((void *) dbdesc + sizeof (struct ospf6_dbdesc));
+  if (! CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
+  {
+    for (lsa = ospf6_lsdb_head (on->dbdesc_list); lsa; 
+         lsa = ospf6_lsdb_next (lsa))
+    {    
+      ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+
+      /* MTU check */
+      if (p - (u_char *)oh + sizeof (struct ospf6_lsa_header) >
+          on->ospf6_if->ifmtu)
+      {
+        ospf6_lsa_unlock (lsa);
+        break;
+      }
+      memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
+      p += sizeof (struct ospf6_lsa_header);
+    }
+  }
+
+  oh->type = OSPF6_MESSAGE_TYPE_DBDESC;
+  oh->length = htons(p - (u_char *)(oh));
+
+  ospf6_fill_header(on->ospf6_if, oh);
 
   rfpmsg_update_length(on->ospf6_if->ctrl_client->obuf);
   retval = fwd_message_send(on->ospf6_if->ctrl_client);
-*/
+
   // increment the xid after we send the message
-/*  oi->ctrl_client->current_xid++;
-  return 0; */
+  on->ospf6_if->ctrl_client->current_xid++;
+  return 0;
 }
 
 int ospf6_dbdesc_send_newone(struct thread * thread)
 {
+  struct ospf6_neighbor *on; 
+  struct ospf6_lsa *lsa;
+  unsigned int size = 0; 
 
+  on = (struct ospf6_neighbor *) THREAD_ARG (thread);
+  ospf6_lsdb_remove_all (on->dbdesc_list);
+
+  /* move LSAs from summary_list to dbdesc_list (within neighbor structure)
+    so that ospf6_send_dbdesc () can send those LSAs */
+  size = sizeof (struct ospf6_lsa_header) + sizeof (struct ospf6_dbdesc);
+  for (lsa = ospf6_lsdb_head (on->summary_list); lsa; 
+       lsa = ospf6_lsdb_next (lsa))
+  {    
+    if (size + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+    {    
+      ospf6_lsa_unlock (lsa);
+      break;
+    }    
+
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->dbdesc_list);
+    ospf6_lsdb_remove (lsa, on->summary_list);
+    size += sizeof (struct ospf6_lsa_header);
+  }    
+
+  if (on->summary_list->count == 0)
+    UNSET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
+
+  /* If slave, More bit check must be done here */
+  if (! CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Slave */
+      ! CHECK_FLAG (on->dbdesc_last.bits, OSPF6_DBDESC_MBIT) &&
+      ! CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT))
+    thread_add_event (master, exchange_done, on, 0);
+
+  thread_execute (master, ospf6_dbdesc_send, on, 0);
+  return 0;
 }
 
 static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_header * oh, 
@@ -333,9 +423,14 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header * oh,
 
   /* Process LSA headers */
   for(p = (char *) ((void *)dbdesc + sizeof(struct ospf6_dbdesc));
-      p + sizeof(struct ospf6_lsa_header) <= OSPF6_MESSAGE_END(oh);
+      p + sizeof(struct ospf6_lsa_header) <= ((void *) (oh) + ntohs((oh)->length));
       p += sizeof(struct ospf6_lsa_header))
   {
+     if(OSPF6_SIBLING_DEBUG_MSG)
+    {
+      zlog_debug("processing lsa inside dbdesc");
+    }
+   
     struct ospf6_lsa * his, * mine;
     struct ospf6_lsdb * lsdb = NULL;
 

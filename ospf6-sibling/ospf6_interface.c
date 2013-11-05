@@ -51,33 +51,34 @@ static void ospf6_interface_lsdb_hook(struct ospf6_lsa * lsa)
 /* Create new ospf6 interface structure */
 struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
 {
-    struct ospf6_interface *oi;
+  struct ospf6_interface *oi;
 
-    oi = calloc(1, sizeof(struct ospf6_interface));
+  oi = calloc(1, sizeof(struct ospf6_interface));
 
-    oi->area = NULL;
-    oi->priority = 1;
+  oi->area = NULL;
+  oi->transdelay = 1;
+  oi->priority = 1;
 
-    oi->hello_interval = 10;
-    oi->dead_interval = 40;
-    oi->rxmt_interval = 5;
+  oi->hello_interval = 10;
+  oi->dead_interval = 40;
+  oi->rxmt_interval = 5;
  
-    oi->state = OSPF6_INTERFACE_DOWN;
+  oi->state = OSPF6_INTERFACE_DOWN;
  
-    list_init(&oi->neighbor_list);
+  list_init(&oi->neighbor_list);
 
-    oi->lsdb = ospf6_lsdb_create(oi);
-    oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
-    oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
-    oi->lsdb_self = ospf6_lsdb_create(oi);
+  oi->lsdb = ospf6_lsdb_create(oi);
+  oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
+  oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
+  oi->lsdb_self = ospf6_lsdb_create(oi);
 
-    oi->route_connected = OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
-    oi->route_connected->scope = oi;
+  oi->route_connected = OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
+  oi->route_connected->scope = oi;
 
-    oi->interface = ifp;
-    ifp->info = oi;
+  oi->interface = ifp;
+  ifp->info = oi;
 
-    return oi;
+  return oi;
 }
 
 static struct in6_addr *
