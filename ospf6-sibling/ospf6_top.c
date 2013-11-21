@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <arpa/inet.h>
 
+#include "riack.h"
+
 #include "routeflow-common.h"
 #include "util.h"
 #include "dblist.h"
@@ -36,6 +38,8 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa * lsa)
 static struct ospf6 * ospf6_create(void)
 {
   struct ospf6 * o;
+  char * host = "127.0.0.1";
+  int port = 8087;
 
   o = calloc(1, sizeof(struct ospf6));
 
@@ -43,7 +47,15 @@ static struct ospf6 * ospf6_create(void)
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
  
- list_init(&o->area_list);
+  list_init(&o->area_list);
+ 
+  riack_init();
+  o->riack_client = riack_new_client(0);
+  if(riack_connect(o->riack_client, host, port, 0) != RIACK_SUCCESS) 
+  {   
+    printf("Failed to connect to riak server\n");
+    riack_free(o->riack_client);
+  }
 
   return o;
 }

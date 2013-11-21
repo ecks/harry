@@ -18,6 +18,8 @@ struct ospf6
 
   /* AS scope link state database */
   struct ospf6_lsdb *lsdb;
+
+  struct RIACK_CLIENT * riack_client;
 };
 
 /* global pointer for OSPF top data structure */

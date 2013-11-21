@@ -30,6 +30,7 @@ int rib_monitor_remove_ipv4_route(struct route_ipv4 * route, void * data);
 int rib_monitor_add_ipv6_route(struct route_ipv6 * route, void * data);
 int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data);
 int ospf6_leader_elect();
+unsigned int ospf6_replica_get_id();
 void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas);
 
 #endif

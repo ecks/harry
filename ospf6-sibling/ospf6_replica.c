@@ -42,8 +42,8 @@ static struct ospf6_replica * ospf6_replica;
 
 void ospf6_replicas_restart();
 
-DEFUN(get_id,
-      get_id_cmd,
+DEFUN(id,
+      id_cmd,
       "id IDNUM",
       DEBUG_STR
       "OSPF6 Sibling configuration\n"
@@ -703,6 +703,11 @@ void ospf6_replica_restart(unsigned int id)
   }
 }
 
+unsigned int ospf6_replica_get_id()
+{
+  return ospf6_replica->own_replica->id;
+}
+
 void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas)
 {
   ospf6_replica = calloc(1, sizeof(struct ospf6_replica));
@@ -712,7 +717,7 @@ void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * repli
 
   ospf6_add_replicas(replicas);
 
-  install_element(CONFIG_NODE, &get_id_cmd);
+  install_element(CONFIG_NODE, &id_cmd);
 }
 
 static void ospf6_replica_event(enum event event)

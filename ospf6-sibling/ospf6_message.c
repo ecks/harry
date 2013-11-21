@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
+
 #include <sys/socket.h>
 #include <assert.h>
 
@@ -322,6 +323,8 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
       twoway++;
   }
 
+  ospf6_db_put_hello(oh, xid);
+
   /* Execute neighbor events */
   thread_execute(master, hello_received, on, 0);
   if(twoway)
@@ -551,7 +554,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       ospf6_dbdesc_recv(ctrl_client, oh, oi, xid);
       break;
 
-    debault:
+    default:
       break;
   }
 
