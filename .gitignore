@@ -6,6 +6,7 @@ zebralite
 controller/controller
 punter/punter
 ospf6-sibling/ospf6-sibling
+ospf6-sibling/test
 bgp-sibling/bgp-sibling
 
 # ctags and scope generated files
