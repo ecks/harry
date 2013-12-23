@@ -9,18 +9,18 @@
 #include <netinet/in.h>
 
 #include "util.h"
-#include "lib/routeflow-common.h"
-#include "lib/dblist.h"
+#include "routeflow-common.h"
+#include "dblist.h"
 #include "vector.h"
 #include "vty.h"
 #include "command.h"
-#include "lib/rfpbuf.h"
+#include "rfpbuf.h"
 #include "thread.h"
-#include "lib/vconn.h"
+#include "vconn.h"
 #include "datapath.h"
 #include "zl_serv.h"
 #include "listener.h"
-#include "lib/socket-util.h"
+#include "socket-util.h"
 
 static struct datapath * dp;
 static struct zl_serv * zl_serv;

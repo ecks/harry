@@ -2,12 +2,12 @@ CC = gcc
 CXX = g++
 CFLAGS = -ggdb -I. -I../lib -I../../riack/src -I/usr/local/include
 EXECUTABLE = ospf6-sibling
-LIBS = -pthread -lrt ../../riack/libriack.a -ljansson -L/usr/local/lib -L/home/hasenov/cpputest_lib/lib -lstdc++ -lCppUTest -lCppUTestExt
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c ospf6_route.c ospf6_area.c log.c ospf6_intra.c ospf6_db.c command.c vty.c debug.c vector.c table.c
+LIBS = -pthread -lrt ../../riack/libriack.a -ljansson -L/usr/local/lib -L/home/hasenov/cpputest_lib/lib -lstdc++ -lCppUTest -lCppUTestExt -lfl
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c ospf6_route.c ospf6_area.c log.c ospf6_intra.c ospf6_db.c command.c vty.c debug.c vector.c table.c rconn.c json_parse.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
-CFLAGS_CPPUTEST = -I../lib -I. -I/home/hasenov/cpputest_lib/include
+CFLAGS_CPPUTEST = -I../lib -I../../riack/src -I. -I/home/hasenov/cpputest_lib/include
 FAKE_SRCS = fake_ospf6_top.c fake_ospf6_replica.c
 FAKE_OBJECTS_ONLY = ${FAKE_SRCS:.c=.o}
 FAKE_OBJECTS_ALL = $(subst ospf6_replica, fake_ospf6_replica, $(subst ospf6_top, fake_ospf6_top, $(OBJECTS)))
@@ -16,7 +16,7 @@ OBJECTS_CPPUTEST = $(OBJECTS:ospf6_top=fake_ospf6_top)
 all: ${EXECUTABLE}
 
 test: all ${FAKE_OBJECTS_ONLY}
-	$(CXX) $(CFLAGS_CPPUTEST) -o $@ tests/database_test_run.cpp tests/database_test.cpp $(FAKE_OBJECTS_ALL) $(LIBS)
+	$(CXX) $(CFLAGS_CPPUTEST) -o $@ tests/tests_run.cpp tests/controller_test.cpp $(FAKE_OBJECTS_ALL) $(LIBS)
 #	./$@
 
 fake_ospf6_top.o: tests/fake_ospf6_top.c
@@ -144,6 +144,15 @@ vector.o: vector.c
 	$(CC) $(CFLAGS) -c $^
 
 table.o: table.c
+	$(CC) $(CFLAGS) -c $^
+
+rconn.o: rconn.c
+	$(CC) $(CFLAGS) -c $^
+
+json_parse.c: json_parse.yy
+	flex -o $@ $^ 
+
+json_parse.o: json_parse.c
 	$(CC) $(CFLAGS) -c $^
 
 clean:

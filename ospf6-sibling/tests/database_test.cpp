@@ -3,6 +3,7 @@ extern "C" {
 #include "stdint.h"
 #include "stdbool.h"
 
+#include "riack.h"
 #include "dblist.h"
 #include "thread.h"
 #include "routeflow-common.h"
@@ -13,8 +14,6 @@ extern "C" {
 
 #include "CppUTest/TestHarness.h"
 
-
-struct thread_master * master;
 
 TEST_GROUP(ospf6_db_test)
 {
@@ -30,6 +29,15 @@ TEST(ospf6_db_test, ospf6_header_put_get)
   struct ospf6_header * put_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header));
   unsigned int xid = 0;
   unsigned int id;
+
+  get_oh->version = 5;
+  get_oh->type = 7;
+  get_oh->length = 10;
+  get_oh->router_id = 11;
+  get_oh->area_id = 12;
+  get_oh->checksum = 21;
+  get_oh->instance_id = 22;
+  get_oh->reserved = 23;
 
   fake_ospf6_replica_set_id(1);
 

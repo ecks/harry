@@ -6,7 +6,7 @@
 #include <syslog.h>
 #include <netinet/in.h>
 
-#include "lib/dblist.h"
+#include "dblist.h"
 #include "prefix.h"
 #include "api.h"
 #include "thread.h"
@@ -14,7 +14,7 @@
 #include "vty.h"
 #include "vector.h"
 #include "command.h"
-#include "lib/stream.h"
+#include "stream.h"
 #include "listener.h"
 
 #define DEFAULT_CONFIG_FILE "zebralite.conf"

@@ -65,13 +65,15 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   return 0;
 }
 
-struct ospf6_header * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+
+int ospf6_db_fill(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
 {
-  struct RIACK_GET_OBJECT obj;
-  RIACK_STRING key, bucket_str;
   json_t * root;
+  struct RIACK_GET_OBJECT obj;
   size_t content_size;
   int ret;
+
+  RIACK_STRING key, bucket_str;
 
   key.value = calloc(10, sizeof(char));
   bucket_str.value = calloc(10, sizeof(char));
@@ -82,7 +84,8 @@ struct ospf6_header * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, u
   sprintf(key.value, "%d", xid);
   key.len = strlen(key.value);
 
-  if(riack_get(ospf6->riack_client, bucket_str, key, 0, &obj) == RIACK_SUCCESS)
+
+  if(riack_get(riack_client, bucket_str, key, 0, &obj) == RIACK_SUCCESS)
   {
     if(obj.object.content_count == 1)
     {
@@ -91,6 +94,8 @@ struct ospf6_header * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, u
       strncpy(output_data, obj.object.content[0].data, content_size);
       output_data[content_size] = '\0';
       printf("%s\n", output_data);
+
+      json_parse(output_data);
 
       root = json_loads(output_data, 0, NULL);
       ret = json_unpack(root, "{s: i, s: i, s: i, s: i, s: i, s: i, s: i, s: i}",
@@ -135,6 +140,13 @@ struct ospf6_header * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, u
 
   free(key.value);
   free(bucket_str.value);
+}
 
-  return NULL;
+int ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+{
+  int ret;
+
+  ret = ospf6_db_fill(ospf6->riack_client, oh, xid, bucket);
+
+  return ret;
 }

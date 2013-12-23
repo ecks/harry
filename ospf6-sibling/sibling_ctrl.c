@@ -159,10 +159,12 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   route->p->prefixlen = ntohs(rir->prefixlen);
 
   // print route
-  char prefix_str[INET_ADDRSTRLEN];
-  if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
-    printf("%s/%d\n", prefix_str, route->p->prefixlen);
-
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    char prefix_str[INET_ADDRSTRLEN];
+    if (inet_ntop(AF_INET, &(route->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != 1)
+      zlog_debug("%s/%d", prefix_str, route->p->prefixlen);
+  }
   return 0;
 }
 
