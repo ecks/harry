@@ -1,8 +1,7 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include <jansson.h>
 
 #include <riack.h>
 
@@ -17,33 +16,20 @@ struct ospf6 *ospf6;
 
 int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
 {
-  json_t * root;
-  char * json_packed;
   unsigned int id;
-  char * bucket = calloc(10, sizeof(char));
-  char * key = calloc(10, sizeof(char));
+  char * bucket = calloc(ID_SIZE, sizeof(char));
+  char * key = calloc(ID_SIZE, sizeof(char));
+  char * json_packed = calloc(DATA_SIZE, sizeof(char));
 
-  root = json_pack(
-    "{s: i, s: i, s: i, s: i, s: i, s: i, s: i, s: i}",
-    "version",
-      oh->version,
-    "type",
-      oh->type,
-    "length",
-      oh->length,
-    "router_id",
-      oh->router_id,
-    "area_id",
-      oh->area_id,
-    "checksum",
-      oh->checksum,
-    "instance_id",
-      oh->instance_id,
-    "reserved",
-      oh->reserved  
-    );
-
-  json_packed = json_dumps(root, JSON_ENCODE_ANY);
+  sprintf(json_packed, "{version: %d, type: %d, length: %d, router_id: %d, area_id: %d, checksum: %d, instance_id: %d, reserved: %d}", 
+    oh->version,
+    oh->type,
+    oh->length,
+    oh->router_id,
+    oh->area_id,
+    oh->checksum,
+    oh->instance_id,
+    oh->reserved);
 
   id = ospf6_replica_get_id();
   sprintf(bucket, "%d", id);
@@ -56,7 +42,6 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   }
 
   riack_put_simple(ospf6->riack_client, bucket, key, json_packed, strlen(json_packed), "application/json");
-  json_decref(root);
 
   free(json_packed);
   free(bucket);
@@ -68,15 +53,14 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
 
 int ospf6_db_fill(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
 {
-  json_t * root;
   struct RIACK_GET_OBJECT obj;
   size_t content_size;
   int ret;
 
   RIACK_STRING key, bucket_str;
 
-  key.value = calloc(10, sizeof(char));
-  bucket_str.value = calloc(10, sizeof(char));
+  key.value = calloc(ID_SIZE, sizeof(char));
+  bucket_str.value = calloc(ID_SIZE, sizeof(char));
 
   sprintf(bucket_str.value, "%d", bucket);
   bucket_str.len = strlen(bucket_str.value);
@@ -92,47 +76,9 @@ int ospf6_db_fill(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, 
       content_size = obj.object.content[0].data_len;
       char * output_data = calloc(content_size, sizeof(char));
       strncpy(output_data, obj.object.content[0].data, content_size);
-      output_data[content_size] = '\0';
-      printf("%s\n", output_data);
+      printf("output data: %s\n", output_data);
 
-      json_parse(output_data);
-
-      root = json_loads(output_data, 0, NULL);
-      ret = json_unpack(root, "{s: i, s: i, s: i, s: i, s: i, s: i, s: i, s: i}",
-   "version",
-      &oh->version,
-    "type",
-      &oh->type,
-    "length",
-      &oh->length,
-    "router_id",
-      &oh->router_id,
-    "area_id",
-      &oh->area_id,
-    "checksum",
-      &oh->checksum,
-    "instance_id",
-      &oh->instance_id,
-    "reserved",
-      &oh->reserved  
-  //        "router_id",
-//          &oh->router_id,
-//        "area_id",
-//          &oh->area_id,
-//        "version",
-//          &oh->version,
-//        "type",
-//          &oh->type,
-//        "length",
-//          &oh->length,
-//        "checksum",
-//          &oh->checksum,
-//        "instance_id",
-//          &oh->instance_id,
-//        "reserved",
-//          &oh->reserved  
-     );
-      json_decref(root);
+      json_parse(output_data, oh);
 
       free(output_data);
     } 
@@ -149,4 +95,28 @@ int ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket
   ret = ospf6_db_fill(ospf6->riack_client, oh, xid, bucket);
 
   return ret;
+}
+
+int ospf6_db_delete(unsigned int xid, unsigned int bucket)
+{
+  RIACK_STRING key, bucket_str;
+
+  key.value = calloc(ID_SIZE, sizeof(char));
+  bucket_str.value = calloc(ID_SIZE, sizeof(char));
+
+  sprintf(bucket_str.value, "%d", bucket);
+  bucket_str.len = strlen(bucket_str.value);
+
+  sprintf(key.value, "%d", xid);
+  key.len = strlen(key.value);
+
+  if(riack_delete(ospf6->riack_client, bucket_str, key, 0) == RIACK_SUCCESS)
+  {
+    return 0;
+  }
+
+  free(key.value);
+  free(bucket_str.value);
+
+  return -1;
 }

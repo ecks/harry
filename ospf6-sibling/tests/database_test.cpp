@@ -14,6 +14,8 @@ extern "C" {
 
 #include "CppUTest/TestHarness.h"
 
+static unsigned int xid = 0;
+static unsigned int id = 1;
 
 TEST_GROUP(ospf6_db_test)
 {
@@ -21,13 +23,17 @@ TEST_GROUP(ospf6_db_test)
   {
     ospf6_top_init();   
   }
+
+  void teardown()
+  {
+    ospf6_db_delete(xid, id);
+  }
 };
 
 TEST(ospf6_db_test, ospf6_header_put_get)
 {
   struct ospf6_header * get_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header));
   struct ospf6_header * put_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header));
-  unsigned int xid = 0;
   unsigned int id;
 
   get_oh->version = 5;
@@ -39,7 +45,7 @@ TEST(ospf6_db_test, ospf6_header_put_get)
   get_oh->instance_id = 22;
   get_oh->reserved = 23;
 
-  fake_ospf6_replica_set_id(1);
+  fake_ospf6_replica_set_id(id);
 
   ospf6_db_put_hello(get_oh, xid);
 

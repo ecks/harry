@@ -25,11 +25,13 @@ extern "C" {
 static rconn * rconn;
 static RIACK_CLIENT * riack_client;
 
+static unsigned int xid = 0;
+
 TEST_GROUP(controller_test)
 {
   void setup()
   {
-    char * host = "127.0.0.1";
+    char * host = static_cast<char *>("127.0.0.1");
     int port = 8087;
 
     rconn = rconn_create();
@@ -45,12 +47,35 @@ TEST_GROUP(controller_test)
     }
   }
 
+  void teardown()
+  {
+    int id;
+    RIACK_STRING key, bucket_str;
+
+    key.value = static_cast<char *>(calloc(10, sizeof(char)));
+    bucket_str.value = static_cast<char *>(calloc(10, sizeof(char)));
+    
+    sprintf(key.value, "%d", xid);
+    key.len = strlen(key.value);
+
+    for(id = 0; id < 3; id++)
+    {
+      sprintf(bucket_str.value, "%d", id);
+      bucket_str.len = strlen(bucket_str.value);
+
+      if(riack_delete(riack_client, bucket_str, key, 0) == RIACK_SUCCESS)
+      {
+        printf("Deleting object with bucket %d\n", id);
+      }
+    }
+  }
 };
 
 TEST(controller_test, hello_put_get)
 {
   int retval;
   struct rfpbuf * buffer;
+  struct rfpbuf * buffer2;
   struct rfp_header * rh;
   struct rfp_router_features * rfr;
   struct rfp_phy_port * rpp;
@@ -67,8 +92,6 @@ TEST(controller_test, hello_put_get)
   struct ospf6_header * get_oh;
   struct ospf6_hello * hello;
   
-  unsigned int xid = 0;
-
   u_char * ptr;
 
   if(inet_pton(AF_INET, "127.0.0.1", &(p.prefix.s_addr)) != -1)
@@ -193,7 +216,9 @@ TEST(controller_test, hello_put_get)
 
   rfpmsg_update_length(buffer);
 
-  retval = rconn_send(rconn, buffer);
+  buffer2 = rfpbuf_clone(buffer);
+
+  retval = rconn_send(rconn, buffer2);
   if(retval)
   {
     printf("retval failed\n");
@@ -205,6 +230,8 @@ TEST(controller_test, hello_put_get)
   // id of 0
   ospf6_db_fill(riack_client, get_oh, xid, 0);
 
+  printf("put_oh version: %d\n", put_oh->version);
+  printf("get_oh version: %d\n", get_oh->version);
 
   CHECK_EQUAL(get_oh->version, put_oh->version);
   CHECK_EQUAL(get_oh->type, put_oh->type);
