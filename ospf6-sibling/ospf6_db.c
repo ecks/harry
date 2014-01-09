@@ -19,9 +19,18 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   unsigned int id;
   char * bucket = calloc(ID_SIZE, sizeof(char));
   char * key = calloc(ID_SIZE, sizeof(char));
-  char * json_packed = calloc(DATA_SIZE, sizeof(char));
 
-  sprintf(json_packed, "{version: %d, type: %d, length: %d, router_id: %d, area_id: %d, checksum: %d, instance_id: %d, reserved: %d}", 
+  char * json_header = calloc(DATA_SIZE, sizeof(char));
+  char * json_msg = calloc(DATA_SIZE, sizeof(char));
+  char * json_router_ids = calloc(DATA_SIZE, sizeof(char));
+  char * json_packed = calloc(DATA_SIZE*3, sizeof(char));
+
+  struct ospf6_hello * hello;
+  u_char * p;
+
+  hello = (struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header));
+
+  sprintf(json_header, "{version: %d, type: %d, length: %d, router_id: %d, area_id: %d, checksum: %d, instance_id: %d, reserved: %d}", 
     oh->version,
     oh->type,
     oh->length,
@@ -30,6 +39,50 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
     oh->checksum,
     oh->instance_id,
     oh->reserved);
+
+  char * json_router_id_iter = json_router_ids;
+  *json_router_id_iter = '[';
+  json_router_id_iter++;
+  bool first = true;
+
+  for(p = (char *)((void *)hello + sizeof(struct ospf6_hello));
+      p + sizeof(u_int32_t) <= OSPF6_MESSAGE_END(oh);
+      p += sizeof(u_int32_t))
+  {
+    if(first)
+      first = false;
+    else if(!first)
+    {
+      *json_router_id_iter = ',';
+      json_router_id_iter++;
+      *json_router_id_iter = ' ';
+      json_router_id_iter++;
+    } 
+
+    u_int32_t * router_id = (u_int32_t *)p;
+    char * json_router_id = calloc(DATA_SIZE, sizeof(char));
+
+    sprintf(json_router_id, "router_id: %d", *router_id);
+    sprintf(json_router_id_iter, "%s", json_router_id);
+    json_router_id_iter += strlen(json_router_id);
+
+  }
+
+  *json_router_id_iter = ']';
+
+  sprintf(json_msg, "{interface_id: %d, priority: %d, options_0: %d, options_1: %d, options_2: %d, hello_interval: %d, dead_interval: %d, drouter: %d, bdrouter: %d, router_ids: %s}",
+    hello->interface_id,
+    hello->priority,
+    hello->options[0],
+    hello->options[1],
+    hello->options[2],
+    hello->hello_interval,
+    hello->dead_interval,
+    hello->drouter,
+    hello->bdrouter,
+    json_router_ids);
+
+  sprintf(json_packed, "{header: %s, msg: %s}", json_header, json_msg); 
 
   id = ospf6_replica_get_id();
   sprintf(bucket, "%d", id);
@@ -44,6 +97,10 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   riack_put_simple(ospf6->riack_client, bucket, key, json_packed, strlen(json_packed), "application/json");
 
   free(json_packed);
+  free(json_router_ids);
+  free(json_msg);
+  free(json_header);
+
   free(bucket);
   free(key);
 
