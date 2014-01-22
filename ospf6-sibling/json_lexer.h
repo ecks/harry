@@ -324,7 +324,7 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 38 "json_lexer.l"
+#line 48 "json_lexer.l"
 
 
 #line 331 "json_lexer.h"

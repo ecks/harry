@@ -208,6 +208,10 @@ struct rfp_ipv6_address {
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 
+#define HELLO(oh)                       ((struct ospf6_hello *)((void *)oh + sizeof(struct ospf6_header)))
+#define HELLO_ROUTER_ID(oh, rid_index)  (u_int32_t *)((void *)oh + sizeof(struct ospf6_header) + sizeof(struct ospf6_hello) + sizeof(u_int32_t)*rid_index)
+#define DBDESC(oh)                      ((struct ospf6_dbdesc *)((void *)oh + sizeof(struct ospf6_header)))
+
 /* OSPFv3 packet header */
 struct ospf6_header
 {

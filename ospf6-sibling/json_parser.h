@@ -52,9 +52,28 @@
      T_CHECKSUM = 270,
      T_INSTANCE_ID = 271,
      T_RESERVED = 272,
-     T_MSG = 273,
-     T_ROUTER_IDS = 274,
-     T_TODO = 275
+     T_HELLO = 273,
+     T_DBDESC = 274,
+     T_ROUTER_IDS = 275,
+     T_INTERFACE_ID = 276,
+     T_PRIORITY = 277,
+     T_OPTIONS_ZERO = 278,
+     T_OPTIONS_ONE = 279,
+     T_OPTIONS_TWO = 280,
+     T_HELLO_INTERVAL = 281,
+     T_DEAD_INTERVAL = 282,
+     T_DROUTER = 283,
+     T_BDROUTER = 284,
+     T_RESERVED_ONE = 285,
+     T_RESERVED_TWO = 286,
+     T_IFMTU = 287,
+     T_BITS = 288,
+     T_SEQNUM = 289,
+     T_TODO = 290,
+     T_LSA_HEADERS = 291,
+     T_AGE = 292,
+     T_ID = 293,
+     T_ADV_ROUTER = 294
    };
 #endif
 
@@ -65,14 +84,14 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 18 "json_parser.y"
+#line 24 "json_parser.y"
 
   int ival;
 
 
 
 /* Line 2068 of yacc.c  */
-#line 76 "json_parser.h"
+#line 95 "json_parser.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

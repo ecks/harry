@@ -527,6 +527,8 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
       zlog_debug("Can't decide which is master, ignore");
   }
 
+  ospf6_db_put_dbdesc(oh, xid);
+
   // send an ACK back to the controller
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
                                           htonl(xid), sizeof(struct rfp_header));

@@ -14,7 +14,8 @@
 "["                { printf("Open bracket\n"); return T_OPEN_BRACKET; }
 "]"                { printf("Close bracket\n"); return T_CLOSE_BRACKET; }
 "header: "         { printf("Header\n"); return T_HEADER; }
-"msg: "            { printf("Msg\n"); return T_MSG; }
+"hello: "          { printf("Hello Message\n"); return T_HELLO; }
+"dbdesc: "         { printf("DBDesc Message\n"); return T_DBDESC; }
 "router_id: "      { return T_ROUTER_ID; }
 "area_id: "        { printf("Area ID\n"); return T_AREA_ID; }
 "version: "        { printf("Version\n"); return T_VERSION; }
@@ -23,16 +24,25 @@
 "checksum: "       { printf("Checksum\n"); return T_CHECKSUM; }
 "instance_id: "    { printf("Instance ID\n"); return T_INSTANCE_ID; }
 "reserved: "       { printf("Reserved\n"); return T_RESERVED; }
-"interface_id: "   { printf("Interface ID\n"); return T_TODO; }
-"priority: "       { printf("Priority\n"); return T_TODO; }
-"options_0: "      { printf("Options_0\n"); return T_TODO; }
-"options_1: "      { printf("Options_1\n"); return T_TODO; }
-"options_2: "      { printf("Options_2\n"); return T_TODO; }
-"hello_interval: " { printf("Hello Interval\n"); return T_TODO; }
-"dead_interval: "  { printf("Dead Interval\n"); return T_TODO; }
-"drouter: "        { printf("DRouter\n"); return T_TODO; }
-"bdrouter: "       { printf("BDRouter\n"); return T_TODO; }
+"interface_id: "   { printf("Interface ID\n"); return T_INTERFACE_ID; }
+"priority: "       { printf("Priority\n"); return T_PRIORITY; }
+"options_0: "      { printf("Options_0\n"); return T_OPTIONS_ZERO; }
+"options_1: "      { printf("Options_1\n"); return T_OPTIONS_ONE; }
+"options_2: "      { printf("Options_2\n"); return T_OPTIONS_TWO; }
+"hello_interval: " { printf("Hello Interval\n"); return T_HELLO_INTERVAL; }
+"dead_interval: "  { printf("Dead Interval\n"); return T_DEAD_INTERVAL; }
+"drouter: "        { printf("DRouter\n"); return T_DROUTER; }
+"bdrouter: "       { printf("BDRouter\n"); return T_BDROUTER; }
 "router_ids: "     { printf("Router IDs\n"); return T_ROUTER_IDS; }
+"reserved1: "      { printf("Reserved1\n"); return T_RESERVED_ONE; }
+"reserved2: "      { printf("Reserved2\n"); return T_RESERVED_TWO; }
+"ifmtu: "          { printf("Ifmtu\n"); return T_IFMTU; }
+"bits: "           { printf("Bits\n"); return T_BITS; }
+"seqnum: "         { printf("Seqnum\n"); return T_SEQNUM; }
+"lsa_headers: "    { printf("LSA Headers\n"); return T_LSA_HEADERS; }
+"age: "            { printf("Age\n"); return T_AGE; }
+"id: "             { printf("Id\n"); return T_ID; }
+"adv_router: "     { printf("Adv_router\n"); return T_ADV_ROUTER; }
 [ \t]  { /* ignore whitespace */ }
 .      { printf("Mystery character %c\n", *yytext); }
 %%

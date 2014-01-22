@@ -23,6 +23,8 @@
 #define OSPF6_LSA_SCOPE(type) \
     (ntohs (type) & OSPF6_LSTYPE_SCOPE_MASK)
 
+#define DBDESC_LSA_HEADER(oh, lsa_index) (struct ospf6_lsa_header *)((void *)oh + sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc) + sizeof(struct ospf6_lsa_header)*lsa_index)
+
 /* LSA Header */
 struct ospf6_lsa_header
 {
