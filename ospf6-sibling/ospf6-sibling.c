@@ -65,10 +65,12 @@ int main(int argc, char *argv[])
   int sisis_fd;
   uint64_t host_num = 1;
 
+  bool restart_mode = false;
+
   /* Command line argument treatment. */
   while(1)
   {
-    opt = getopt_long(argc, argv, "f:i:", longopts, 0);
+    opt = getopt_long(argc, argv, "rf:", longopts, 0);
 
     if(opt == EOF)
       break;
@@ -79,6 +81,9 @@ int main(int argc, char *argv[])
         config_file = optarg;
         break;
 
+      case 'r':
+        restart_mode = true;
+        break;
     }
   }
 
@@ -98,7 +103,7 @@ int main(int argc, char *argv[])
   if_init();
 
   /* initialize ospf6 */
-  ospf6_top_init();
+  ospf6_top_init(restart_mode);
 
   sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
   if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_OSPF6_SBLING) < 0))
@@ -118,7 +123,14 @@ int main(int argc, char *argv[])
   // this is where the command actually gets executed
   vty_read_config(config_file, config_default);
 
-  zlog_notice("<---- OSPF6 Sibling starting: %d ---->", getpid());
+  if(restart_mode)
+  {
+    zlog_notice("<---- OSPF6 Sibling starting in restart mode: %d ---->", getpid());
+  }
+  else
+  {
+    zlog_notice("<---- OSPF6 Sibling starting in normal mode: %d ---->", getpid());
+  }
 
   zlog_debug("sibling sisis addr: %s", sisis_addr);
 

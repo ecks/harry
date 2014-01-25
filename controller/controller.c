@@ -91,6 +91,8 @@ int main(int argc, char *argv[])
 
   vty_read_config(config_file, config_default);
 
+  zlog_notice("<---- Controller starting: %d ---->", getpid());
+    
   /* thread master */
   master = thread_master_create();
 

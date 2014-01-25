@@ -49,6 +49,10 @@ int n_bgp_siblings;
 
 static int sib_listener_accept(struct thread * t);
 static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name);
+static void reuse_sib_router(struct sib_router * sr, struct vconn * vconn, const char * name);
+
+static struct sib_router * sib_router_create(struct rconn *);
+static void sib_router_reuse(struct sib_router *, struct rconn *);
 
 //static void sib_router_send_features_request(struct sib_router *);
 //static int sib_router_process_features(struct sib_router * rt, void *rh);
@@ -112,6 +116,8 @@ static int sib_listener_accept(struct thread * t)
   struct pvconn * sib_listener = THREAD_ARG(t);
   struct vconn * new_sib_vconn;
   int retval;
+  int i;
+  bool found_reusable_sib_router = false;
 
   retval = pvconn_accept(sib_listener, RFP10_VERSION, &new_sib_vconn);
   if(!retval)
@@ -123,7 +129,24 @@ static int sib_listener_accept(struct thread * t)
       {
         // ospf6 connection
         printf("new ospf6 sibling connection\n");
-        new_sib_router(&ospf6_siblings[n_ospf6_siblings++], new_sib_vconn, "tcp6");
+
+        // try to find disconnected sib routers in order to try and reuse them
+        for(i = 0; i < n_ospf6_siblings; i++)
+        {
+          if(ospf6_siblings[i]->state == SIB_DISCONNECTED)
+          {
+            if(CONTROLLER_DEBUG_MSG)
+            {
+              zlog_debug("found reusable sibling");
+            }
+
+            reuse_sib_router(ospf6_siblings[i], new_sib_vconn, "tcp6");
+            found_reusable_sib_router = true;
+            break;
+          }
+        }
+        if(!found_reusable_sib_router)
+          new_sib_router(&ospf6_siblings[n_ospf6_siblings++], new_sib_vconn, "tcp6");
       }
       if(strcmp(sib_listener->name, "ptcp6:6635") == 0)
       {
@@ -151,7 +174,6 @@ static int sib_listener_accept(struct thread * t)
 static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const char *name)
 {
   struct rconn * rconn;
-  int i;
   int retval;
   
   rconn = rconn_create();
@@ -162,6 +184,40 @@ static void new_sib_router(struct sib_router ** sr, struct vconn *vconn, const c
   // schedule an event to call sib_router_run
   thread_add_event(master, sib_router_run, *sr, 0);
 }
+
+static void reuse_sib_router(struct sib_router * sr, struct vconn * vconn, const char * name)
+{
+  struct rconn * rconn;
+  int retval;
+  
+  rconn = rconn_create();
+  rconn_connect_unreliably(rconn, vconn, NULL);
+
+  sib_router_reuse(sr, rconn);
+
+  // schedule an event to call sib_router_run
+  thread_add_event(master, sib_router_run, sr, 0);
+}
+
+void sib_router_reuse(struct sib_router * sr, struct rconn * rconn)
+{
+  char * name = rconn->target;
+
+  sr->name = malloc(strlen(name)); 
+  strncpy(sr->name, name, strlen(name));
+
+  sr->rconn = rconn;
+  state_transition(sr, SIB_CONNECTING);
+  list_init(&sr->msgs_rcvd_queue);
+
+  sr->current_egress_xid = 0;
+
+  sr->current_ingress_xid = 0;
+  sr->ingress_ack_timeout = 5;
+
+  // indicates that the timeout_ingress thread is inactive
+  sr->thread_timeout_ingress = NULL;
+ }
 
 /* Creates and returns a new learning switch whose configuration is given by
  * 'cfg'.
@@ -187,11 +243,8 @@ sib_router_create(struct rconn *rconn)
   rt->current_ingress_xid = 0;
   rt->ingress_ack_timeout = 5;
 
-//  for(i = 0; i < MAX_PORTS; i++)
-//  {
-//    rt->port_states[i] = P_DISABLED;
-//  }
-
+  // indicates that the timeout_ingress thread is inactive
+  rt->thread_timeout_ingress = NULL;
   return rt;
 }
 
@@ -549,9 +602,17 @@ sib_router_destroy(struct sib_router * sr)
   if(sr)
   {
     rconn_destroy(sr->rconn);
+
+    if(sr->name)
+    {
+      free(sr->name);
+    }
+
+    if(sr->thread_timeout_ingress)
+    {
+      THREAD_OFF(sr->thread_timeout_ingress);
+    }
   } 
-
-
 }
 
 static void
@@ -806,7 +867,7 @@ void sib_router_send_leader_elect()
 static void state_transition(struct sib_router * sr, enum sib_router_state state)
 {
   // transition from a *_msg_received to routing
-  if((sr->state == SIB_FEATURES_REQ_RCVD || sr->state == SIB_REDISTRIBUTE_REQ_RCVD) &&
+  if((sr->state == SIB_FEATURES_REDIS_REQ_RCVD || sr->state == SIB_FEATURES_ADDR_REQ_RCVD) &&
       state == SIB_ROUTING)
   {
     n_ospf6_siblings_routing++;

@@ -37,7 +37,6 @@ struct sib_router {
     struct list msgs_rcvd_queue;
 };
 
-struct sib_router * sib_router_create(struct rconn *);
 int sib_router_run(struct thread *);
 void sib_router_process_packet(struct sib_router *, struct rfpbuf *);
 void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_xid);

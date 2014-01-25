@@ -25,6 +25,8 @@ struct ospf6 *ospf6;
 
 extern struct thread_master * master;
 
+static bool my_restart_mode;
+
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa * lsa)
 {
   // TODO
@@ -56,6 +58,8 @@ static struct ospf6 * ospf6_create(void)
     printf("Failed to connect to riak server\n");
     riack_free(o->riack_client);
   }
+
+  o->restart_mode = my_restart_mode;
 
   return o;
 }
@@ -175,8 +179,10 @@ static struct cmd_node ospf6_node =
   1 /* VTYSH */
 };
 
-void ospf6_top_init()
+void ospf6_top_init(bool restart_mode)
 {
+  my_restart_mode =  restart_mode;
+
   /* Install ospf6 top node */
   install_node(&ospf6_node, config_write_ospf6);
 

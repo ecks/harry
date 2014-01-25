@@ -18,9 +18,11 @@
 #include "rfp-msgs.h"
 #include "if.h"
 #include "debug.h"
-#include "routeflow-common.h"
 #include "thread.h"
+#include "ospf6_top.h"
+#include "ospf6_interface.h"
 #include "ctrl_client.h"
+#include "ospf6_message.h"
 
 enum ctrl_client_state
 {
@@ -341,10 +343,20 @@ static int ctrl_client_read(struct thread * t)
         zlog_debug("Forwarding message received");
       }
 
-      rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
-      ifp = if_get_by_name(ctrl_client->interface_name);
-      oi = (struct ospf6_interface *)ifp->info;
-      ospf6_receive(ctrl_client, rh, oi);
+      if(!ospf6->restart_mode)
+      {
+        rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
+        ifp = if_get_by_name(ctrl_client->interface_name);
+        oi = (struct ospf6_interface *)ifp->info;
+        ospf6_receive(ctrl_client, rh, oi);
+      }
+      else
+      {
+        if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+        {
+          zlog_debug("Process is in restart mode...\n");
+        }
+      }
       break;
   }
 

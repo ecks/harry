@@ -679,7 +679,7 @@ void ospf6_replica_restart(unsigned int id)
   char num_id[15];
 
   sprintf(num_id, "%d", id);
-  char * args[] = {"qsub", "-V", "-t", num_id, "-d", "/home/hasenov/zebralite/ospf6-sibling", "run_sibling.sh", NULL};
+  char * args[] = {"qsub", "-V", "-t", num_id, "-d", "/home/hasenov/zebralite/ospf6-sibling", "restart_sibling.sh", NULL};
   
 //  char *args[] = {"echo", "Hello world", NULL};
 

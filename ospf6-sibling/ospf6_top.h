@@ -20,11 +20,13 @@ struct ospf6
   struct ospf6_lsdb *lsdb;
 
   struct RIACK_CLIENT * riack_client;
+
+  bool restart_mode;
 };
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
 
-void ospf6_top_init();
+void ospf6_top_init(bool);
 
 #endif
