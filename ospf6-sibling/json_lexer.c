@@ -795,7 +795,8 @@ YY_DECL
     
 #line 9 "json_lexer.l"
 
-#line 799 "json_lexer.c"
+
+#line 800 "json_lexer.c"
 
 	if ( !(yy_init) )
 		{
@@ -880,200 +881,200 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 10 "json_lexer.l"
+#line 11 "json_lexer.l"
 { yylval.ival = atoi(yytext); printf("Number: %d\n", yylval.ival); return T_NUMBER; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 11 "json_lexer.l"
+#line 12 "json_lexer.l"
 { printf("Open brace\n"); return T_OPEN_BRACE; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 12 "json_lexer.l"
+#line 13 "json_lexer.l"
 { printf("Close brace\n"); return T_CLOSE_BRACE; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 13 "json_lexer.l"
+#line 14 "json_lexer.l"
 { printf("Comma\n"); return T_COMMA; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 14 "json_lexer.l"
+#line 15 "json_lexer.l"
 { printf("Open bracket\n"); return T_OPEN_BRACKET; }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 15 "json_lexer.l"
+#line 16 "json_lexer.l"
 { printf("Close bracket\n"); return T_CLOSE_BRACKET; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 16 "json_lexer.l"
+#line 17 "json_lexer.l"
 { printf("Header\n"); return T_HEADER; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 17 "json_lexer.l"
+#line 18 "json_lexer.l"
 { printf("Hello Message\n"); return T_HELLO; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 18 "json_lexer.l"
+#line 19 "json_lexer.l"
 { printf("DBDesc Message\n"); return T_DBDESC; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 19 "json_lexer.l"
+#line 20 "json_lexer.l"
 { return T_ROUTER_ID; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 20 "json_lexer.l"
+#line 21 "json_lexer.l"
 { printf("Area ID\n"); return T_AREA_ID; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 21 "json_lexer.l"
+#line 22 "json_lexer.l"
 { printf("Version\n"); return T_VERSION; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 22 "json_lexer.l"
+#line 23 "json_lexer.l"
 { printf("Type\n"); return T_TYPE; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 23 "json_lexer.l"
+#line 24 "json_lexer.l"
 { printf("Length\n"); return T_LENGTH; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 24 "json_lexer.l"
+#line 25 "json_lexer.l"
 { printf("Checksum\n"); return T_CHECKSUM; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 25 "json_lexer.l"
+#line 26 "json_lexer.l"
 { printf("Instance ID\n"); return T_INSTANCE_ID; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 26 "json_lexer.l"
+#line 27 "json_lexer.l"
 { printf("Reserved\n"); return T_RESERVED; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 27 "json_lexer.l"
+#line 28 "json_lexer.l"
 { printf("Interface ID\n"); return T_INTERFACE_ID; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 28 "json_lexer.l"
+#line 29 "json_lexer.l"
 { printf("Priority\n"); return T_PRIORITY; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 29 "json_lexer.l"
+#line 30 "json_lexer.l"
 { printf("Options_0\n"); return T_OPTIONS_ZERO; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 30 "json_lexer.l"
+#line 31 "json_lexer.l"
 { printf("Options_1\n"); return T_OPTIONS_ONE; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 31 "json_lexer.l"
+#line 32 "json_lexer.l"
 { printf("Options_2\n"); return T_OPTIONS_TWO; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 32 "json_lexer.l"
+#line 33 "json_lexer.l"
 { printf("Hello Interval\n"); return T_HELLO_INTERVAL; }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 33 "json_lexer.l"
+#line 34 "json_lexer.l"
 { printf("Dead Interval\n"); return T_DEAD_INTERVAL; }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 34 "json_lexer.l"
+#line 35 "json_lexer.l"
 { printf("DRouter\n"); return T_DROUTER; }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 35 "json_lexer.l"
+#line 36 "json_lexer.l"
 { printf("BDRouter\n"); return T_BDROUTER; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 36 "json_lexer.l"
+#line 37 "json_lexer.l"
 { printf("Router IDs\n"); return T_ROUTER_IDS; }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 37 "json_lexer.l"
+#line 38 "json_lexer.l"
 { printf("Reserved1\n"); return T_RESERVED_ONE; }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 38 "json_lexer.l"
+#line 39 "json_lexer.l"
 { printf("Reserved2\n"); return T_RESERVED_TWO; }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 39 "json_lexer.l"
+#line 40 "json_lexer.l"
 { printf("Ifmtu\n"); return T_IFMTU; }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 40 "json_lexer.l"
+#line 41 "json_lexer.l"
 { printf("Bits\n"); return T_BITS; }
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 41 "json_lexer.l"
+#line 42 "json_lexer.l"
 { printf("Seqnum\n"); return T_SEQNUM; }
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 42 "json_lexer.l"
+#line 43 "json_lexer.l"
 { printf("LSA Headers\n"); return T_LSA_HEADERS; }
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 43 "json_lexer.l"
+#line 44 "json_lexer.l"
 { printf("Age\n"); return T_AGE; }
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 44 "json_lexer.l"
+#line 45 "json_lexer.l"
 { printf("Id\n"); return T_ID; }
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 45 "json_lexer.l"
+#line 46 "json_lexer.l"
 { printf("Adv_router\n"); return T_ADV_ROUTER; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 46 "json_lexer.l"
+#line 47 "json_lexer.l"
 { /* ignore whitespace */ }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 47 "json_lexer.l"
+#line 48 "json_lexer.l"
 { printf("Mystery character %c\n", *yytext); }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 48 "json_lexer.l"
+#line 49 "json_lexer.l"
 ECHO;
 	YY_BREAK
-#line 1077 "json_lexer.c"
+#line 1078 "json_lexer.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2071,7 +2072,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 48 "json_lexer.l"
+#line 49 "json_lexer.l"
 
 
 

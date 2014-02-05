@@ -29,7 +29,8 @@ static struct ospf6 * ospf6_create(void)
   return o;
 }
 
-void ospf6_top_init()
+// don't really care about restart mode but must be same as prototype
+void ospf6_top_init(bool restart_mode)
 {
   if(ospf6 == NULL)
     ospf6 = ospf6_create();

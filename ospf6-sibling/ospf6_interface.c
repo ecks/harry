@@ -21,6 +21,7 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
 #include "ospf6_intra.h"
+#include "ospf6_restart.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_message.h"
@@ -361,12 +362,23 @@ int interface_up(struct thread * thread)
   /* Update ctrl client with interface name */
   sibling_ctrl_interface_init(oi->interface->name);
 
+  /* Start state catchup if running in restart mode */
+  if(ospf6->restart_mode)
+  {
+    ospf6_restart_init(oi->interface->name);
+  }
+
   /* Update interface route */
   ospf6_interface_connected_route_update(oi->interface);
 
-  /* Schedule Hello */
-  thread_add_event(master, ospf6_hello_send, oi, 0);
-
+  // mutex lock
+  if(!ospf6->restart_mode)
+  {
+    /* Schedule Hello */
+    thread_add_event(master, ospf6_hello_send, oi, 0);
+  }
+  // mutex unlock
+ 
   /* decide next interface state */
   if(if_is_pointtopoint(oi->interface))
     ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);

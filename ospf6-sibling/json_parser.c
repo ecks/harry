@@ -72,11 +72,12 @@
 #include <stdint.h>
 
 #include "json_lexer.h"
+#include "debug.h"
 #include "routeflow-common.h"
 #include "ospf6_lsa.h"
 
 extern int yylex();
-extern void yyerror(struct ospf6_header * oh, const char * s);
+extern void yyerror(struct ospf6_header * oh, int get_header, const char * s);
 
 int router_id_index = 0;
 u_int32_t * router_id;
@@ -86,7 +87,7 @@ struct ospf6_lsa_header * lsa_header;
 
 
 /* Line 268 of yacc.c  */
-#line 90 "json_parser.c"
+#line 91 "json_parser.c"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -149,7 +150,9 @@ struct ospf6_lsa_header * lsa_header;
      T_LSA_HEADERS = 291,
      T_AGE = 292,
      T_ID = 293,
-     T_ADV_ROUTER = 294
+     T_ADV_ROUTER = 294,
+     GET_HEADER = 295,
+     GET_BODY = 296
    };
 #endif
 
@@ -160,14 +163,14 @@ typedef union YYSTYPE
 {
 
 /* Line 293 of yacc.c  */
-#line 24 "json_parser.y"
+#line 26 "json_parser.y"
 
   int ival;
 
 
 
 /* Line 293 of yacc.c  */
-#line 171 "json_parser.c"
+#line 174 "json_parser.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -179,7 +182,7 @@ typedef union YYSTYPE
 
 
 /* Line 343 of yacc.c  */
-#line 183 "json_parser.c"
+#line 186 "json_parser.c"
 
 #ifdef short
 # undef short
@@ -401,7 +404,7 @@ union yyalloc
 #define YYLAST   172
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  40
+#define YYNTOKENS  42
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  20
 /* YYNRULES -- Number of rules.  */
@@ -411,7 +414,7 @@ union yyalloc
 
 /* YYTRANSLATE(YYLEX) -- Bison symbol number corresponding to YYLEX.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   294
+#define YYMAXUTOK   296
 
 #define YYTRANSLATE(YYX)						\
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -448,7 +451,7 @@ static const yytype_uint8 yytranslate[] =
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
       25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
-      35,    36,    37,    38,    39
+      35,    36,    37,    38,    39,    40,    41
 };
 
 #if YYDEBUG
@@ -470,13 +473,13 @@ static const yytype_uint16 yyprhs[] =
 /* YYRHS -- A `-1'-separated list of the rules' RHS.  */
 static const yytype_int8 yyrhs[] =
 {
-      41,     0,    -1,    -1,    41,    42,    -1,     4,    43,     5,
-      -1,     9,    42,     6,    18,     4,    45,     5,    -1,     9,
-      42,     6,    19,     4,    46,     5,    -1,     9,    42,    -1,
-      44,    -1,    47,    47,    47,    47,    47,    47,    47,    47,
-      -1,    48,    48,    48,    48,    48,    48,    48,    48,    48,
-      51,    -1,    49,    49,    49,    49,    49,    49,    49,    49,
-      55,    -1,    10,     3,     6,    -1,    10,     3,    -1,    11,
+      43,     0,    -1,    -1,    43,    44,    -1,     4,    45,     5,
+      -1,     9,    44,     6,    18,     4,    47,     5,    -1,     9,
+      44,     6,    19,     4,    48,     5,    -1,     9,    44,    -1,
+      46,    -1,    49,    49,    49,    49,    49,    49,    49,    49,
+      -1,    50,    50,    50,    50,    50,    50,    50,    50,    50,
+      53,    -1,    51,    51,    51,    51,    51,    51,    51,    51,
+      57,    -1,    10,     3,     6,    -1,    10,     3,    -1,    11,
        3,     6,    -1,    11,     3,    -1,    12,     3,     6,    -1,
       12,     3,    -1,    13,     3,     6,    -1,    13,     3,    -1,
       14,     3,     6,    -1,    14,     3,    -1,    15,     3,     6,
@@ -493,12 +496,12 @@ static const yytype_int8 yyrhs[] =
        3,     6,    -1,    33,     3,    -1,    34,     3,     6,    -1,
       34,     3,    -1,    23,     3,     6,    -1,    23,     3,    -1,
       24,     3,     6,    -1,    24,     3,    -1,    25,     3,     6,
-      -1,    25,     3,    -1,     7,    52,     8,    -1,     7,    56,
-       8,    -1,     7,     8,    -1,    20,    50,    -1,    53,    -1,
-      52,    53,    -1,     4,    54,     5,     6,    -1,     4,    54,
-       5,    -1,    10,     3,    -1,    36,    50,    -1,    57,    -1,
-      56,    57,    -1,     4,    58,     5,     6,    -1,     4,    58,
-       5,    -1,    59,    59,    59,    59,    59,    59,    59,    -1,
+      -1,    25,     3,    -1,     7,    54,     8,    -1,     7,    58,
+       8,    -1,     7,     8,    -1,    20,    52,    -1,    55,    -1,
+      54,    55,    -1,     4,    56,     5,     6,    -1,     4,    56,
+       5,    -1,    10,     3,    -1,    36,    52,    -1,    59,    -1,
+      58,    59,    -1,     4,    60,     5,     6,    -1,     4,    60,
+       5,    -1,    61,    61,    61,    61,    61,    61,    61,    -1,
       37,     3,     6,    -1,    37,     3,    -1,    13,     3,     6,
       -1,    13,     3,    -1,    38,     3,     6,    -1,    38,     3,
       -1,    39,     3,     6,    -1,    39,     3,    -1,    34,     3,
@@ -509,15 +512,15 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    41,    41,    42,    45,    48,    49,    50,    51,    54,
-      57,    60,    63,    64,    65,    66,    67,    68,    69,    70,
-      71,    72,    73,    74,    75,    76,    77,    78,    81,    82,
-      83,    84,    85,    86,    87,    88,    89,    90,    91,    92,
-      93,    94,    95,    96,    97,   100,   101,   102,   103,   104,
-     105,   106,   107,   108,   109,   110,   111,   112,   113,   114,
-     115,   118,   119,   120,   123,   126,   127,   130,   131,   134,
-     137,   140,   141,   144,   145,   148,   151,   152,   153,   154,
-     155,   156,   157,   158,   159,   160,   161,   162,   163,   164
+       0,    44,    44,    45,    48,    51,    52,    53,    54,    57,
+      60,    63,    66,    67,    68,    69,    70,    71,    72,    73,
+      74,    75,    76,    77,    78,    79,    80,    81,    84,    85,
+      86,    87,    88,    89,    90,    91,    92,    93,    94,    95,
+      96,    97,    98,    99,   100,   103,   104,   105,   106,   107,
+     108,   109,   110,   111,   112,   113,   114,   115,   116,   117,
+     118,   121,   122,   123,   126,   129,   130,   133,   134,   137,
+     140,   143,   144,   147,   148,   151,   154,   155,   156,   157,
+     158,   159,   160,   161,   162,   163,   164,   165,   166,   167
 };
 #endif
 
@@ -534,12 +537,12 @@ static const char *const yytname[] =
   "T_OPTIONS_ZERO", "T_OPTIONS_ONE", "T_OPTIONS_TWO", "T_HELLO_INTERVAL",
   "T_DEAD_INTERVAL", "T_DROUTER", "T_BDROUTER", "T_RESERVED_ONE",
   "T_RESERVED_TWO", "T_IFMTU", "T_BITS", "T_SEQNUM", "T_TODO",
-  "T_LSA_HEADERS", "T_AGE", "T_ID", "T_ADV_ROUTER", "$accept", "line",
-  "statement", "body", "header", "hello", "dbdesc", "header_expression",
-  "hello_expression", "dbdesc_expression", "array_body",
-  "adjacencies_array", "adjacencies", "adjacency_body", "adjacency",
-  "lsa_headers_array", "lsa_headers", "lsa_header_body", "lsa_header",
-  "lsa_expression", 0
+  "T_LSA_HEADERS", "T_AGE", "T_ID", "T_ADV_ROUTER", "GET_HEADER",
+  "GET_BODY", "$accept", "line", "statement", "body", "header", "hello",
+  "dbdesc", "header_expression", "hello_expression", "dbdesc_expression",
+  "array_body", "adjacencies_array", "adjacencies", "adjacency_body",
+  "adjacency", "lsa_headers_array", "lsa_headers", "lsa_header_body",
+  "lsa_header", "lsa_expression", 0
 };
 #endif
 
@@ -551,22 +554,23 @@ static const yytype_uint16 yytoknum[] =
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
      265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
      275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
-     285,   286,   287,   288,   289,   290,   291,   292,   293,   294
+     285,   286,   287,   288,   289,   290,   291,   292,   293,   294,
+     295,   296
 };
 # endif
 
 /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    40,    41,    41,    42,    43,    43,    43,    43,    44,
-      45,    46,    47,    47,    47,    47,    47,    47,    47,    47,
-      47,    47,    47,    47,    47,    47,    47,    47,    48,    48,
-      48,    48,    48,    48,    48,    48,    48,    48,    48,    48,
-      48,    48,    48,    48,    48,    49,    49,    49,    49,    49,
-      49,    49,    49,    49,    49,    49,    49,    49,    49,    49,
-      49,    50,    50,    50,    51,    52,    52,    53,    53,    54,
-      55,    56,    56,    57,    57,    58,    59,    59,    59,    59,
-      59,    59,    59,    59,    59,    59,    59,    59,    59,    59
+       0,    42,    43,    43,    44,    45,    45,    45,    45,    46,
+      47,    48,    49,    49,    49,    49,    49,    49,    49,    49,
+      49,    49,    49,    49,    49,    49,    49,    49,    50,    50,
+      50,    50,    50,    50,    50,    50,    50,    50,    50,    50,
+      50,    50,    50,    50,    50,    51,    51,    51,    51,    51,
+      51,    51,    51,    51,    51,    51,    51,    51,    51,    51,
+      51,    52,    52,    52,    53,    54,    54,    55,    55,    56,
+      57,    58,    58,    59,    59,    60,    61,    61,    61,    61,
+      61,    61,    61,    61,    61,    61,    61,    61,    61,    61
 };
 
 /* YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.  */
@@ -705,24 +709,24 @@ static const yytype_int16 yycheck[] =
    symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,    41,     0,     4,    42,     9,    10,    11,    12,    13,
-      14,    15,    16,    17,    43,    44,    47,    42,     3,     3,
-       3,     3,     3,     3,     3,     3,     5,    47,     6,     6,
-       6,     6,     6,     6,     6,     6,     6,    47,    18,    19,
-      47,     4,     4,    47,    21,    22,    23,    24,    25,    26,
-      27,    28,    29,    45,    48,    23,    24,    25,    30,    31,
-      32,    33,    34,    46,    49,    47,     3,     3,     3,     3,
-       3,     3,     3,     3,     3,     5,    48,     3,     3,     3,
-       3,     3,     3,     3,     3,     5,    49,    47,     6,     6,
-       6,     6,     6,     6,     6,     6,     6,    48,     6,     6,
-       6,     6,     6,     6,     6,     6,    49,    47,    48,    49,
-      48,    49,    48,    49,    48,    49,    48,    49,    48,    36,
-      55,    20,    51,     7,    50,    50,     4,     8,    52,    53,
-      56,    57,    10,    13,    14,    15,    34,    37,    38,    39,
-      54,    58,    59,     4,     8,    53,     4,     8,    57,     3,
-       3,     3,     3,     3,     3,     3,     3,     5,     5,    59,
-       6,     6,     6,     6,     6,     6,     6,     6,     6,    59,
-      59,    59,    59,    59
+       0,    43,     0,     4,    44,     9,    10,    11,    12,    13,
+      14,    15,    16,    17,    45,    46,    49,    44,     3,     3,
+       3,     3,     3,     3,     3,     3,     5,    49,     6,     6,
+       6,     6,     6,     6,     6,     6,     6,    49,    18,    19,
+      49,     4,     4,    49,    21,    22,    23,    24,    25,    26,
+      27,    28,    29,    47,    50,    23,    24,    25,    30,    31,
+      32,    33,    34,    48,    51,    49,     3,     3,     3,     3,
+       3,     3,     3,     3,     3,     5,    50,     3,     3,     3,
+       3,     3,     3,     3,     3,     5,    51,    49,     6,     6,
+       6,     6,     6,     6,     6,     6,     6,    50,     6,     6,
+       6,     6,     6,     6,     6,     6,    51,    49,    50,    51,
+      50,    51,    50,    51,    50,    51,    50,    51,    50,    36,
+      57,    20,    53,     7,    52,    52,     4,     8,    54,    55,
+      58,    59,    10,    13,    14,    15,    34,    37,    38,    39,
+      56,    60,    61,     4,     8,    55,     4,     8,    59,     3,
+       3,     3,     3,     3,     3,     3,     3,     5,     5,    61,
+       6,     6,     6,     6,     6,     6,     6,     6,     6,    61,
+      61,    61,    61,    61
 };
 
 #define yyerrok		(yyerrstatus = 0)
@@ -763,7 +767,7 @@ do								\
     }								\
   else								\
     {								\
-      yyerror (oh, YY_("syntax error: cannot back up")); \
+      yyerror (oh, get_header, YY_("syntax error: cannot back up")); \
       YYERROR;							\
     }								\
 while (YYID (0))
@@ -834,7 +838,7 @@ do {									  \
     {									  \
       YYFPRINTF (stderr, "%s ", Title);					  \
       yy_symbol_print (stderr,						  \
-		  Type, Value, oh); \
+		  Type, Value, oh, get_header); \
       YYFPRINTF (stderr, "\n");						  \
     }									  \
 } while (YYID (0))
@@ -848,19 +852,21 @@ do {									  \
 #if (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 static void
-yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, struct ospf6_header * oh)
+yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, struct ospf6_header * oh, int get_header)
 #else
 static void
-yy_symbol_value_print (yyoutput, yytype, yyvaluep, oh)
+yy_symbol_value_print (yyoutput, yytype, yyvaluep, oh, get_header)
     FILE *yyoutput;
     int yytype;
     YYSTYPE const * const yyvaluep;
     struct ospf6_header * oh;
+    int get_header;
 #endif
 {
   if (!yyvaluep)
     return;
   YYUSE (oh);
+  YYUSE (get_header);
 # ifdef YYPRINT
   if (yytype < YYNTOKENS)
     YYPRINT (yyoutput, yytoknum[yytype], *yyvaluep);
@@ -882,14 +888,15 @@ yy_symbol_value_print (yyoutput, yytype, yyvaluep, oh)
 #if (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 static void
-yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, struct ospf6_header * oh)
+yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, struct ospf6_header * oh, int get_header)
 #else
 static void
-yy_symbol_print (yyoutput, yytype, yyvaluep, oh)
+yy_symbol_print (yyoutput, yytype, yyvaluep, oh, get_header)
     FILE *yyoutput;
     int yytype;
     YYSTYPE const * const yyvaluep;
     struct ospf6_header * oh;
+    int get_header;
 #endif
 {
   if (yytype < YYNTOKENS)
@@ -897,7 +904,7 @@ yy_symbol_print (yyoutput, yytype, yyvaluep, oh)
   else
     YYFPRINTF (yyoutput, "nterm %s (", yytname[yytype]);
 
-  yy_symbol_value_print (yyoutput, yytype, yyvaluep, oh);
+  yy_symbol_value_print (yyoutput, yytype, yyvaluep, oh, get_header);
   YYFPRINTF (yyoutput, ")");
 }
 
@@ -940,13 +947,14 @@ do {								\
 #if (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 static void
-yy_reduce_print (YYSTYPE *yyvsp, int yyrule, struct ospf6_header * oh)
+yy_reduce_print (YYSTYPE *yyvsp, int yyrule, struct ospf6_header * oh, int get_header)
 #else
 static void
-yy_reduce_print (yyvsp, yyrule, oh)
+yy_reduce_print (yyvsp, yyrule, oh, get_header)
     YYSTYPE *yyvsp;
     int yyrule;
     struct ospf6_header * oh;
+    int get_header;
 #endif
 {
   int yynrhs = yyr2[yyrule];
@@ -960,7 +968,7 @@ yy_reduce_print (yyvsp, yyrule, oh)
       YYFPRINTF (stderr, "   $%d = ", yyi + 1);
       yy_symbol_print (stderr, yyrhs[yyprhs[yyrule] + yyi],
 		       &(yyvsp[(yyi + 1) - (yynrhs)])
-		       		       , oh);
+		       		       , oh, get_header);
       YYFPRINTF (stderr, "\n");
     }
 }
@@ -968,7 +976,7 @@ yy_reduce_print (yyvsp, yyrule, oh)
 # define YY_REDUCE_PRINT(Rule)		\
 do {					\
   if (yydebug)				\
-    yy_reduce_print (yyvsp, Rule, oh); \
+    yy_reduce_print (yyvsp, Rule, oh, get_header); \
 } while (YYID (0))
 
 /* Nonzero means print parse trace.  It is left uninitialized so that
@@ -1245,18 +1253,20 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
 #if (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 static void
-yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, struct ospf6_header * oh)
+yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, struct ospf6_header * oh, int get_header)
 #else
 static void
-yydestruct (yymsg, yytype, yyvaluep, oh)
+yydestruct (yymsg, yytype, yyvaluep, oh, get_header)
     const char *yymsg;
     int yytype;
     YYSTYPE *yyvaluep;
     struct ospf6_header * oh;
+    int get_header;
 #endif
 {
   YYUSE (yyvaluep);
   YYUSE (oh);
+  YYUSE (get_header);
 
   if (!yymsg)
     yymsg = "Deleting";
@@ -1280,7 +1290,7 @@ int yyparse ();
 #endif
 #else /* ! YYPARSE_PARAM */
 #if defined __STDC__ || defined __cplusplus
-int yyparse (struct ospf6_header * oh);
+int yyparse (struct ospf6_header * oh, int get_header);
 #else
 int yyparse ();
 #endif
@@ -1315,11 +1325,12 @@ yyparse (YYPARSE_PARAM)
 #if (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 int
-yyparse (struct ospf6_header * oh)
+yyparse (struct ospf6_header * oh, int get_header)
 #else
 int
-yyparse (oh)
+yyparse (oh, get_header)
     struct ospf6_header * oh;
+    int get_header;
 #endif
 #endif
 {
@@ -1565,511 +1576,511 @@ yyreduce:
         case 3:
 
 /* Line 1806 of yacc.c  */
-#line 42 "json_parser.y"
+#line 45 "json_parser.y"
     { printf("line parsed\n"); }
     break;
 
   case 4:
 
 /* Line 1806 of yacc.c  */
-#line 45 "json_parser.y"
+#line 48 "json_parser.y"
     { printf("statement parsed\n"); }
     break;
 
   case 5:
 
 /* Line 1806 of yacc.c  */
-#line 48 "json_parser.y"
+#line 51 "json_parser.y"
     { printf("hello body parsed\n"); }
     break;
 
   case 6:
 
 /* Line 1806 of yacc.c  */
-#line 49 "json_parser.y"
+#line 52 "json_parser.y"
     { printf("dbdesc body parsed\n"); }
     break;
 
   case 9:
 
 /* Line 1806 of yacc.c  */
-#line 54 "json_parser.y"
+#line 57 "json_parser.y"
     { printf("header parsed\n"); }
     break;
 
   case 10:
 
 /* Line 1806 of yacc.c  */
-#line 57 "json_parser.y"
+#line 60 "json_parser.y"
     { printf("hello message parsed\n"); }
     break;
 
   case 11:
 
 /* Line 1806 of yacc.c  */
-#line 60 "json_parser.y"
+#line 63 "json_parser.y"
     { printf("dbdesc message parsed\n"); }
     break;
 
   case 12:
 
 /* Line 1806 of yacc.c  */
-#line 63 "json_parser.y"
-    { printf("Router ID parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->router_id = (yyvsp[(2) - (3)].ival); }
+#line 66 "json_parser.y"
+    { if(get_header) {printf("Router ID parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->router_id = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 13:
 
 /* Line 1806 of yacc.c  */
-#line 64 "json_parser.y"
-    { oh->router_id = (yyvsp[(2) - (2)].ival); }
+#line 67 "json_parser.y"
+    { if(get_header) {oh->router_id = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 14:
 
 /* Line 1806 of yacc.c  */
-#line 65 "json_parser.y"
-    { printf("Area ID parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->area_id = (yyvsp[(2) - (3)].ival); }
+#line 68 "json_parser.y"
+    { if(get_header) {printf("Area ID parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->area_id = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 15:
 
 /* Line 1806 of yacc.c  */
-#line 66 "json_parser.y"
-    { oh->area_id = (yyvsp[(2) - (2)].ival); }
+#line 69 "json_parser.y"
+    { if(get_header) {oh->area_id = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 16:
 
 /* Line 1806 of yacc.c  */
-#line 67 "json_parser.y"
-    { printf("Version parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->version = (yyvsp[(2) - (3)].ival); }
+#line 70 "json_parser.y"
+    { if(get_header) {printf("Version parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->version = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 17:
 
 /* Line 1806 of yacc.c  */
-#line 68 "json_parser.y"
-    { printf("Version parsed: %d\n", (yyvsp[(2) - (2)].ival)); oh->version = (yyvsp[(2) - (2)].ival); }
+#line 71 "json_parser.y"
+    { if(get_header) {printf("Version parsed: %d\n", (yyvsp[(2) - (2)].ival)); oh->version = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 18:
 
 /* Line 1806 of yacc.c  */
-#line 69 "json_parser.y"
-    { printf("Type parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->type = (yyvsp[(2) - (3)].ival); }
+#line 72 "json_parser.y"
+    { if(get_header) {printf("Type parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->type = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 19:
 
 /* Line 1806 of yacc.c  */
-#line 70 "json_parser.y"
-    { oh->type = (yyvsp[(2) - (2)].ival); }
+#line 73 "json_parser.y"
+    { if(get_header) {oh->type = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 20:
 
 /* Line 1806 of yacc.c  */
-#line 71 "json_parser.y"
-    { printf("Length parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->length = (yyvsp[(2) - (3)].ival); }
+#line 74 "json_parser.y"
+    { if(get_header) {printf("Length parsed: %d\n", (yyvsp[(2) - (3)].ival)); oh->length = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 21:
 
 /* Line 1806 of yacc.c  */
-#line 72 "json_parser.y"
-    { oh->length = (yyvsp[(2) - (2)].ival); }
+#line 75 "json_parser.y"
+    { if(get_header) {oh->length = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 22:
 
 /* Line 1806 of yacc.c  */
-#line 73 "json_parser.y"
-    { oh->checksum = (yyvsp[(2) - (3)].ival); }
+#line 76 "json_parser.y"
+    { if(get_header) {oh->checksum = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 23:
 
 /* Line 1806 of yacc.c  */
-#line 74 "json_parser.y"
-    { oh->checksum = (yyvsp[(2) - (2)].ival); }
+#line 77 "json_parser.y"
+    { if(get_header) {oh->checksum = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 24:
 
 /* Line 1806 of yacc.c  */
-#line 75 "json_parser.y"
-    { oh->instance_id = (yyvsp[(2) - (3)].ival); }
+#line 78 "json_parser.y"
+    { if(get_header) {oh->instance_id = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 25:
 
 /* Line 1806 of yacc.c  */
-#line 76 "json_parser.y"
-    { oh->instance_id = (yyvsp[(2) - (2)].ival); }
+#line 79 "json_parser.y"
+    { if(get_header) {oh->instance_id = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 26:
 
 /* Line 1806 of yacc.c  */
-#line 77 "json_parser.y"
-    { oh->reserved = (yyvsp[(2) - (3)].ival); }
+#line 80 "json_parser.y"
+    { if(get_header) {oh->reserved = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 27:
 
 /* Line 1806 of yacc.c  */
-#line 78 "json_parser.y"
-    { oh->reserved = (yyvsp[(2) - (2)].ival); }
+#line 81 "json_parser.y"
+    { if(get_header) {oh->reserved = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 28:
 
 /* Line 1806 of yacc.c  */
-#line 81 "json_parser.y"
-    { HELLO(oh)->interface_id = (yyvsp[(2) - (3)].ival); }
+#line 84 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->interface_id = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 29:
 
 /* Line 1806 of yacc.c  */
-#line 82 "json_parser.y"
-    { HELLO(oh)->interface_id = (yyvsp[(2) - (2)].ival); }
+#line 85 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->interface_id = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 30:
 
 /* Line 1806 of yacc.c  */
-#line 83 "json_parser.y"
-    { HELLO(oh)->priority = (yyvsp[(2) - (3)].ival); }
+#line 86 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->priority = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 31:
 
 /* Line 1806 of yacc.c  */
-#line 84 "json_parser.y"
-    { HELLO(oh)->priority = (yyvsp[(2) - (2)].ival); }
+#line 87 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->priority = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 32:
 
 /* Line 1806 of yacc.c  */
-#line 85 "json_parser.y"
-    { HELLO(oh)->hello_interval = (yyvsp[(2) - (3)].ival); }
+#line 88 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->hello_interval = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 33:
 
 /* Line 1806 of yacc.c  */
-#line 86 "json_parser.y"
-    { HELLO(oh)->hello_interval = (yyvsp[(2) - (2)].ival); }
+#line 89 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->hello_interval = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 34:
 
 /* Line 1806 of yacc.c  */
-#line 87 "json_parser.y"
-    { HELLO(oh)->dead_interval = (yyvsp[(2) - (3)].ival); }
+#line 90 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->dead_interval = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 35:
 
 /* Line 1806 of yacc.c  */
-#line 88 "json_parser.y"
-    { HELLO(oh)->drouter = (yyvsp[(2) - (3)].ival); }
+#line 91 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->drouter = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 36:
 
 /* Line 1806 of yacc.c  */
-#line 89 "json_parser.y"
-    { HELLO(oh)->drouter = (yyvsp[(2) - (2)].ival); }
+#line 92 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->drouter = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 37:
 
 /* Line 1806 of yacc.c  */
-#line 90 "json_parser.y"
-    { HELLO(oh)->bdrouter = (yyvsp[(2) - (3)].ival); }
+#line 93 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->bdrouter = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 38:
 
 /* Line 1806 of yacc.c  */
-#line 91 "json_parser.y"
-    { HELLO(oh)->bdrouter = (yyvsp[(2) - (2)].ival); }
+#line 94 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->bdrouter = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 39:
 
 /* Line 1806 of yacc.c  */
-#line 92 "json_parser.y"
-    { HELLO(oh)->options[0] = (yyvsp[(2) - (3)].ival); }
+#line 95 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[0] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 40:
 
 /* Line 1806 of yacc.c  */
-#line 93 "json_parser.y"
-    { HELLO(oh)->options[0] = (yyvsp[(2) - (2)].ival); }
+#line 96 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[0] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 41:
 
 /* Line 1806 of yacc.c  */
-#line 94 "json_parser.y"
-    { HELLO(oh)->options[1] = (yyvsp[(2) - (3)].ival); }
+#line 97 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[1] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 42:
 
 /* Line 1806 of yacc.c  */
-#line 95 "json_parser.y"
-    { HELLO(oh)->options[1] = (yyvsp[(2) - (2)].ival); }
+#line 98 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[1] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 43:
 
 /* Line 1806 of yacc.c  */
-#line 96 "json_parser.y"
-    { HELLO(oh)->options[2] = (yyvsp[(2) - (3)].ival); }
+#line 99 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[2] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 44:
 
 /* Line 1806 of yacc.c  */
-#line 97 "json_parser.y"
-    { HELLO(oh)->options[2] = (yyvsp[(2) - (2)].ival); }
+#line 100 "json_parser.y"
+    { if(!get_header) { HELLO(oh)->options[2] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 45:
 
 /* Line 1806 of yacc.c  */
-#line 100 "json_parser.y"
-    { DBDESC(oh)->reserved1 = (yyvsp[(2) - (3)].ival); }
+#line 103 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->reserved1 = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 46:
 
 /* Line 1806 of yacc.c  */
-#line 101 "json_parser.y"
-    { DBDESC(oh)->reserved1 = (yyvsp[(2) - (2)].ival); }
+#line 104 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->reserved1 = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 47:
 
 /* Line 1806 of yacc.c  */
-#line 102 "json_parser.y"
-    { DBDESC(oh)->reserved2 = (yyvsp[(2) - (3)].ival); }
+#line 105 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->reserved2 = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 48:
 
 /* Line 1806 of yacc.c  */
-#line 103 "json_parser.y"
-    { DBDESC(oh)->reserved2 = (yyvsp[(2) - (2)].ival); }
+#line 106 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->reserved2 = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 49:
 
 /* Line 1806 of yacc.c  */
-#line 104 "json_parser.y"
-    { DBDESC(oh)->ifmtu = (yyvsp[(2) - (3)].ival); }
+#line 107 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->ifmtu = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 50:
 
 /* Line 1806 of yacc.c  */
-#line 105 "json_parser.y"
-    { DBDESC(oh)->ifmtu = (yyvsp[(2) - (2)].ival); }
+#line 108 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->ifmtu = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 51:
 
 /* Line 1806 of yacc.c  */
-#line 106 "json_parser.y"
-    { DBDESC(oh)->bits = (yyvsp[(2) - (3)].ival); }
+#line 109 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->bits = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 52:
 
 /* Line 1806 of yacc.c  */
-#line 107 "json_parser.y"
-    { DBDESC(oh)->bits = (yyvsp[(2) - (2)].ival); }
+#line 110 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->bits = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 53:
 
 /* Line 1806 of yacc.c  */
-#line 108 "json_parser.y"
-    { DBDESC(oh)->seqnum = (yyvsp[(2) - (3)].ival); }
+#line 111 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->seqnum = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 54:
 
 /* Line 1806 of yacc.c  */
-#line 109 "json_parser.y"
-    { DBDESC(oh)->seqnum = (yyvsp[(2) - (2)].ival); }
+#line 112 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->seqnum = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 55:
 
 /* Line 1806 of yacc.c  */
-#line 110 "json_parser.y"
-    { DBDESC(oh)->options[0] = (yyvsp[(2) - (3)].ival); }
+#line 113 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[0] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 56:
 
 /* Line 1806 of yacc.c  */
-#line 111 "json_parser.y"
-    { DBDESC(oh)->options[0] = (yyvsp[(2) - (2)].ival); }
+#line 114 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[0] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 57:
 
 /* Line 1806 of yacc.c  */
-#line 112 "json_parser.y"
-    { DBDESC(oh)->options[1] = (yyvsp[(2) - (3)].ival); }
+#line 115 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[1] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 58:
 
 /* Line 1806 of yacc.c  */
-#line 113 "json_parser.y"
-    { DBDESC(oh)->options[1] = (yyvsp[(2) - (2)].ival); }
+#line 116 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[1] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 59:
 
 /* Line 1806 of yacc.c  */
-#line 114 "json_parser.y"
-    { DBDESC(oh)->options[2] = (yyvsp[(2) - (3)].ival); }
+#line 117 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[2] = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 60:
 
 /* Line 1806 of yacc.c  */
-#line 115 "json_parser.y"
-    { DBDESC(oh)->options[2] = (yyvsp[(2) - (2)].ival); }
+#line 118 "json_parser.y"
+    { if(!get_header) { DBDESC(oh)->options[2] = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 69:
 
 /* Line 1806 of yacc.c  */
-#line 134 "json_parser.y"
-    { router_id = HELLO_ROUTER_ID(oh, router_id_index); *router_id = (yyvsp[(2) - (2)].ival); router_id_index++; }
+#line 137 "json_parser.y"
+    { if(!get_header) { router_id = HELLO_ROUTER_ID(oh, router_id_index); *router_id = (yyvsp[(2) - (2)].ival); router_id_index++; } }
     break;
 
   case 75:
 
 /* Line 1806 of yacc.c  */
-#line 148 "json_parser.y"
-    { lsa_header_index++; }
+#line 151 "json_parser.y"
+    { if(!get_header) { lsa_header_index++; } }
     break;
 
   case 76:
 
 /* Line 1806 of yacc.c  */
-#line 151 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->age = (yyvsp[(2) - (3)].ival); }
+#line 154 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->age = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 77:
 
 /* Line 1806 of yacc.c  */
-#line 152 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->age = (yyvsp[(2) - (2)].ival); }
+#line 155 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->age = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 78:
 
 /* Line 1806 of yacc.c  */
-#line 153 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->type = (yyvsp[(2) - (3)].ival); }
+#line 156 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->type = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 79:
 
 /* Line 1806 of yacc.c  */
-#line 154 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->type = (yyvsp[(2) - (2)].ival); }
+#line 157 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->type = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 80:
 
 /* Line 1806 of yacc.c  */
-#line 155 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->id = (yyvsp[(2) - (3)].ival); }
+#line 158 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->id = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 81:
 
 /* Line 1806 of yacc.c  */
-#line 156 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->id = (yyvsp[(2) - (2)].ival); }
+#line 159 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->id = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 82:
 
 /* Line 1806 of yacc.c  */
-#line 157 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->adv_router = (yyvsp[(2) - (3)].ival); }
+#line 160 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->adv_router = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 83:
 
 /* Line 1806 of yacc.c  */
-#line 158 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->adv_router = (yyvsp[(2) - (2)].ival); }
+#line 161 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->adv_router = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 84:
 
 /* Line 1806 of yacc.c  */
-#line 159 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->seqnum = (yyvsp[(2) - (3)].ival); }
+#line 162 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->seqnum = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 85:
 
 /* Line 1806 of yacc.c  */
-#line 160 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->seqnum = (yyvsp[(2) - (2)].ival); }
+#line 163 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->seqnum = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 86:
 
 /* Line 1806 of yacc.c  */
-#line 161 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->checksum = (yyvsp[(2) - (3)].ival); }
+#line 164 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->checksum = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 87:
 
 /* Line 1806 of yacc.c  */
-#line 162 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->checksum = (yyvsp[(2) - (2)].ival); }
+#line 165 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->checksum = (yyvsp[(2) - (2)].ival); } }
     break;
 
   case 88:
 
 /* Line 1806 of yacc.c  */
-#line 163 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->length = (yyvsp[(2) - (3)].ival); }
+#line 166 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->length = (yyvsp[(2) - (3)].ival); } }
     break;
 
   case 89:
 
 /* Line 1806 of yacc.c  */
-#line 164 "json_parser.y"
-    { lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->length = (yyvsp[(2) - (2)].ival); }
+#line 167 "json_parser.y"
+    { if(!get_header) {lsa_header = DBDESC_LSA_HEADER(oh, lsa_header_index); lsa_header->length = (yyvsp[(2) - (2)].ival); } }
     break;
 
 
 
 /* Line 1806 of yacc.c  */
-#line 2073 "json_parser.c"
+#line 2084 "json_parser.c"
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2119,7 +2130,7 @@ yyerrlab:
     {
       ++yynerrs;
 #if ! YYERROR_VERBOSE
-      yyerror (oh, YY_("syntax error"));
+      yyerror (oh, get_header, YY_("syntax error"));
 #else
 # define YYSYNTAX_ERROR yysyntax_error (&yymsg_alloc, &yymsg, \
                                         yyssp, yytoken)
@@ -2146,7 +2157,7 @@ yyerrlab:
                 yymsgp = yymsg;
               }
           }
-        yyerror (oh, yymsgp);
+        yyerror (oh, get_header, yymsgp);
         if (yysyntax_error_status == 2)
           goto yyexhaustedlab;
       }
@@ -2170,7 +2181,7 @@ yyerrlab:
       else
 	{
 	  yydestruct ("Error: discarding",
-		      yytoken, &yylval, oh);
+		      yytoken, &yylval, oh, get_header);
 	  yychar = YYEMPTY;
 	}
     }
@@ -2226,7 +2237,7 @@ yyerrlab1:
 
 
       yydestruct ("Error: popping",
-		  yystos[yystate], yyvsp, oh);
+		  yystos[yystate], yyvsp, oh, get_header);
       YYPOPSTACK (1);
       yystate = *yyssp;
       YY_STACK_PRINT (yyss, yyssp);
@@ -2261,7 +2272,7 @@ yyabortlab:
 | yyexhaustedlab -- memory exhaustion comes here.  |
 `-------------------------------------------------*/
 yyexhaustedlab:
-  yyerror (oh, YY_("memory exhausted"));
+  yyerror (oh, get_header, YY_("memory exhausted"));
   yyresult = 2;
   /* Fall through.  */
 #endif
@@ -2273,7 +2284,7 @@ yyreturn:
          user semantic actions for why this is necessary.  */
       yytoken = YYTRANSLATE (yychar);
       yydestruct ("Cleanup: discarding lookahead",
-                  yytoken, &yylval, oh);
+                  yytoken, &yylval, oh, get_header);
     }
   /* Do not reclaim the symbols of the rule which action triggered
      this YYABORT or YYACCEPT.  */
@@ -2282,7 +2293,7 @@ yyreturn:
   while (yyssp != yyss)
     {
       yydestruct ("Cleanup: popping",
-		  yystos[*yyssp], yyvsp, oh);
+		  yystos[*yyssp], yyvsp, oh, get_header);
       YYPOPSTACK (1);
     }
 #ifndef yyoverflow
@@ -2300,25 +2311,47 @@ yyreturn:
 
 
 /* Line 2067 of yacc.c  */
-#line 166 "json_parser.y"
+#line 169 "json_parser.y"
 
 
-void json_parse(char * buffer, struct ospf6_header * oh)
+void json_parse_header(char * buffer, struct ospf6_header * oh)
 {
   YY_BUFFER_STATE bs = yy_scan_bytes(buffer, strlen(buffer));
   yy_switch_to_buffer(bs);
 
-  int arg;
+  int get_header = 1;
 
-  if(yyparse(oh))
+  if(yyparse(oh, get_header))
   { 
-    printf("Error\n");
+    if(OSPF6_SIBLING_DEBUG_RESTART)
+    {
+      zlog_debug("Error");
+    }
   }
 
   yy_delete_buffer(bs);
 }
 
-void yyerror(struct ospf6_header * oh, const char * s)
+void json_parse_body(char * buffer, struct ospf6_header * oh)
+{
+  YY_BUFFER_STATE bs = yy_scan_bytes(buffer, strlen(buffer));
+  yy_switch_to_buffer(bs);
+
+  int get_header = 0;
+
+  if(yyparse(oh, get_header))
+  { 
+    if(OSPF6_SIBLING_DEBUG_RESTART)
+    {
+      zlog_debug("Error");
+    }
+  }
+
+  yy_delete_buffer(bs);
+
+}
+
+void yyerror(struct ospf6_header * oh, int get_header, const char * s)
 {
   fprintf(stderr, "Parse error: %s\n", s);
 }

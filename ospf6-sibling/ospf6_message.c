@@ -323,7 +323,12 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
       twoway++;
   }
 
-  ospf6_db_put_hello(oh, xid);
+  // mutex lock
+  if(!ospf6->restart_mode)
+  {
+    ospf6_db_put_hello(oh, xid);
+  }
+  // mutex unlock
 
   /* Execute neighbor events */
   thread_execute(master, hello_received, on, 0);
@@ -332,10 +337,15 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   else
     thread_execute(master, oneway_received, on, 0);
 
-  // send an ACK back to the controller
-  ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
+  // mutex lock
+  if(!ospf6->restart_mode)
+  {
+    // send an ACK back to the controller
+    ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
                                           htonl(xid), sizeof(struct rfp_header));
-  retval = ctrl_send_message(ctrl_client);
+    ctrl_send_message(ctrl_client);
+  }
+  // mutex unlock
 }
 
 static void ospf6_dbdesc_recv_master(struct ospf6_header * oh,
@@ -536,27 +546,33 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
 }
 
 int ospf6_receive(struct ctrl_client * ctrl_client, 
-                  struct rfp_header * rh, 
+                  struct ospf6_header * oh, 
+                  unsigned int xid,
                   struct ospf6_interface * oi)
 {
-  struct ospf6_header * oh;
-  unsigned int xid;
-
-  xid = ntohl(rh->xid);
-
-  oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
-
   switch(oh->type)
   {
     case OSPF6_MESSAGE_TYPE_HELLO:
+      if(OSPF6_SIBLING_DEBUG_RESTART)
+      {
+        zlog_debug("hello_recv");
+      }
       ospf6_hello_recv(ctrl_client, oh, oi, xid);
       break; 
 
     case OSPF6_MESSAGE_TYPE_DBDESC:
+      if(OSPF6_SIBLING_DEBUG_RESTART)
+      {
+        zlog_debug("dbdesc_recv");
+      }
       ospf6_dbdesc_recv(ctrl_client, oh, oi, xid);
       break;
 
     default:
+      if(OSPF6_SIBLING_DEBUG_RESTART)
+      {
+        zlog_debug("unknown msg");
+      }
       break;
   }
 

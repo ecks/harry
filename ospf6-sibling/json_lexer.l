@@ -7,6 +7,7 @@
 %option outfile="json_lexer.c" header-file="json_lexer.h"
 
 %%
+
 [0-9]+ { yylval.ival = atoi(yytext); printf("Number: %d\n", yylval.ival); return T_NUMBER; }
 "{"                { printf("Open brace\n"); return T_OPEN_BRACE; }
 "}"                { printf("Close brace\n"); return T_CLOSE_BRACE; }

@@ -530,6 +530,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
         {
           zlog_debug("forward ospf6 packet: xids %d matched", xid);
           struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
+          list_init(&msg_rcvd->list_node);
           list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
           // first we check if all siblings are connected,
           // then we check if majority have received the messages

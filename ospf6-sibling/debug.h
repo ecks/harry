@@ -10,6 +10,8 @@
 
 #define OSPF6_SIBLING_DEBUG_REPLICA 0x01
 
+#define OSPF6_SIBLING_DEBUG_RESTART 0x01
+
 #define OSPF6_SIBLING_DEBUG_NEIGHBOR 0x01
 
 #define OSPF6_SIBLING_DEBUG_CTRL_CLIENT 0x01
@@ -33,6 +35,8 @@ extern unsigned long ospf6_sibling_debug_msg;
 extern unsigned long ospf6_sibling_debug_sisis;
 
 extern unsigned long ospf6_sibling_debug_replica;
+
+extern unsigned long ospf6_sibling_debug_restart;
 
 extern unsigned long ospf6_sibling_debug_neighbor;
 

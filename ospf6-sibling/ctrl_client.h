@@ -14,6 +14,8 @@ struct ctrl_client
   struct rfpbuf * ibuf;
   struct rfpbuf * obuf;
 
+  struct list restart_msg_queue;
+
   struct thread * t_read; 
   struct thread * t_write;
   struct thread * t_connect;     /* thread to call when connecting */

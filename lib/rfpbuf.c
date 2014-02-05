@@ -18,8 +18,9 @@ size_t rfpbuf_tailroom(const struct rfpbuf *b);
 void *
 rfpbuf_at_assert(const struct rfpbuf *b, size_t offset, size_t size)
 {
-    assert(offset + size <= b->size);
-    return ((char *) b->data) + offset;
+  assert(offset + size <= b->size);
+
+  return ((char *) b->data) + offset;
 }
 
 static void

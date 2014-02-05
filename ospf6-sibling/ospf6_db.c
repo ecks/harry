@@ -221,8 +221,9 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   return 0;
 }
 
-int ospf6_db_fill(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
 {
+  char * output_data;
   struct RIACK_GET_OBJECT obj;
   size_t content_size;
   int ret;
@@ -244,27 +245,35 @@ int ospf6_db_fill(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, 
     if(obj.object.content_count == 1)
     {
       content_size = obj.object.content[0].data_len;
-      char * output_data = calloc(content_size, sizeof(char));
+      output_data = calloc(content_size, sizeof(char));
       strncpy(output_data, obj.object.content[0].data, content_size);
-      printf("output data: %s\n", output_data);
-
-      json_parse(output_data, oh);
-
-      free(output_data);
+      if(OSPF6_SIBLING_DEBUG_RESTART)
+      {
+        zlog_debug("output data: %s", output_data);
+      }
+      json_parse_header(output_data, oh);
     } 
   }
 
   free(key.value);
   free(bucket_str.value);
+
+  return output_data;
 }
 
-int ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+char * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
 {
-  int ret;
+  return ospf6_db_fill_header(ospf6->riack_client, oh, xid, bucket);
+}
 
-  ret = ospf6_db_fill(ospf6->riack_client, oh, xid, bucket);
+// void * here would be pointer to 
+//   struct ospf6_hello *
+//   struct ospf6_dbdesc *
+int ospf6_db_fill_body(char * buffer, void * body)
+{
+  json_parse_body(buffer, body);
 
-  return ret;
+  return 0;
 }
 
 int ospf6_db_delete(unsigned int xid, unsigned int bucket)

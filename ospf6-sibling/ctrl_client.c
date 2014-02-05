@@ -56,6 +56,7 @@ void ctrl_client_init(struct ctrl_client * ctrl_client,
   ctrl_client->current_xid = 0;
   ctrl_client->state = CTRL_CONNECTING;
 
+  list_init(&ctrl_client->restart_msg_queue);
   ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
 }
 
@@ -243,6 +244,8 @@ static int ctrl_client_read(struct thread * t)
   int ret;
   size_t already = 0;
   struct rfp_header * rh;
+  struct ospf6_header * oh;
+  unsigned int xid;
   uint16_t rfp6_length;
   uint16_t length;
   uint8_t type;
@@ -348,13 +351,18 @@ static int ctrl_client_read(struct thread * t)
         rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
         ifp = if_get_by_name(ctrl_client->interface_name);
         oi = (struct ospf6_interface *)ifp->info;
-        ospf6_receive(ctrl_client, rh, oi);
+        oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
+        xid = ntohl(rh->xid);
+        ospf6_receive(ctrl_client, oh, xid, oi);
       }
       else
       {
         if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
         {
           zlog_debug("Process is in restart mode...\n");
+          struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
+          list_init(&msg_rcvd->list_node);
+          list_push_back(&ctrl_client->restart_msg_queue, &msg_rcvd->list_node);
         }
       }
       break;

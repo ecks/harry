@@ -73,7 +73,9 @@
      T_LSA_HEADERS = 291,
      T_AGE = 292,
      T_ID = 293,
-     T_ADV_ROUTER = 294
+     T_ADV_ROUTER = 294,
+     GET_HEADER = 295,
+     GET_BODY = 296
    };
 #endif
 
@@ -84,14 +86,14 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 24 "json_parser.y"
+#line 26 "json_parser.y"
 
   int ival;
 
 
 
 /* Line 2068 of yacc.c  */
-#line 95 "json_parser.h"
+#line 97 "json_parser.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

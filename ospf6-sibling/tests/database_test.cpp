@@ -27,7 +27,7 @@ TEST_GROUP(ospf6_db_test)
 {
   void setup()
   {
-    ospf6_top_init();   
+    ospf6_top_init(false);   
   }
 
   void teardown()
@@ -48,6 +48,7 @@ TEST(ospf6_db_test, ospf6_hello_put_get)
   u_int32_t * get_router_id;
   u_int32_t * put_router_id;
 
+  char * buffer;
   int i;
 
   get_oh->version = 5;
@@ -92,7 +93,7 @@ TEST(ospf6_db_test, ospf6_hello_put_get)
 
   id = ospf6_replica_get_id();
 
-  ospf6_db_get(put_oh, hello_xid, id);
+  buffer = ospf6_db_get(put_oh, hello_xid, id); // set the header
 
   CHECK_EQUAL(get_oh->version, put_oh->version);
   CHECK_EQUAL(get_oh->type, put_oh->type);
@@ -102,6 +103,8 @@ TEST(ospf6_db_test, ospf6_hello_put_get)
   CHECK_EQUAL(get_oh->checksum, put_oh->checksum);
   CHECK_EQUAL(get_oh->instance_id, put_oh->instance_id);
   CHECK_EQUAL(get_oh->reserved, put_oh->reserved);
+
+  ospf6_db_fill_body(buffer, put_oh); // set the body
 
   CHECK_EQUAL(HELLO(get_oh)->interface_id, HELLO(put_oh)->interface_id);
   CHECK_EQUAL(HELLO(get_oh)->priority, HELLO(put_oh)->priority);
@@ -133,6 +136,7 @@ TEST(ospf6_db_test, ospf6_dbdesc_put_get)
   struct ospf6_lsa_header * put_lsa_header;
   u_char * p;
 
+  char * buffer;
   int i;
 
   get_oh->version = 5;
@@ -180,12 +184,7 @@ TEST(ospf6_db_test, ospf6_dbdesc_put_get)
 
   id = ospf6_replica_get_id();
 
-  ospf6_db_get(put_oh, dbdesc_xid, id);
-
-  // p is referenced to something else now
-  p = (u_char *)((void *)put_oh + sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc));
-  
-  put_lsa_header = (struct ospf6_lsa_header *)p;
+  buffer = ospf6_db_get(put_oh, dbdesc_xid, id); // set the header
 
   CHECK_EQUAL(get_oh->version, put_oh->version);
   CHECK_EQUAL(get_oh->type, put_oh->type);
@@ -196,6 +195,8 @@ TEST(ospf6_db_test, ospf6_dbdesc_put_get)
   CHECK_EQUAL(get_oh->instance_id, put_oh->instance_id);
   CHECK_EQUAL(get_oh->reserved, put_oh->reserved);
 
+  ospf6_db_fill_body(buffer, put_oh); // set the body
+
   CHECK_EQUAL(DBDESC(get_oh)->reserved1, DBDESC(put_oh)->reserved1);
   CHECK_EQUAL(DBDESC(get_oh)->options[0], DBDESC(put_oh)->options[0]);
   CHECK_EQUAL(DBDESC(get_oh)->options[1], DBDESC(put_oh)->options[1]);
@@ -204,6 +205,11 @@ TEST(ospf6_db_test, ospf6_dbdesc_put_get)
   CHECK_EQUAL(DBDESC(get_oh)->reserved2, DBDESC(put_oh)->reserved2);
   CHECK_EQUAL(DBDESC(get_oh)->bits, DBDESC(put_oh)->bits);
   CHECK_EQUAL(DBDESC(get_oh)->seqnum, DBDESC(put_oh)->seqnum);
+
+  // p is referenced to something else now
+  p = (u_char *)((void *)put_oh + sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc));
+  
+  put_lsa_header = (struct ospf6_lsa_header *)p;
 
   for(i = 0; i < 2; i++)
   {

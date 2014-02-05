@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <sys/ioctl.h>
