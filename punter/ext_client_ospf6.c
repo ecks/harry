@@ -68,10 +68,10 @@ unsigned int ext_client_ospf6_ifindex(struct list * ipv6_addrs, struct ext_clien
 
   inet_pton(AF_INET6, P(ext_client_ospf6).host, &host_addr);
 
-  struct addr_ipv6 * addr;
-  LIST_FOR_EACH(addr, struct addr_ipv6, node, ipv6_addrs)
+  struct addr * addr;
+  LIST_FOR_EACH(addr, struct addr, node, ipv6_addrs)
   {
-    if(memcmp(addr->p->prefix.s6_addr, host_addr.s6_addr, 16) == 0) // compare 16 bytes
+    if(memcmp(addr->p->u.prefix6.s6_addr, host_addr.s6_addr, 16) == 0) // compare 16 bytes
     {
       ifindex = addr->ifindex;
     }

@@ -23,18 +23,18 @@ static struct punter_ctrl * punter_ctrl = NULL;
 
 int add_ipv4_addr(int index, void * address, u_char prefixlen, struct list * list)
 {
-  struct addr_ipv4 * addr = calloc(1, sizeof(struct addr_ipv4));
+  struct addr * addr = calloc(1, sizeof(struct addr));
   addr->ifindex = index;
   printf("ifindex %d\n", addr->ifindex); 
 
   addr->p = calloc(1, sizeof(struct prefix_ipv4));
   addr->p->family = AF_INET;
-  memcpy(&addr->p->prefix, address, 4);
+  memcpy(&addr->p->u.prefix, address, 4);
   addr->p->prefixlen = prefixlen;
 
   // print route
   char prefix_str[INET_ADDRSTRLEN];
-  if (inet_ntop(AF_INET, &(addr->p->prefix.s_addr), prefix_str, INET_ADDRSTRLEN) != NULL)
+  if (inet_ntop(AF_INET, &(addr->p->u.prefix4.s_addr), prefix_str, INET_ADDRSTRLEN) != NULL)
       printf("%s/%d\n", prefix_str, addr->p->prefixlen);
 
   list_push_back(list, &addr->node);
@@ -50,19 +50,19 @@ int remove_ipv4_addr(int index, struct list * list)
 #ifdef HAVE_IPV6
 int add_ipv6_addr(int index, void * address, u_char prefixlen, struct list * list)
 {
-  struct addr_ipv6 * addr = calloc(1, sizeof(struct addr_ipv6));
+  struct addr * addr = calloc(1, sizeof(struct addr));
   addr->ifindex = index;
 
   printf("ifindex %d\n", addr->ifindex); 
 
   addr->p = calloc(1, sizeof(struct prefix_ipv6));
   addr->p->family = AF_INET6;
-  memcpy(&addr->p->prefix, address, 16);
+  memcpy(&addr->p->u.prefix, address, 16);
   addr->p->prefixlen = prefixlen;
   
   // print route
   char prefix_str[INET6_ADDRSTRLEN];
-  if (inet_ntop(AF_INET6, &(addr->p->prefix.s6_addr), prefix_str, INET6_ADDRSTRLEN) != NULL)
+  if (inet_ntop(AF_INET6, &(addr->p->u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != NULL)
       printf("%s/%d\n", prefix_str, addr->p->prefixlen);
   
   list_push_back(list, &addr->node);
@@ -78,7 +78,7 @@ int remove_ipv6_addr(int index, struct list * list)
 
 void get_addrs(struct list * ipv4_addrs, struct list * ipv6_addrs)
 {
-  if(addrs_list(punter_ctrl->ipv4_addrs, punter_ctrl->ipv6_addrs, add_ipv4_addr, remove_ipv4_addr, add_ipv6_addr, remove_ipv6_addr) < 0)
+  if(addrs_list(punter_ctrl->ipv4_addrs, punter_ctrl->ipv6_addrs, add_ipv4_addr, add_ipv6_addr) < 0)
   {
     exit(1);
   }
