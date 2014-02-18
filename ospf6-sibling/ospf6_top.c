@@ -51,6 +51,7 @@ static struct ospf6 * ospf6_create(void)
  
   list_init(&o->area_list);
  
+  // this should be in separate function
   riack_init();
   o->riack_client = riack_new_client(0);
   if(riack_connect(o->riack_client, host, port, 0) != RIACK_SUCCESS) 

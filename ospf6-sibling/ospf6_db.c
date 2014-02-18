@@ -6,6 +6,7 @@
 #include <riack.h>
 
 #include "dblist.h"
+#include "db.h"
 #include "routeflow-common.h"
 #include "debug.h"
 #include "ospf6_lsa.h"
@@ -208,6 +209,11 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
 
   sprintf(key, "%d", xid);
 
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("about to commit to database=> bucket: %s, key: %s, data: %s", bucket, key, json_packed);
+  }
+
   riack_put_simple(ospf6->riack_client, bucket, key, json_packed, strlen(json_packed), "application/json");
 
   free(json_packed);
@@ -227,6 +233,9 @@ char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_hea
   struct RIACK_GET_OBJECT obj;
   size_t content_size;
   int ret;
+
+  // in case there is nothing to get
+  output_data = NULL;
 
   RIACK_STRING key, bucket_str;
 
@@ -274,6 +283,11 @@ int ospf6_db_fill_body(char * buffer, void * body)
   json_parse_body(buffer, body);
 
   return 0;
+}
+
+extern struct keys * ospf6_db_list_keys(unsigned int bucket)
+{
+  return db_list_keys(ospf6->riack_client, bucket, true);
 }
 
 int ospf6_db_delete(unsigned int xid, unsigned int bucket)

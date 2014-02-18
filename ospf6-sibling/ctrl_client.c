@@ -6,6 +6,7 @@
 #include "stddef.h"
 #include "string.h"
 #include <stdbool.h>
+#include "pthread.h"
 #include "netdb.h"
 #include "netinet/in.h"
 #include "sys/socket.h"
@@ -20,6 +21,7 @@
 #include "debug.h"
 #include "thread.h"
 #include "ospf6_top.h"
+#include "ospf6_restart.h"
 #include "ospf6_interface.h"
 #include "ctrl_client.h"
 #include "ospf6_message.h"
@@ -359,11 +361,14 @@ static int ctrl_client_read(struct thread * t)
       {
         if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
         {
-          zlog_debug("Process is in restart mode...\n");
-          struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
-          list_init(&msg_rcvd->list_node);
-          list_push_back(&ctrl_client->restart_msg_queue, &msg_rcvd->list_node);
+          zlog_debug("Process is in restart mode...");
         }
+
+        struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
+        list_init(&msg_rcvd->list_node);
+        list_push_back(&ctrl_client->restart_msg_queue, &msg_rcvd->list_node);
+
+        pthread_mutex_unlock(&first_xid_mutex);
       }
       break;
   }
@@ -403,6 +408,20 @@ int ctrl_client_if_addr_req(struct ctrl_client * ctrl_client)
   ctrl_client->current_xid++;
 
   return 0;
+}
+
+int ctrl_client_first_xid_rcvd(struct ctrl_client * ctrl_client)
+{
+  struct list * first_msg_list;
+  struct rfpbuf * first_msg_rcvd;
+  struct rfp_header * rh;
+
+  if((first_msg_list = list_peek_front(&ctrl_client->restart_msg_queue)) == NULL)
+    return -1;
+
+  first_msg_rcvd = CONTAINER_OF(first_msg_list, struct rfpbuf, list_node);
+  rh = rfpbuf_at_assert(first_msg_rcvd, 0, sizeof(struct rfp_header));
+  return ntohl(rh->xid);
 }
 
 static void 

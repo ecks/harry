@@ -184,3 +184,8 @@ void sibling_ctrl_interface_init(char * interface)
 {
   ctrl_client_interface_init(ctrl_client, interface);
 }
+
+int sibling_ctrl_first_xid_rcvd()
+{
+  return ctrl_client_first_xid_rcvd(ctrl_client);
+}

@@ -1,6 +1,8 @@
 #ifndef OSPF6_RESTART
 #define OSPF6_RESTART
 
+pthread_mutex_t first_xid_mutex;
+
 void ospf6_restart_init();
 
 #endif
