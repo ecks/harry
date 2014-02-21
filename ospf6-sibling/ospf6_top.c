@@ -62,6 +62,11 @@ static struct ospf6 * ospf6_create(void)
 
   o->restart_mode = my_restart_mode;
 
+  if(!o->restart_mode)
+    o->ready_to_checkpoint = true;
+  else
+    o->ready_to_checkpoint = false;
+
   return o;
 }
 

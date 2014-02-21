@@ -189,3 +189,8 @@ int sibling_ctrl_first_xid_rcvd()
 {
   return ctrl_client_first_xid_rcvd(ctrl_client);
 }
+
+struct list * sibling_ctrl_restart_msg_queue()
+{
+  return &ctrl_client->restart_msg_queue;
+}

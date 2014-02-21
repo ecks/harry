@@ -10,5 +10,5 @@ struct keys
 };
 
 extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned int bucket, bool sort_req);
-
+extern void db_free_keys(struct keys * keys);
 #endif

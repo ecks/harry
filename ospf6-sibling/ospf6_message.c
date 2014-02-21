@@ -324,7 +324,7 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   }
 
   // mutex lock
-  if(!ospf6->restart_mode)
+  if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
   {
     ospf6_db_put_hello(oh, xid);
   }
@@ -537,12 +537,22 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
       zlog_debug("Can't decide which is master, ignore");
   }
 
-  ospf6_db_put_dbdesc(oh, xid);
+  // mutex lock
+  if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
+  {
+    ospf6_db_put_dbdesc(oh, xid);
+  }
+  // mutex unlock
 
-  // send an ACK back to the controller
-  ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
-                                          htonl(xid), sizeof(struct rfp_header));
-  retval = ctrl_send_message(ctrl_client);
+  // mutex lock
+  if(!ospf6->restart_mode)
+  {
+    // send an ACK back to the controller
+    ctrl_client->obuf = routeflow_alloc_xid(RFPT_ACK, RFP10_VERSION, 
+                                            htonl(xid), sizeof(struct rfp_header));
+    retval = ctrl_send_message(ctrl_client);
+  }
+  // mutex unlock
 }
 
 int ospf6_receive(struct ctrl_client * ctrl_client, 

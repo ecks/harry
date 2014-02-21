@@ -28,7 +28,6 @@ extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned i
 
   size_t cur_str_len;
   struct keys * keys = NULL;
-  struct key * key = NULL;
 
   bucket_str.value = calloc(ID_SIZE, sizeof(char));
 
@@ -68,4 +67,16 @@ extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned i
 
   free(bucket_str.value);
   return keys;
+}
+
+extern void db_free_keys(struct keys * keys)
+{
+  int i;
+  for(i = 0; i < keys->num_keys; i++)
+  {
+    free(keys->key_str_ptrs[i]);
+  }
+
+  free(keys);
+  keys = NULL;
 }

@@ -708,6 +708,21 @@ unsigned int ospf6_replica_get_id()
   return ospf6_replica->own_replica->id;
 }
 
+unsigned int ospf6_replica_get_leader_id()
+{
+  struct sibling * sibl;
+  LIST_FOR_EACH(sibl, struct sibling, node, &ospf6_replica->replicas)
+  {
+    if(sibl->leader)
+    {
+      return sibl->id;
+    }
+  }
+
+  printf("Error!\n");
+  exit(1);
+}
+
 void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas)
 {
   ospf6_replica = calloc(1, sizeof(struct ospf6_replica));

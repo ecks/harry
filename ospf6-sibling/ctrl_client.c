@@ -348,8 +348,10 @@ static int ctrl_client_read(struct thread * t)
         zlog_debug("Forwarding message received");
       }
 
+      pthread_mutex_lock(&restart_mode_mutex);
       if(!ospf6->restart_mode)
       {
+        pthread_mutex_unlock(&restart_mode_mutex);
         rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
         ifp = if_get_by_name(ctrl_client->interface_name);
         oi = (struct ospf6_interface *)ifp->info;
@@ -359,6 +361,8 @@ static int ctrl_client_read(struct thread * t)
       }
       else
       {
+        pthread_mutex_unlock(&restart_mode_mutex);
+        rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
         if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
         {
           zlog_debug("Process is in restart mode...");
@@ -366,7 +370,10 @@ static int ctrl_client_read(struct thread * t)
 
         struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
         list_init(&msg_rcvd->list_node);
+
+        pthread_mutex_lock(&restart_msg_q_mutex);
         list_push_back(&ctrl_client->restart_msg_queue, &msg_rcvd->list_node);
+        pthread_mutex_unlock(&restart_msg_q_mutex);
 
         pthread_mutex_unlock(&first_xid_mutex);
       }

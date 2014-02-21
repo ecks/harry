@@ -22,6 +22,8 @@ struct ospf6
   struct RIACK_CLIENT * riack_client;
 
   bool restart_mode;
+
+  bool ready_to_checkpoint;
 };
 
 /* global pointer for OSPF top data structure */
