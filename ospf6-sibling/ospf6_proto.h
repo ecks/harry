@@ -47,5 +47,7 @@ struct ospf6_prefix
 
 #define OSPF6_PREFIX_NEXT(x) \
      ((struct ospf6_prefix *)((void *)(x) + OSPF6_PREFIX_SIZE (x)))
+ 
+extern void ospf6_options_printbuf (u_char *options, char *buf, int size);
 
 #endif

@@ -180,7 +180,29 @@ void ospf6_lsdb_remove(struct ospf6_lsa * lsa, struct ospf6_lsdb * lsdb)
 
   memset(&key, 0, sizeof(key));
 
-  // to be continued
+  ospf6_lsdb_set_key (&key, &lsa->header->type, sizeof (lsa->header->type));
+  ospf6_lsdb_set_key (&key, &lsa->header->adv_router,
+                                sizeof (lsa->header->adv_router));
+  ospf6_lsdb_set_key (&key, &lsa->header->id, sizeof (lsa->header->id));
+
+  node = route_node_lookup (lsdb->table, (struct prefix *) &key);
+  assert (node && node->info == lsa);
+
+  if (lsa->prev)
+    lsa->prev->next = lsa->next;
+  if (lsa->next)
+    lsa->next->prev = lsa->prev;
+
+  node->info = NULL;
+  lsdb->count--;
+
+  if(lsdb->hook_remove)
+    (*lsdb->hook_remove) (lsa);
+
+  ospf6_lsa_unlock(lsa);
+  route_unlock_node(node);
+
+//  ospf6_lsdb_count_assert(lsdb);
 }
 
 /* Interation function */

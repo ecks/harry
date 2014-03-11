@@ -256,6 +256,23 @@ struct ospf6_dbdesc
 #define OSPF6_DBDESC_MBIT  (0x02) /* more bit */
 #define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
 
+/* Link State Request */
+/* It is just a sequence of entries below */
+struct ospf6_lsreq_entry
+{
+  u_int16_t reserved;     /* Must Be Zero */
+  u_int16_t type;         /* LS type */
+  u_int32_t id;           /* Link State ID */
+  u_int32_t adv_router;   /* Advertising Router */
+};
+
+/* Link State Update */
+struct ospf6_lsupdate
+{
+  u_int32_t lsa_number;
+  /* Followed by LSAs */
+};
+
 /* Replica Exchange */
 struct ospf6_replica_ex
 {

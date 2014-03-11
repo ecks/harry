@@ -5,11 +5,13 @@
 
 #include "dblist.h"
 #include "thread.h"
+#include "routeflow-common.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_interface.h"
 #include "ospf6_top.h"
+#include "ospf6_neighbor.h"
 #include "ospf6_flood.h"
 
 extern struct thread_master * master;
@@ -104,8 +106,9 @@ ospf6_lsa_originate(struct ospf6_lsa * lsa)
 //  if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
 //      IS_OSPF6_DEBUG_ORIGINATE_TYPE (lsa->header->type))
 //  {
-//    zlog_debug ("LSA Originate:");
-//    ospf6_lsa_header_print (lsa);
+//  TODO: encapsulate in DEBUG params
+    zlog_debug ("LSA Originate:");
+    ospf6_lsa_header_print (lsa);
 //  }
 
 //  if (old)
@@ -120,6 +123,12 @@ ospf6_lsa_originate_interface (struct ospf6_lsa *lsa,
 {
     lsa->lsdb = oi->lsdb;
     ospf6_lsa_originate (lsa);
+}
+
+/* RFC2328 section 13 The Flooding Procedure */
+void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header)
+{
+
 }
 
 /* RFC2328 section 13.2 Installing LSAs in the database */

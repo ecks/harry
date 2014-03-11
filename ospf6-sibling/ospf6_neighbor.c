@@ -216,6 +216,27 @@ int exchange_done(struct thread * thread)
   return 0;
 }
 
+int
+loading_done (struct thread *thread)
+{
+  struct ospf6_neighbor *on;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG (thread);
+  assert (on);
+
+  if (on->state != OSPF6_NEIGHBOR_LOADING)
+    return 0;
+
+  if (IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
+    zlog_debug ("Neighbor Event %s: *LoadingDone*", on->name);
+
+  assert (on->request_list->count == 0); 
+
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on);
+
+  return 0;
+}
+
 int adj_ok(struct thread * thread)
 {
   struct ospf6_neighbor * on;
@@ -238,6 +259,76 @@ int adj_ok(struct thread * thread)
   {
     // remove all lsas
   }
+
+  return 0;
+}
+
+int seqnumber_mismatch(struct thread * thread)
+{
+  struct ospf6_neighbor *on;
+  struct ospf6_lsa *lsa;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG (thread);
+  assert (on);
+
+  if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
+    return 0;
+
+  if(IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
+    zlog_debug ("Neighbor Event %s: *SeqNumberMismatch*", on->name);
+
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
+  SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
+  SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
+  SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
+
+  ospf6_lsdb_remove_all (on->summary_list);
+  ospf6_lsdb_remove_all (on->request_list);
+  for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
+       lsa = ospf6_lsdb_next (lsa))
+  {   
+    ospf6_decrement_retrans_count (lsa);
+    ospf6_lsdb_remove (lsa, on->retrans_list);
+  }   
+
+  THREAD_OFF (on->thread_send_dbdesc);
+  on->thread_send_dbdesc =
+    thread_add_event (master, ospf6_dbdesc_send, on, 0); 
+
+  return 0;
+}
+
+int bad_lsreq(struct thread * thread)
+{
+  struct ospf6_neighbor * on;
+  struct ospf6_lsa * lsa;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG(thread);
+  assert(on);
+
+  if(on->state < OSPF6_NEIGHBOR_EXCHANGE)
+    return 0;
+
+  if(IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
+    zlog_debug("Neighbor Event %s: *BadLSReq*", on->name);
+
+  ospf6_neighbor_state_change(OSPF6_NEIGHBOR_EXSTART, on);
+  SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
+  SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
+  SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
+
+  ospf6_lsdb_remove_all(on->summary_list);
+  ospf6_lsdb_remove_all(on->request_list);
+  for(lsa = ospf6_lsdb_head(on->retrans_list); lsa;
+      lsa = ospf6_lsdb_next(lsa))
+  {
+    ospf6_decrement_retrans_count(lsa);
+    ospf6_lsdb_remove(lsa, on->retrans_list);
+  }
+
+  THREAD_OFF(on->thread_send_dbdesc);
+  on->thread_send_dbdesc = 
+    thread_add_event(master, ospf6_dbdesc_send, on, 0);
 
   return 0;
 }

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <netinet/in.h>
 
 #include "util.h"
 #include "dblist.h"
@@ -184,6 +185,28 @@ ospf6_lsa_compare (struct ospf6_lsa *a, struct ospf6_lsa *b)
 
   /* neither recent */
   return 0;
+}
+
+void ospf6_lsa_header_print_raw(struct ospf6_lsa_header * header)
+{
+  char id[16], adv_router[16];
+  inet_ntop (AF_INET, &header->id, id, sizeof (id));
+  inet_ntop (AF_INET, &header->adv_router, adv_router,
+                      sizeof (adv_router));
+//  zlog_debug ("    [%s Id:%s Adv:%s]",
+//                          ospf6_lstype_name (header->type), id, adv_router);
+  zlog_debug ("    [Id:%s Adv:%s]",
+                          id, adv_router);
+  zlog_debug ("    Age: %4hu SeqNum: %#08lx Cksum: %04hx Len: %d",
+                            ntohs (header->age), (u_long) ntohl (header->seqnum),
+                                          ntohs (header->checksum), ntohs (header->length));
+
+}
+
+void ospf6_lsa_header_print(struct ospf6_lsa * lsa)
+{
+  ospf6_lsa_age_current(lsa);
+  ospf6_lsa_header_print_raw(lsa->header);
 }
 
 struct ospf6_lsa *

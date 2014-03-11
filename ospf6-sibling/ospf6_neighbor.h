@@ -52,6 +52,8 @@ struct ospf6_neighbor
 
   /* Thread for sending message */
   struct thread *thread_send_dbdesc;
+  struct thread *thread_send_lsreq;
+  struct thread *thread_send_lsupdate;
 };
 
 /* Neighbor state */
@@ -64,11 +66,16 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_LOADING  7
 #define OSPF6_NEIGHBOR_FULL     8
 
+extern const char *ospf6_neighbor_state_str[];
+
 extern int hello_received(struct thread *);
 extern int twoway_received(struct thread *);
 extern int negotiation_done(struct thread *);
 extern int exchange_done (struct thread *);
+extern int loading_done (struct thread *);
 extern int adj_ok(struct thread *);
+extern int seqnumber_mismatch(struct thread * thread);
+extern int bad_lsreq(struct thread * thread);
 extern int oneway_received(struct thread *);
 
 struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, struct ospf6_interface *oi);

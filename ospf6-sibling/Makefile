@@ -3,7 +3,7 @@ CXX = g++
 CFLAGS = -ggdb -I. -I../lib -I../../riack/src -I/usr/local/include
 EXECUTABLE = ospf6-sibling
 LIBS = -pthread -lrt ../../riack/libriack.a -ljansson -L/usr/local/lib -L/home/hasenov/cpputest_lib/lib -lstdc++ -lCppUTest -lCppUTestExt -lfl
-SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_restart.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c ospf6_route.c ospf6_area.c log.c ospf6_intra.c ospf6_db.c db.c command.c vty.c debug.c vector.c table.c rconn.c json_lexer.c json_parser.o 
+SRCS = vconn.c vconn-stream.c stream.c stream-tcp.c stream-fd.c rfpbuf.c rfp-msgs.c dblist.c socket-util.c util.c poll-loop.c timeval.c fatal-signal.c prefix.c sisis.c sisis_api.c netlink.c sibling_ctrl.c ctrl_client.c thread.c if.c ospf6_interface.c ospf6_top.c ospf6_message.c ospf6_neighbor.c ospf6_replica.c ospf6_restart.c ospf6_lsdb.c ospf6_lsa.c ospf6_flood.c ospf6_route.c ospf6_area.c log.c ospf6_intra.c ospf6_db.c db.c command.c vty.c debug.c vector.c table.c rconn.c json_lexer.c json_parser.o ospf6_proto.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -164,6 +164,9 @@ json_lexer.o: json_lexer.c
 	$(CC) $(CFLAGS) -c $^
 
 json_parser.o: json_parser.c
+	$(CC) $(CFLAGS) -c $^
+
+ospf6_proto.o: ospf6_proto.c
 	$(CC) $(CFLAGS) -c $^
 
 clean:

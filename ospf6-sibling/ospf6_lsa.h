@@ -135,6 +135,7 @@ extern void ospf6_lsa_premature_aging (struct ospf6_lsa *);
 extern int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
 extern struct ospf6_lsa * ospf6_lsa_copy (struct ospf6_lsa *);
 extern struct ospf6_lsa * ospf6_lsa_create(struct ospf6_lsa_header *);
+extern void ospf6_lsa_header_print(struct ospf6_lsa * lsa);
 extern struct ospf6_lsa * ospf6_lsa_create_headeronly (struct ospf6_lsa_header *);
 extern int ospf6_lsa_expire (struct thread *);
 extern int ospf6_lsa_refresh (struct thread *);
