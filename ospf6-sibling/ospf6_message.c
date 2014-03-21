@@ -69,7 +69,7 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
                    (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MSBIT) ? "m" : "s"),
                    (u_long) ntohl (dbdesc->seqnum));
 
-  for (p = (char *) ((caddr_t) dbdesc + sizeof (struct ospf6_dbdesc));
+  for (p = (char *) ((void *) dbdesc + sizeof (struct ospf6_dbdesc));
        p + sizeof (struct ospf6_lsa_header) <= OSPF6_MESSAGE_END (oh);
        p += sizeof (struct ospf6_lsa_header))
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
@@ -94,6 +94,20 @@ static void ospf6_fill_header(struct ospf6_interface * oi, struct ospf6_header *
 
 }
 
+// helper function
+int ospf6_msg_send(struct ospf6_interface * oi)
+{
+  int retval;
+  
+  rfpmsg_update_length(oi->ctrl_client->obuf);
+  retval = fwd_message_send(oi->ctrl_client);
+
+  // increment the xid after we send the message
+  oi->ctrl_client->current_xid++;
+
+  return retval;
+}
+
 int ospf6_hello_send(struct thread * thread)
 {
   u_char * p;
@@ -115,7 +129,7 @@ int ospf6_hello_send(struct thread * thread)
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    zlog_debug("About to send hello message");
+    zlog_debug("About to send hello message with xid: %d", oi->ctrl_client->current_xid);
   }
 
   /* set next thread */
@@ -186,11 +200,8 @@ int ospf6_hello_send(struct thread * thread)
 
   ospf6_fill_header(oi, oh);
 
-  rfpmsg_update_length(oi->ctrl_client->obuf);
-  retval = fwd_message_send(oi->ctrl_client);
+  retval = ospf6_msg_send(oi);
 
-  // increment the xid after we send the message
-  oi->ctrl_client->current_xid++;
   return 0;
 }
 
@@ -213,7 +224,7 @@ int ospf6_dbdesc_send(struct thread * thread)
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    zlog_debug("About to send dbdesc message");
+    zlog_debug("About to send dbdesc message with xid: %d", on->ospf6_if->ctrl_client->current_xid);
   }
 
   /* set next thread if master */
@@ -274,17 +285,13 @@ int ospf6_dbdesc_send(struct thread * thread)
 
   ospf6_fill_header(on->ospf6_if, oh);
 
-  rfpmsg_update_length(on->ospf6_if->ctrl_client->obuf);
-  
+  retval = ospf6_msg_send(on->ospf6_if);
+
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     ospf6_dbdesc_print(oh);
   }
   
-  retval = fwd_message_send(on->ospf6_if->ctrl_client);
-
-  // increment the xid after we send the message
-  on->ospf6_if->ctrl_client->current_xid++;
   return 0;
 }
 
@@ -351,6 +358,11 @@ int ospf6_lsreq_send(struct thread * thread)
     return 0;
   }
 
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("About to send lsreq with xid: %d", on->ospf6_if->ctrl_client->current_xid);
+  }
+
   /* schedule loading_done if request list is empty */
   if (on->request_list->count == 0)
   {
@@ -394,8 +406,7 @@ int ospf6_lsreq_send(struct thread * thread)
 
   ospf6_fill_header(on->ospf6_if, oh);
 
-  rfpmsg_update_length(on->ospf6_if->ctrl_client->obuf);
-  retval = fwd_message_send(on->ospf6_if->ctrl_client);
+  retval = ospf6_msg_send(on->ospf6_if);
 
   return 0;
 }
@@ -414,7 +425,7 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
   on->thread_send_lsupdate = (struct thread *) NULL;
 
   if (IS_OSPF6_SIBLING_DEBUG_MSG)
-    zlog_debug ("LSUpdate to neighbor %s", on->name);
+    zlog_debug ("LSUpdate to neighbor %s with xid: %d", on->name, on->ospf6_if->ctrl_client->current_xid);
 
   if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
   {    
@@ -438,14 +449,14 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
   oh = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_header));
   lsupdate = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_lsupdate));
 
-  p = (u_char)((void *)lsupdate + sizeof(struct ospf6_lsupdate));
+  p = (u_char *)((void *)lsupdate + sizeof(struct ospf6_lsupdate));
   num = 0;
 
   /* lsupdate_list lists those LSA which doesn't need to be
    *      retransmitted. remove those from the list */
- for (lsa = ospf6_lsdb_head (on->lsupdate_list); lsa;
-      lsa = ospf6_lsdb_next (lsa))
- {
+  for (lsa = ospf6_lsdb_head (on->lsupdate_list); lsa;
+       lsa = ospf6_lsdb_next (lsa))
+  {
    /* MTU check */
    if ( (p - (u_char *)oh + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
                                 > on->ospf6_if->ifmtu)
@@ -462,25 +473,25 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
 
    assert (lsa->lock == 2);
    ospf6_lsdb_remove (lsa, on->lsupdate_list);
- }
+  }
 
  for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
       lsa = ospf6_lsdb_next (lsa))
- {
-   /* MTU check */
-   if ( (p - (u_char *)oh + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
-       > on->ospf6_if->ifmtu)
-   {
-     ospf6_lsa_unlock (lsa);
-     break;
-   }
+  {
+    /* MTU check */
+    if ( (p - (u_char *)oh + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
+        > on->ospf6_if->ifmtu)
+    {
+      ospf6_lsa_unlock (lsa);
+      break;
+    }
 
-   ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
-   p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, OSPF6_LSA_SIZE (lsa->header));
-   memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));
-   p += OSPF6_LSA_SIZE (lsa->header);
-   num++;
- }
+    ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+    p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, OSPF6_LSA_SIZE (lsa->header));
+    memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));
+    p += OSPF6_LSA_SIZE (lsa->header);
+    num++;
+  }
 
  lsupdate->lsa_number = htonl (num);
 
@@ -489,9 +500,10 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
 
  ospf6_fill_header(on->ospf6_if, oh);
 
- rfpmsg_update_length(on->ospf6_if->ctrl_client->obuf);
- retval = fwd_message_send(on->ospf6_if->ctrl_client);
- 
+ retval = ospf6_msg_send(on->ospf6_if);
+
+ zlog_debug("xid is now %d", on->ospf6_if->ctrl_client->current_xid);
+
  if (on->lsupdate_list->count != 0 ||
      on->retrans_list->count != 0)
  {
@@ -503,6 +515,156 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
        thread_add_timer (master, ospf6_lsupdate_send_neighbor, on,
          on->ospf6_if->rxmt_interval);
  }
+
+  return 0;
+}
+
+int
+ospf6_lsack_send_neighbor (struct thread *thread)
+{
+  struct ospf6_neighbor *on; 
+  struct ospf6_header *oh; 
+  int retval;
+  u_char *p;
+  struct ospf6_lsa *lsa;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG (thread);
+  on->thread_send_lsack = (struct thread *) NULL;
+
+  if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
+  {    
+    if (IS_OSPF6_SIBLING_DEBUG_MSG)
+      zlog_debug ("Quit to send LSAck to neighbor %s state %s",
+                  on->name, ospf6_neighbor_state_str[on->state]);
+    return 0;
+  }    
+
+  /* if we have nothing to send, return */
+  if (on->lsack_list->count == 0)
+    return 0;
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("About to send lsack for xid: %d", on->ospf6_if->ctrl_client->current_xid);
+  }
+
+  on->ospf6_if->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION,
+                                                        htonl(on->ospf6_if->ctrl_client->current_xid), sizeof(struct rfp_header));
+  oh = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_header));
+
+  p = (u_char *)((void *) oh + sizeof (struct ospf6_header));
+
+  for (lsa = ospf6_lsdb_head (on->lsack_list); lsa; 
+       lsa = ospf6_lsdb_next (lsa))
+  {    
+    /* MTU check */
+    if (p - (u_char *)oh + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+    {    
+      /* if we run out of packet size/space here,
+       *              better to try again soon. */
+      THREAD_OFF (on->thread_send_lsack);
+      on->thread_send_lsack =
+        thread_add_event (master, ospf6_lsack_send_neighbor, on, 0);
+
+      ospf6_lsa_unlock (lsa);
+      break;
+    }    
+
+    ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+    p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_lsa_header));
+    memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
+    p += sizeof (struct ospf6_lsa_header);
+
+    assert (lsa->lock == 2);
+    ospf6_lsdb_remove (lsa, on->lsack_list);
+  }    
+
+  oh->type = OSPF6_MESSAGE_TYPE_LSACK;
+  oh->length = htons (p - (u_char *)oh);
+
+  ospf6_fill_header(on->ospf6_if, oh);
+
+  retval = ospf6_msg_send(on->ospf6_if);
+
+  return 0;
+}
+
+int ospf6_lsack_send_interface (struct thread *thread)
+{
+  struct ospf6_interface *oi;
+  struct ospf6_header *oh;
+  u_char *p;
+  int retval;
+  struct ospf6_lsa *lsa;
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("About to send lsack message");
+  } 
+
+  oi = (struct ospf6_interface *) THREAD_ARG (thread);
+  oi->thread_send_lsack = (struct thread *) NULL;
+
+  if (oi->state <= OSPF6_INTERFACE_WAITING)
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_MSG)
+      zlog_debug ("Quit to send LSAck to interface %s state %s",
+                  oi->interface->name, ospf6_interface_state_str[oi->state]);
+    return 0;
+  }
+
+  /* if we have nothing to send, return */
+  if (oi->lsack_list->count == 0)
+    return 0;
+
+  oi->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION,
+                                                        htonl(oi->ctrl_client->current_xid), sizeof(struct rfp_header));
+  oh = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_header));
+
+  p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
+
+  for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
+       lsa = ospf6_lsdb_next (lsa))
+  {
+    /* MTU check */
+    if (p - (u_char *)oh + sizeof (struct ospf6_lsa_header) > oi->ifmtu)
+    {
+      /* if we run out of packet size/space here,
+         better to try again soon. */
+      THREAD_OFF (oi->thread_send_lsack);
+      oi->thread_send_lsack =
+        thread_add_event (master, ospf6_lsack_send_interface, oi, 0);
+
+      ospf6_lsa_unlock (lsa);
+      break;
+    }
+
+    ospf6_lsa_age_update_to_send (lsa, oi->transdelay);
+    memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
+    p += sizeof (struct ospf6_lsa_header);
+
+    assert (lsa->lock == 2);
+    ospf6_lsdb_remove (lsa, oi->lsack_list);
+  }
+
+  oh->type = OSPF6_MESSAGE_TYPE_LSACK;
+  oh->length = htons (p - (u_char *)oh);
+
+  ospf6_fill_header(oi, oh);
+
+  retval = ospf6_msg_send(oi);
+
+//  if (oi->state == OSPF6_INTERFACE_DR ||
+//      oi->state == OSPF6_INTERFACE_BDR)
+//    ospf6_send (oi->linklocal_addr, &allspfrouters6, oi, oh);
+//  else
+//    ospf6_send (oi->linklocal_addr, &alldrouters6, oi, oh);
+
+  if (oi->thread_send_lsack == NULL && oi->lsack_list->count > 0)
+  {
+    oi->thread_send_lsack =
+      thread_add_event (master, ospf6_lsack_send_interface, oi, 0);
+  }
 
   return 0;
 }
@@ -1040,7 +1202,14 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       {
         zlog_debug("lsupdate_recv");
       }
-//      ospf6_lsupdate_recv(ctrl_client, oh, oi, xid);
+      ospf6_lsupdate_recv(ctrl_client, oh, oi, xid);
+      break;
+
+    case OSPF6_MESSAGE_TYPE_LSACK:
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      {
+        zlog_debug("lsack_recv");
+      }
       break;
 
     default:

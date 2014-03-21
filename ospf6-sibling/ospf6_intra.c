@@ -102,3 +102,13 @@ int ospf6_link_lsa_originate(struct thread * thread)
 
   return 0;
 }
+
+void ospf6_intra_prefx_lsa_add(struct ospf6_lsa * lsa)
+{
+
+}
+
+void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa * lsa)
+{
+
+}

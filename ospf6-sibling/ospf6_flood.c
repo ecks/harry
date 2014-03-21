@@ -2,17 +2,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <sys/socket.h>
 
+#include "compiler.h"
 #include "dblist.h"
 #include "thread.h"
+#include "debug.h"
 #include "routeflow-common.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_interface.h"
+#include "ospf6_message.h"
+#include "ospf6_area.h"
 #include "ospf6_top.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_flood.h"
+
+/* global ospf6d variable */
+struct ospf6 *ospf6;
 
 extern struct thread_master * master;
 
@@ -125,10 +133,481 @@ ospf6_lsa_originate_interface (struct ospf6_lsa *lsa,
     ospf6_lsa_originate (lsa);
 }
 
+/* RFC2328 section 13 (4):
+ *    if MaxAge LSA and if we have no instance, and no neighbor
+ *       is in states Exchange or Loading
+ *          returns 1 if match this case, else returns 0 */
+static int
+ospf6_is_maxage_lsa_drop (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
+{
+  struct ospf6_neighbor *on;
+  struct ospf6_interface *oi;
+  struct ospf6_area *oa;
+  struct ospf6 *process = NULL;
+  int count = 0;
+
+  if (! OSPF6_LSA_IS_MAXAGE (lsa))
+    return 0;
+
+  if (ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+      lsa->header->adv_router, lsa->lsdb))
+    return 0;
+
+//  process = from->ospf6_if->area->ospf6;
+
+//                      for (ALL_LIST_ELEMENTS_RO (process->area_list, i, oa))
+//                            for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+//                                    for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
+//                                              if (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
+//                                                              on->state == OSPF6_NEIGHBOR_LOADING)
+//                                                          count++;
+
+//                        if (count == 0)
+//                              return 1;
+//                          return 0;
+}
+
+void 
+ospf6_lsa_purge(struct ospf6_lsa * lsa)
+{
+  struct ospf6_lsa * self;
+  struct ospf6_lsdb * lsdb_self;
+
+  /* remove it from the LSDB for self-originated LSAs */
+  lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
+  self = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                            lsa->header->adv_router, lsdb_self);
+  if(self)
+  {
+    THREAD_OFF (self->expire);
+    THREAD_OFF (self->refresh);
+    ospf6_lsdb_remove (self, lsdb_self);
+  }
+
+  ospf6_lsa_premature_aging (lsa);
+}
+
+/* RFC2328 13.5 (Table 19): Sending link state acknowledgements. */
+static void
+ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
+                                    struct ospf6_neighbor *from)
+{
+  struct ospf6_interface *oi;
+
+  assert (from && from->ospf6_if);
+  oi = from->ospf6_if;
+
+  /* LSA has been flood back out receiving interface.
+     No acknowledgement sent. */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("No acknowledgement (BDR & FloodBack)");
+      return;
+  }
+
+  /* LSA is more recent than database copy, but was not flooded
+     back out receiving interface. Delayed acknowledgement sent
+     if advertisement received from Designated Router,
+     otherwide do nothing. */
+  if(ismore_recent < 0)
+  {
+    if(oi->drouter == from->router_id)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Delayed acknowledgement (BDR & MoreRecent & from DR)");
+      /* Delayed acknowledgement */
+      ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
+      if (oi->thread_send_lsack == NULL)
+        oi->thread_send_lsack =
+          thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+    }
+    else
+    {
+      if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("No acknowledgement (BDR & MoreRecent & ! from DR)");
+    }
+    return;
+  }
+  /* LSA is a duplicate, and was treated as an implied acknowledgement.
+     Delayed acknowledgement sent if advertisement received from
+     Designated Router, otherwise do nothing */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_DUPLICATE) &&
+      CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
+  {
+    if (oi->drouter == from->router_id)
+    {
+      if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Delayed acknowledgement (BDR & Duplicate & ImpliedAck & from DR)");
+      /* Delayed acknowledgement */
+      ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
+      if (oi->thread_send_lsack == NULL)
+        oi->thread_send_lsack =
+          thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+    }
+    else
+    {
+      if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("No acknowledgement (BDR & Duplicate & ImpliedAck & ! from DR)");
+    }
+    return;
+  }
+
+  /* LSA is a duplicate, and was not treated as an implied acknowledgement.
+     Direct acknowledgement sent */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_DUPLICATE) &&
+      ! CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Direct acknowledgement (BDR & Duplicate)");
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
+    if (from->thread_send_lsack == NULL)
+      from->thread_send_lsack =
+        thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+    return;
+  }
+
+  /* LSA's LS age is equal to Maxage, and there is no current instance
+     of the LSA in the link state database, and none of router's
+     neighbors are in states Exchange or Loading */
+  /* Direct acknowledgement sent, but this case is handled in
+     early of ospf6_receive_lsa () */
+}
+
+static void ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
+                                    struct ospf6_neighbor *from)
+{
+  struct ospf6_interface *oi;
+  int is_debug = 0;
+
+  assert (from && from->ospf6_if);
+  oi = from->ospf6_if;
+
+  /* LSA has been flood back out receiving interface.
+     No acknowledgement sent. */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("No acknowledgement (AllOther & FloodBack)");
+    return;
+  }
+
+  /* LSA is more recent than database copy, but was not flooded
+     back out receiving interface. Delayed acknowledgement sent. */
+  if (ismore_recent < 0)
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Delayed acknowledgement (AllOther & MoreRecent)");
+    /* Delayed acknowledgement */
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
+    if (oi->thread_send_lsack == NULL)
+      oi->thread_send_lsack =
+        thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+    return;
+  }
+
+  /* LSA is a duplicate, and was treated as an implied acknowledgement.
+     No acknowledgement sent. */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_DUPLICATE) &&
+      CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("No acknowledgement (AllOther & Duplicate & ImpliedAck)");
+    return;
+  }
+
+  /* LSA is a duplicate, and was not treated as an implied acknowledgement.
+     Direct acknowledgement sent */
+  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_DUPLICATE) &&
+      ! CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Direct acknowledgement (AllOther & Duplicate)");
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
+    if (from->thread_send_lsack == NULL)
+      from->thread_send_lsack =
+        thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+    return;
+  }    
+
+  /* LSA's LS age is equal to Maxage, and there is no current instance
+     of the LSA in the link state database, and none of router's
+     neighbors are in states Exchange or Loading */
+  /* Direct acknowledgement sent, but this case is handled in
+     early of ospf6_receive_lsa () */
+}
+
+static void ospf6_acknowledge_lsa (struct ospf6_lsa *lsa, int ismore_recent,
+                           struct ospf6_neighbor *from)
+{
+  struct ospf6_interface *oi; 
+
+  assert (from && from->ospf6_if);
+  oi = from->ospf6_if;
+
+  if (oi->state == OSPF6_INTERFACE_BDR)
+    ospf6_acknowledge_lsa_bdrouter (lsa, ismore_recent, from);
+  else 
+    ospf6_acknowledge_lsa_allother (lsa, ismore_recent, from);
+}
+
 /* RFC2328 section 13 The Flooding Procedure */
 void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header)
 {
+  struct ospf6_lsa * new = NULL, * old = NULL, * rem = NULL;
+  int ismore_recent;
+  unsigned short cksum;
 
+  ismore_recent = 1;
+
+  new = ospf6_lsa_create(lsa_header);
+
+  if(IS_OSPF6_SIBLING_DEBUG_FLOOD) 
+  {
+    zlog_debug("LSA Receive from %s", from->name);
+  }
+
+  /* (1) LSA Checksum */
+  cksum = ntohs (new->header->checksum);
+  if (ntohs (ospf6_lsa_checksum (new->header)) != cksum)
+  {    
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Wrong LSA Checksum, discard");
+    ospf6_lsa_delete (new);
+    return;
+  }
+
+// not implemented
+  /* (2) Examine the LSA's LS type. 
+     RFC2470 3.5.1. Receiving Link State Update packets  */
+//  if (IS_AREA_STUB (from->ospf6_if->area) &&
+//              OSPF6_LSA_SCOPE (new->header->type) == OSPF6_SCOPE_AS)
+//  {
+//    if (is_debug)
+//      zlog_debug ("AS-External-LSA (or AS-scope LSA) in stub area, discard");
+//                        ospf6_lsa_delete (new);
+//                              return;
+//  }
+
+  /* (3) LSA which have reserved scope is discarded
+     RFC2470 3.5.1. Receiving Link State Update packets  */
+  /* Flooding scope check. LSAs with unknown scope are discarded here.
+     Set appropriate LSDB for the LSA */
+  switch (OSPF6_LSA_SCOPE (new->header->type))
+  {
+    case OSPF6_SCOPE_LINKLOCAL:
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug("receive_lsa: scope is linklocal");
+      }
+      new->lsdb = from->ospf6_if->lsdb;
+      break;
+    case OSPF6_SCOPE_AREA:
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug("receive_lsa: scope is area");
+      }
+      new->lsdb = from->ospf6_if->area->lsdb;
+      break;
+    case OSPF6_SCOPE_AS:
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug("receive_lsa: scope is as");
+      }
+//      new->lsdb = from->ospf6_if->area->ospf6->lsdb; // not implemented
+      break;
+    default:
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug ("LSA has reserved scope, discard");
+      }
+      ospf6_lsa_delete (new);
+      return;
+  }
+
+  /* (4) if MaxAge LSA and if we have no instance, and no neighbor
+         is in states Exchange or Loading */
+  if (ospf6_is_maxage_lsa_drop (new, from))
+  {
+    /* log */
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Drop MaxAge LSA with direct acknowledgement.");
+
+    /* a) Acknowledge back to neighbor (Direct acknowledgement, 13.5) */
+    // do this a little later
+//    ospf6_lsdb_add (ospf6_lsa_copy (new), from->lsack_list);
+//    if (from->thread_send_lsack == NULL)
+//      from->thread_send_lsack =
+//        thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+
+    /* b) Discard */
+    ospf6_lsa_delete (new);
+    return;
+  }
+
+  /* (5) */
+  /* lookup the same database copy in lsdb */
+  old = ospf6_lsdb_lookup (new->header->type, new->header->id,
+                           new->header->adv_router, new->lsdb);
+  if (old)
+  {
+    ismore_recent = ospf6_lsa_compare (new, old);
+    if (ntohl (new->header->seqnum) == ntohl (old->header->seqnum))
+    {
+      if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Received is duplicated LSA");
+      SET_FLAG (new->flag, OSPF6_LSA_DUPLICATE);
+    }
+  }
+
+  /* if no database copy or received is more recent */
+  if (old == NULL || ismore_recent < 0)
+  {
+    /* in case we have no database copy */
+    ismore_recent = -1;
+
+    /* (a) MinLSArrival check */
+    if (old)
+    {
+      struct timeval now, res;
+      zebralite_gettime (ZEBRALITE_CLK_MONOTONIC, &now);
+      timersub (&now, &old->installed, &res);
+      if (res.tv_sec < MIN_LS_ARRIVAL)
+      {
+        if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+          zlog_debug ("LSA can't be updated within MinLSArrival, discard");
+        ospf6_lsa_delete (new);
+        return;   /* examin next lsa */
+      }
+    }
+
+    zebralite_gettime (ZEBRALITE_CLK_MONOTONIC, &new->received);
+
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Flood, Install, Possibly acknowledge the received LSA");
+
+    /* (b) immediately flood and (c) remove from all retrans-list */
+    /* Prevent self-originated LSA to be flooded. this is to make
+    reoriginated instance of the LSA not to be rejected by other routers
+    due to MinLSArrival. */
+    if (new->header->adv_router != ospf6->router_id)
+//      ospf6_flood (from, new);
+
+    /* (c) Remove the current database copy from all neighbors' Link
+           state retransmission lists. */
+    /* XXX, flood_clear ? */
+
+    /* (d), installing lsdb, which may cause routing
+            table calculation (replacing database copy) */
+    ospf6_install_lsa (new);
+    ospf6_acknowledge_lsa (new, ismore_recent, from);
+
+    /* (f) Self Originated LSA, section 13.4 */
+    if (new->header->adv_router == ospf6->router_id)
+    {
+      /* Self-originated LSA (newer than ours) is received from
+         another router. We have to make a new instance of the LSA
+         or have to flush this LSA. */
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug ("Newer instance of the self-originated LSA");
+        zlog_debug ("Schedule reorigination");
+      }
+      new->refresh = thread_add_event (master, ospf6_lsa_refresh, new, 0);
+    }
+
+    return;
+
+  }
+
+  /* (6) if there is instance on sending neighbor's request list */
+  if (ospf6_lsdb_lookup (new->header->type, new->header->id,
+                         new->header->adv_router, from->request_list))
+  {
+    /* if no database copy, should go above state (5) */
+    assert (old);
+
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+    {
+      zlog_debug ("Received is not newer, on the neighbor's request-list");
+      zlog_debug ("BadLSReq, discard the received LSA");
+    }
+
+    /* BadLSReq */
+    thread_add_event (master, bad_lsreq, from, 0);
+
+    ospf6_lsa_delete (new);
+    return;
+  }
+
+  /* (7) if neither one is more recent */
+  if (ismore_recent == 0)
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("The same instance as database copy (neither recent)");
+
+    /* (a) if on retrans-list, Treat this LSA as an Ack: Implied Ack */
+    rem = ospf6_lsdb_lookup (new->header->type, new->header->id,
+                             new->header->adv_router, from->retrans_list);
+    if (rem)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      {
+        zlog_debug ("It is on the neighbor's retrans-list.");
+        zlog_debug ("Treat as an Implied acknowledgement");
+      }
+      SET_FLAG (new->flag, OSPF6_LSA_IMPLIEDACK);
+      ospf6_decrement_retrans_count (rem);
+      ospf6_lsdb_remove (rem, from->retrans_list);
+    }
+
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Possibly acknowledge and then discard");
+
+    /* (b) possibly acknowledge */
+    ospf6_acknowledge_lsa (new, ismore_recent, from);
+
+    ospf6_lsa_delete (new);
+      return;
+  }
+
+  /* (8) previous database copy is more recent */
+  assert (old);
+
+  /* If database copy is in 'Seqnumber Wrapping',
+     simply discard the received LSA */
+  if (OSPF6_LSA_IS_MAXAGE (old) &&
+      old->header->seqnum == htonl (MAX_SEQUENCE_NUMBER))
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+    {
+      zlog_debug ("The LSA is in Seqnumber Wrapping");
+      zlog_debug ("MaxAge & MaxSeqNum, discard");
+    }
+    ospf6_lsa_delete (new);
+    return;
+  }
+
+  /* Otherwise, Send database copy of this LSA to this neighbor */
+  else
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+    {
+      zlog_debug ("Database copy is more recent.");
+      zlog_debug ("Send back directly and then discard");
+    }
+
+    /* XXX, MinLSArrival check !? RFC 2328 13 (8) */
+
+    ospf6_lsdb_add (ospf6_lsa_copy (old), from->lsupdate_list);
+    if (from->thread_send_lsupdate == NULL)
+      from->thread_send_lsupdate =
+        thread_add_event (master, ospf6_lsupdate_send_neighbor, from, 0);
+      ospf6_lsa_delete (new);
+      return;
+  }
+
+  return;
 }
 
 /* RFC2328 section 13.2 Installing LSAs in the database */
@@ -165,24 +644,4 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   ospf6_lsdb_add (lsa, lsa->lsdb);
 
   return;
-}
-
-void 
-ospf6_lsa_purge(struct ospf6_lsa * lsa)
-{
-  struct ospf6_lsa * self;
-  struct ospf6_lsdb * lsdb_self;
-
-  /* remove it from the LSDB for self-originated LSAs */
-  lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
-  self = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                            lsa->header->adv_router, lsdb_self);
-  if(self)
-  {
-    THREAD_OFF (self->expire);
-    THREAD_OFF (self->refresh);
-    ospf6_lsdb_remove (self, lsdb_self);
-  }
-
-  ospf6_lsa_premature_aging (lsa);
 }

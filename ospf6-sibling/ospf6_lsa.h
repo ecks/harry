@@ -6,7 +6,12 @@
 #define OSPF6_MAX_LSASIZE      4096
 
 /* Type */
+#define OSPF6_LSTYPE_ROUTER           0x2001
+#define OSPF6_LSTYPE_NETWORK          0x2002
+#define OSPF6_LSTYPE_INTER_PREFIX     0x2003
+#define OSPF6_LSTYPE_INTER_ROUTER     0x2004
 #define OSPF6_LSTYPE_LINK             0x0008
+#define OSPF6_LSTYPE_INTRA_PREFIX     0x2009
 
 /* Masks for LS Type : RFC 2740 A.4.2.1 "LS type" */
 #define OSPF6_LSTYPE_UBIT_MASK        0x8000
@@ -76,6 +81,9 @@ struct ospf6_lsa
 };
 
 #define OSPF6_LSA_HEADERONLY 0x01
+#define OSPF6_LSA_FLOODBACK  0x02
+#define OSPF6_LSA_DUPLICATE  0x04
+#define OSPF6_LSA_IMPLIEDACK 0x08
 
 /* Macro for LSA Origination */
 /* addr is (struct prefix *) */

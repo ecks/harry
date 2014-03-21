@@ -5,9 +5,74 @@
 
 #include "util.h"
 #include "dblist.h"
+#include "debug.h"
+#include "thread.h"
 #include "ospf6_proto.h"
-#include "ospf6_top.h"
+#include "ospf6_lsa.h"
+#include "ospf6_lsdb.h"
 #include "ospf6_area.h"
+#include "ospf6_top.h"
+#include "ospf6_spf.h"
+
+/* schedule routing table recalculation */
+static void ospf6_area_lsdb_hook_add(struct ospf6_lsa * lsa)
+{
+  switch (ntohs (lsa->header->type))
+  {   
+    case OSPF6_LSTYPE_ROUTER:
+    case OSPF6_LSTYPE_NETWORK:
+    if (IS_OSPF6_SIBLING_DEBUG_AREA)
+    {   
+      zlog_debug ("Examin %s", lsa->name);
+      zlog_debug ("Schedule SPF Calculation for %s",
+                   ((struct ospf6_area *)lsa->lsdb->data)->name);
+    }   
+    ospf6_spf_schedule(OSPF6_AREA(lsa->lsdb->data));
+    break;
+
+    case OSPF6_LSTYPE_INTRA_PREFIX:
+//      ospf6_intra_prefix_lsa_add (lsa);
+      break;
+
+    case OSPF6_LSTYPE_INTER_PREFIX:
+    case OSPF6_LSTYPE_INTER_ROUTER:
+//      ospf6_abr_examin_summary (lsa, (struct ospf6_area *) lsa->lsdb->data);
+      break;
+
+    default:
+      break;
+  }   
+
+}
+
+static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa * lsa)
+{
+  switch(ntohs(lsa->header->type))
+  {
+    case OSPF6_LSTYPE_ROUTER:
+    case OSPF6_LSTYPE_NETWORK:
+    if (IS_OSPF6_SIBLING_DEBUG_AREA)
+    {
+      zlog_debug ("LSA disappearing: %s", lsa->name);
+      zlog_debug ("Schedule SPF Calculation for %s",
+      OSPF6_AREA (lsa->lsdb->data)->name);
+    }
+    ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
+    break;
+
+  case OSPF6_LSTYPE_INTRA_PREFIX:
+//    ospf6_intra_prefix_lsa_remove (lsa);
+    break;
+
+  case OSPF6_LSTYPE_INTER_PREFIX:
+  case OSPF6_LSTYPE_INTER_ROUTER:
+//    ospf6_abr_examin_summary (lsa, (struct ospf6_area *) lsa->lsdb->data);
+    break;
+
+  default:
+    break;
+  }
+}
 
 /* Make new area structure */
 struct ospf6_area * ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
@@ -17,6 +82,12 @@ struct ospf6_area * ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa = calloc(1, sizeof(struct ospf6_area));
 
   oa->area_id = area_id;
+//  oa->if_list = list
+
+  oa->lsdb = ospf6_lsdb_create(oa);
+  oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
+  oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
+  oa->lsdb_self = ospf6_lsdb_create(oa);
 
   /* set default options */
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);

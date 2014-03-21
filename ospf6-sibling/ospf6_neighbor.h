@@ -54,6 +54,7 @@ struct ospf6_neighbor
   struct thread *thread_send_dbdesc;
   struct thread *thread_send_lsreq;
   struct thread *thread_send_lsupdate;
+  struct thread *thread_send_lsack;
 };
 
 /* Neighbor state */

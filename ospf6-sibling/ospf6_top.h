@@ -7,6 +7,19 @@
 #define OSPF6_INTERFACE(x) ((struct ospf6_interface *) (x))
 #define OSPF6_NEIGHBOR(x) ((struct ospf6_neighbor *) (x))
 
+#ifndef timersub
+#define timersub(a, b, res)                         \
+  do {                                              \
+    (res)->tv_sec = (a)->tv_sec - (b)->tv_sec;      \
+    (res)->tv_usec = (a)->tv_usec - (b)->tv_usec;   \
+    if ((res)->tv_usec < 0)                         \
+    {                                               \
+      (res)->tv_sec--;                              \
+      (res)->tv_usec += 1000000;                    \
+    }                                               \
+  } while (0)
+#endif /*timersub*/
+
 /* top level data structure */
 struct ospf6
 {

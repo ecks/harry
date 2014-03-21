@@ -6,9 +6,11 @@
 
 /* Architectural constants */
 #define LS_REFRESH_TIME                1800  /* 30 min */
+#define MIN_LS_ARRIVAL                    1
 #define MAXAGE                         3600  /* 1 hour */
 #define MAX_AGE_DIFF                    900  /* 15 min */
 #define INITIAL_SEQUENCE_NUMBER  0x80000001  /* signed 32-bit integer */
+#define MAX_SEQUENCE_NUMBER      0x7fffffff  /* signed 32-bit integer */
 
 /* OSPF options */
 /* present in HELLO, DD, LSA */

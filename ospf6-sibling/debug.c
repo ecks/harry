@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "compiler.h"
 #include "vector.h"
 #include "vty.h"
 #include "command.h"
@@ -13,6 +14,8 @@ unsigned long ospf6_sibling_debug_restart;
 unsigned long ospf6_sibling_debug_neighbor;
 unsigned long ospf6_sibling_debug_ctrl_client;
 unsigned long ospf6_sibling_debug_interface;
+unsigned long ospf6_sibling_debug_flood;
+unsigned long ospf6_sibling_debug_area;
 
 DEFUN(debug_ospf6_sibling_msg,
       debug_ospf6_sibling_msg_cmd,
@@ -91,6 +94,29 @@ DEFUN(debug_ospf6_sibling_intreface,
   return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf6_sibling_flood,
+      debug_ospf6_sibling_flood_cmd,
+      "debug ospf6 sibling flood",
+      DEBUG_STR
+      "OSPF6 Sibling configuration\n"
+      "Debug MSG events\n")
+{
+  SET_FLAG(ospf6_sibling_debug_flood, OSPF6_SIBLING_DEBUG_FLOOD);
+  return CMD_SUCCESS;
+}
+
+DEFUN(debug_ospf6_sibling_area,
+      debug_ospf6_sibling_area_cmd,
+      "debug ospf6 sibling area",
+      DEBUG_STR
+      "OSPF6 Sibling configuration\n"
+      "Debug MSG events\n")
+{
+  SET_FLAG(ospf6_sibling_debug_area, OSPF6_SIBLING_DEBUG_AREA);
+  return CMD_SUCCESS;
+}
+
+
 void ospf6_sibling_debug_init()
 {
   ospf6_sibling_debug_msg = 0;
@@ -108,4 +134,8 @@ void ospf6_sibling_debug_init()
   install_element(CONFIG_NODE, &debug_ospf6_sibling_ctrl_client_cmd);
 
   install_element(CONFIG_NODE, &debug_ospf6_sibling_interface_cmd);
+  
+  install_element(CONFIG_NODE, &debug_ospf6_sibling_flood_cmd);
+  
+  install_element(CONFIG_NODE, &debug_ospf6_sibling_area_cmd);
 }

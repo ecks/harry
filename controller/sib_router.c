@@ -294,30 +294,70 @@ vote_majority()
     zlog_debug("inside vote majority");
   }
 
+  struct rfp_header * rh;
   bool all_same = true;
   bool seen_before = false;
   int num_of_equal_msgs = 0;
   int i;
+  int j;
+
+  if(IS_CONTROLLER_DEBUG_MSG)
+  { 
+    for(i = 0; i < n_ospf6_siblings; i++)
+    {
+      if(list_empty(&ospf6_siblings[i]->msgs_rcvd_queue))
+      {
+        zlog_debug("at %d, list is empty", i);
+      }
+      else
+      {
+        rh = (rfpbuf_from_list(list_peek_front(&ospf6_siblings[i]->msgs_rcvd_queue)))->data;
+        zlog_debug("at %d, current msg xid: %d", i, ntohl(rh->xid));
+      }
+    }
+  }
+
   // the first message gets compared with the second message, second message
   // gets compared with third message, etc
-  struct rfpbuf * a = rfpbuf_from_list(list_peek_front(&ospf6_siblings[0]->msgs_rcvd_queue));
-  for(i = 1; i < n_ospf6_siblings; i++)
+  //
+  // we need to make sure that a is an actual message
+  j = 0;
+  while(list_empty(&ospf6_siblings[j]->msgs_rcvd_queue) && (j < n_ospf6_siblings))
+  {
+    j++;
+  }
+  // a should now be an actual message
+  struct rfpbuf * a = rfpbuf_from_list(list_peek_front(&ospf6_siblings[j]->msgs_rcvd_queue));
+
+  for(i = j + 1; i < n_ospf6_siblings; i++)
   {
     if((ospf6_siblings[i]->state == SIB_DISCONNECTED) || (list_empty(&ospf6_siblings[i]->msgs_rcvd_queue)))
     {
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("sibling b is disconnected or has nothing in the queue");
+      }
       seen_before = false;
     }
     else
     {
       struct rfpbuf * b = rfpbuf_from_list(list_peek_front(&ospf6_siblings[i]->msgs_rcvd_queue));
 
-      struct ospf6_header * a_oh = (void *)a->data + sizeof(struct rfp_header);
-      struct ospf6_hello * a_hello = (void *)a_oh + sizeof(struct ospf6_header);
+      rh = a->data;
 
-      struct ospf6_header * b_oh = (void *)b->data + sizeof(struct rfp_header);
-      struct ospf6_hello * b_hello = (void *)b_oh + sizeof(struct ospf6_header);
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("at counter %d, a msg xid: %d", i, ntohl(rh->xid));
+      }
 
-      if(!rfpbuf_equal(a, b))
+      rh = b->data;
+
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("b msg xid: %d", ntohl(rh->xid));
+      }
+
+        if(!rfpbuf_equal(a, b))
       {
         seen_before = false;
       }
@@ -489,7 +529,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
           zlog_debug("interface address request, xid mismatch");
         }
       }
-       break;
+      break;
 
     case RFPT_REDISTRIBUTE_REQUEST:
       if(IS_CONTROLLER_DEBUG_MSG)
@@ -528,7 +568,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         if(xid == sr->current_egress_xid)
         {
-          zlog_debug("forward ospf6 packet: xids %d matched", xid);
+          zlog_debug("forward ospf6 packet: xids %d matched from %s", xid, sr->rconn->target);
           struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
           list_init(&msg_rcvd->list_node);
           list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
@@ -541,11 +581,22 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
             vote_majority();
           }
         }
+        else if(xid > sr->current_egress_xid)
+        {
+          // we need to append the message at the end of the list
+          if(CONTROLLER_DEBUG_MSG)
+          {
+            zlog_debug("forward ospf6 packet: queued for later, xid %d from %s, current egress xid: %d", xid, sr->rconn->target, sr->current_egress_xid);
+            struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
+            list_init(&msg_rcvd->list_node);
+            list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
+          }
+         }
         else
         {
           if(CONTROLLER_DEBUG_MSG)
           {
-            zlog_debug("forward ospf6 packet: rejected, xid %d", xid);
+            zlog_debug("forward ospf6 packet: rejected, xid %d from %s, current egress xid: %d", xid, sr->rconn->target, sr->current_egress_xid);
           }
         }
       }

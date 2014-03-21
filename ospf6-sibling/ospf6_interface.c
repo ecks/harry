@@ -68,6 +68,8 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
  
   list_init(&oi->neighbor_list);
 
+  oi->lsupdate_list = ospf6_lsdb_create(oi);
+  oi->lsack_list = ospf6_lsdb_create(oi);
   oi->lsdb = ospf6_lsdb_create(oi);
   oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
   oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;

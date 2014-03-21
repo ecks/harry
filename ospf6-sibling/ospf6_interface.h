@@ -46,7 +46,7 @@ struct ospf6_interface
 
   /* Ongoing tasks */
   struct thread *thread_send_hello;
-
+  struct thread *thread_send_lsack;
   struct thread * thread_link_lsa;
 
   struct ospf6_route_table * route_connected;
@@ -62,6 +62,8 @@ struct ospf6_interface
 #define OSPF6_INTERFACE_BDR              6
 #define OSPF6_INTERFACE_DR               7
 #define OSPF6_INTERFACE_MAX              8
+
+extern const char *ospf6_interface_state_str[];
 
 extern struct ospf6_interface * ospf6_interface_create (struct interface *ifp);
 extern void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client);

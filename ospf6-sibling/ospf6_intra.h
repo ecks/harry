@@ -20,4 +20,7 @@ struct ospf6_link_lsa
 
 extern int ospf6_link_lsa_originate(struct thread *);
 
+extern void ospf6_intra_prefix_lsa_add(struct ospf6_lsa * lsa);
+extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa * lsa);
+
 #endif
