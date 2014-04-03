@@ -16,6 +16,7 @@ unsigned long ospf6_sibling_debug_ctrl_client;
 unsigned long ospf6_sibling_debug_interface;
 unsigned long ospf6_sibling_debug_flood;
 unsigned long ospf6_sibling_debug_area;
+unsigned long ospf6_sibling_debug_spf;
 
 DEFUN(debug_ospf6_sibling_msg,
       debug_ospf6_sibling_msg_cmd,
@@ -116,6 +117,17 @@ DEFUN(debug_ospf6_sibling_area,
   return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf6_sibling_spf,
+      debug_ospf6_sibling_spf_cmd,
+      "debug ospf6 sibling spf",
+      DEBUG_STR
+      "OSPF6 Sibling configuration\n"
+      "Debug MSG events\n")
+{
+  SET_FLAG(ospf6_sibling_debug_spf, OSPF6_SIBLING_DEBUG_SPF);
+  return CMD_SUCCESS;
+}
+
 
 void ospf6_sibling_debug_init()
 {
@@ -138,4 +150,6 @@ void ospf6_sibling_debug_init()
   install_element(CONFIG_NODE, &debug_ospf6_sibling_flood_cmd);
   
   install_element(CONFIG_NODE, &debug_ospf6_sibling_area_cmd);
+
+  install_element(CONFIG_NODE, &debug_ospf6_sibling_spf_cmd);
 }

@@ -1,14 +1,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <assert.h>
 #include <sys/socket.h>
 
 #include "compiler.h"
+#include "util.h"
 #include "dblist.h"
 #include "thread.h"
 #include "debug.h"
 #include "routeflow-common.h"
+#include "if.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -185,6 +188,201 @@ ospf6_lsa_purge(struct ospf6_lsa * lsa)
   }
 
   ospf6_lsa_premature_aging (lsa);
+}
+
+/* RFC2740 section 3.5.2. Sending Link State Update packets */
+/* RFC2328 section 13.3 Next step in the flooding procedure */
+static void
+ospf6_flood_interface (struct ospf6_neighbor *from,
+                           struct ospf6_lsa *lsa, struct ospf6_interface *oi)
+{
+  struct ospf6_neighbor * on;
+  struct ospf6_lsa * req;
+  int retrans_added;
+
+  if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+  {
+    zlog_debug("Flooding on %s: %s", oi->interface->name, lsa->name);
+  }
+
+  /* (1) For each neighbor */
+  LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list)
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+    {
+      zlog_debug("To neighbor %s", on->name);
+    }
+
+    /* (a) if neighbor state < Exchange, examin next */
+    if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Neighbor state less than ExChange, next neighbor");
+        continue;
+    }
+
+    /* (b) if neighbor not yet Full, check request-list */
+    if (on->state != OSPF6_NEIGHBOR_FULL)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Neighbor not yet Full");
+
+      req = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                               lsa->header->adv_router, on->request_list);
+      if (req == NULL)
+      {
+        if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+          zlog_debug ("Not on request-list for this neighbor");
+          /* fall through */
+      }
+      else
+      {
+        /* If new LSA less recent, examin next neighbor */
+        if (ospf6_lsa_compare (lsa, req) > 0)
+        {
+          if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+            zlog_debug ("Requesting is newer, next neighbor");
+           continue;
+        }
+
+        /* If the same instance, delete from request-list and
+           examin next neighbor */
+        if(ospf6_lsa_compare (lsa, req) == 0)
+        {
+          if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+            zlog_debug ("Requesting the same, remove it, next neighbor");
+          ospf6_lsdb_remove (req, on->request_list);
+          continue;
+        }
+
+        /* If the new LSA is more recent, delete from request-list */
+        if (ospf6_lsa_compare (lsa, req) < 0)
+        {
+          if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+            zlog_debug ("Received is newer, remove requesting");
+          ospf6_lsdb_remove (req, on->request_list);
+          /* fall through */
+        }
+      }
+    }
+
+    /* (c) If the new LSA was received from this neighbor,
+       examin next neighbor */
+    if (from == on)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+        zlog_debug ("Received is from the neighbor, next neighbor");
+      continue;
+    }
+
+    /* (d) add retrans-list, schedule retransmission */
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Add retrans-list of this neighbor");
+    ospf6_increment_retrans_count (lsa);
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
+    if (on->thread_send_lsupdate == NULL)
+      on->thread_send_lsupdate =
+    thread_add_timer (master, ospf6_lsupdate_send_neighbor,
+                      on, on->ospf6_if->rxmt_interval);
+    retrans_added++;
+  }
+
+  /* (2) examin next interface if not added to retrans-list */
+  if (retrans_added == 0)
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("No retransmission scheduled, next interface");
+    return;
+  }
+
+  /* (3) If the new LSA was received on this interface,
+     and it was from DR or BDR, examin next interface */
+  if(from && from->ospf6_if == oi &&
+     (from->router_id == oi->drouter || from->router_id == oi->bdrouter))
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Received is from the I/F's DR or BDR, next interface");
+    return;
+  }
+
+  /* (4) If the new LSA was received on this interface,
+     and the interface state is BDR, examin next interface */
+  if (from && from->ospf6_if == oi && oi->state == OSPF6_INTERFACE_BDR)
+  {
+    if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+      zlog_debug ("Received is from the I/F, itself BDR, next interface");
+    return;
+  }
+
+  /* (5) flood the LSA out the interface. */
+  if (IS_OSPF6_SIBLING_DEBUG_FLOOD)
+    zlog_debug ("Schedule flooding for the interface");
+  if (if_is_broadcast (oi->interface))
+  {
+    ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
+    if(oi->thread_send_lsupdate == NULL)
+      oi->thread_send_lsupdate =
+        thread_add_event (master, ospf6_lsupdate_send_interface, oi, 0);
+  }
+  else
+  {
+    /* reschedule retransmissions to all neighbors */
+    LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list)
+    {
+      THREAD_OFF (on->thread_send_lsupdate);
+      on->thread_send_lsupdate =
+        thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
+    }
+  }
+}
+
+static void
+ospf6_flood_area (struct ospf6_neighbor *from,
+                      struct ospf6_lsa *lsa, struct ospf6_area *oa)
+{
+  struct ospf6_interface *oi;
+
+  LIST_FOR_EACH(oi, struct ospf6_interface, node, &oa->if_list)
+  {
+    if(OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+       oi != OSPF6_INTERFACE (lsa->lsdb->data))
+      continue;
+
+//#if 0
+//                            if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
+//                                          ospf6_is_interface_virtual_link (oi))
+//                                      continue;
+//#endif/*0*/
+
+    ospf6_flood_interface (from, lsa, oi);
+  }
+}
+
+static void ospf6_flood_process (struct ospf6_neighbor *from,
+                                 struct ospf6_lsa *lsa, struct ospf6 *process)
+{
+  struct ospf6_area * oa;
+
+  LIST_FOR_EACH(oa, struct ospf6_area, node, &process->area_list)
+  {
+    if(OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AREA &&
+        oa != OSPF6_AREA (lsa->lsdb->data))
+      continue;
+    if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+        oa != OSPF6_INTERFACE (lsa->lsdb->data)->area)
+      continue;
+
+    if(ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
+      IS_AREA_STUB (oa))
+      continue;
+
+    ospf6_flood_area (from, lsa, oa);
+  }
+}
+
+void ospf6_flood(struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
+{
+  ospf6_flood_process(from, lsa, ospf6);
 }
 
 /* RFC2328 13.5 (Table 19): Sending link state acknowledgements. */
@@ -491,7 +689,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * l
     reoriginated instance of the LSA not to be rejected by other routers
     due to MinLSArrival. */
     if (new->header->adv_router != ospf6->router_id)
-//      ospf6_flood (from, new);
+      ospf6_flood (from, new);
 
     /* (c) Remove the current database copy from all neighbors' Link
            state retransmission lists. */
@@ -638,6 +836,11 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
                                     MAXAGE + lsa->birth.tv_sec - now.tv_sec);
   else
     lsa->expire = NULL;
+
+  if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
+  {
+    zlog_debug("Adding lsa with type %d to lsdb %p and router id %d", lsa->header->type, lsa->lsdb, lsa->header->adv_router);
+  }
 
   /* actually install */
   lsa->installed = now;

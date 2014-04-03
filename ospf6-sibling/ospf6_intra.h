@@ -1,6 +1,42 @@
 #ifndef OSPF6_INTRA_H
 #define OSPF6_INTRA_H
 
+/* Link State Description in Router-LSA */
+struct ospf6_router_lsdesc
+{
+  u_char    type;
+  u_char    reserved;
+  u_int16_t metric;                /* output cost */
+  u_int32_t interface_id;
+  u_int32_t neighbor_interface_id;
+  u_int32_t neighbor_router_id;
+};
+
+#define OSPF6_ROUTER_LSDESC_POINTTOPOINT       1
+#define OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK    2
+#define OSPF6_ROUTER_LSDESC_STUB_NETWORK       3
+#define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK       4
+
+#define ROUTER_LSDESC_IS_TYPE(t,x)                         \
+    ((((struct ospf6_router_lsdesc *)(x))->type ==         \
+         OSPF6_ROUTER_LSDESC_ ## t) ? 1 : 0)
+#define ROUTER_LSDESC_GET_METRIC(x)                        \
+    (ntohs (((struct ospf6_router_lsdesc *)(x))->metric))
+#define ROUTER_LSDESC_GET_IFID(x)                          \
+    (ntohl (((struct ospf6_router_lsdesc *)(x))->interface_id))
+#define ROUTER_LSDESC_GET_NBR_IFID(x)                      \
+    (ntohl (((struct ospf6_router_lsdesc *)(x))->neighbor_interface_id))
+#define ROUTER_LSDESC_GET_NBR_ROUTERID(x)                  \
+    (((struct ospf6_router_lsdesc *)(x))->neighbor_router_id)
+
+/* Link State Description in Router-LSA */
+struct ospf6_network_lsdesc
+{
+    u_int32_t router_id;
+};
+#define NETWORK_LSDESC_GET_NBR_ROUTERID(x)                  \
+    (((struct ospf6_network_lsdesc *)(x))->router_id)
+
 /* Link-LSA */
 struct ospf6_link_lsa
 {

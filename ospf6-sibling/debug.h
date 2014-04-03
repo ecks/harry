@@ -19,6 +19,8 @@
 
 #define OSPF6_SIBLING_DEBUG_AREA 0x01
 
+#define OSPF6_SIBLING_DEBUG_SPF 0x01
+
 #define IS_OSPF6_SIBLING_DEBUG_MSG (ospf6_sibling_debug_msg & OSPF6_SIBLING_DEBUG_MSG)
 
 #define IS_OSPF6_SIBLING_DEBUG_SISIS (ospf6_sibling_debug_sisis & OSPF6_SIBLING_DEBUG_SISIS)
@@ -34,6 +36,8 @@
 #define IS_OSPF6_SIBLING_DEBUG_FLOOD (ospf6_sibling_debug_flood & OSPF6_SIBLING_DEBUG_FLOOD)
 
 #define IS_OSPF6_SIBLING_DEBUG_AREA (ospf6_sibling_debug_area & OSPF6_SIBLING_DEBUG_AREA)
+
+#define IS_OSPF6_SIBLING_DEBUG_SPF (ospf6_sibling_debug_spf & OSPF6_SIBLING_DEBUG_SPF)
 
 extern unsigned long ospf6_sibling_debug_msg;
 
@@ -52,6 +56,8 @@ extern unsigned long ospf6_sibling_debug_interface;
 extern unsigned long ospf6_sibling_debug_flood;
 
 extern unsigned long ospf6_sibling_debug_area;
+
+extern unsigned long ospf6_sibling_debug_spf;
 
 void ospf6_sibling_debug_init(void);
 

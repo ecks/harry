@@ -14,6 +14,21 @@
 
 extern struct thread_master * master;
 
+const char *
+ospf6_lstype_name (u_int16_t type)
+{
+  static char buf[8];
+  // TODO
+//  struct ospf6_lsa_handler *handler;
+
+//  handler = ospf6_get_lsa_handler (type);
+//  if (handler && handler != &unknown_handler)
+//    return handler->name;
+
+//  snprintf (buf, sizeof (buf), "0x%04hx", ntohs (type));
+  return buf; 
+}
+
 /* ospf6 age functions */
 /* calculate birth */
 static void ospf6_lsa_age_set (struct ospf6_lsa *lsa)

@@ -5,6 +5,11 @@
 struct list {
     struct list *prev;     /* Previous list element. */
     struct list *next;     /* Next list element. */
+    /*  
+     * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
+     * Used as definition of sorted for listnode_add_sort
+     */
+    int (*cmp) (void * val1, void * val2);
 };
 
 #define LIST_INITIALIZER(LIST) { LIST, LIST }
@@ -14,6 +19,7 @@ void list_init(struct list *);
 void list_poison(struct list *);
 
 void list_insert(struct list *, struct list *);
+void list_push_back_sort(struct list *, struct list *);
 void list_push_back(struct list *, struct list *);
 
 struct list *list_remove(struct list *);

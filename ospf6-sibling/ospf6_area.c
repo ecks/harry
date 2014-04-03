@@ -1,10 +1,14 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <netinet/in.h>
 
 #include "util.h"
 #include "dblist.h"
+#include "prefix.h"
 #include "debug.h"
 #include "thread.h"
 #include "ospf6_proto.h"
@@ -12,6 +16,7 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_area.h"
 #include "ospf6_top.h"
+#include "ospf6_route.h"
 #include "ospf6_spf.h"
 
 /* schedule routing table recalculation */
@@ -82,12 +87,16 @@ struct ospf6_area * ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa = calloc(1, sizeof(struct ospf6_area));
 
   oa->area_id = area_id;
-//  oa->if_list = list
+
+  list_init(&oa->if_list);
 
   oa->lsdb = ospf6_lsdb_create(oa);
   oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
   oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
   oa->lsdb_self = ospf6_lsdb_create(oa);
+
+  oa->spf_table = OSPF6_ROUTE_TABLE_CREATE(AREA, ROUTES);
+  oa->spf_table->scope = oa;
 
   /* set default options */
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);

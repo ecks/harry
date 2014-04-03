@@ -44,6 +44,19 @@ const char * ospf6_interface_state_str[] =
   NULL
 };
 
+struct ospf6_interface * ospf6_interface_lookup_by_ifindex (int ifindex)
+{
+  struct ospf6_interface *oi; 
+  struct interface *ifp;
+
+  ifp = if_lookup_by_index (ifindex);
+  if (ifp == NULL)
+    return (struct ospf6_interface *) NULL;
+
+  oi = (struct ospf6_interface *) ifp->info;
+  return oi;
+}
+
 static void ospf6_interface_lsdb_hook(struct ospf6_lsa * lsa)
 {
   // TODO
@@ -80,6 +93,9 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
 
   oi->interface = ifp;
   ifp->info = oi;
+
+  // node to be added to area list
+  list_init(&oi->node);
 
   return oi;
 }

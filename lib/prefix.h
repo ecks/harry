@@ -110,6 +110,12 @@ prefix_bit (const u_char *prefix, const u_char prefixlen)
   return (prefix[offset] >> shift) & 1;
 }
 
+static inline unsigned int 
+prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
+{
+    return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
+}
+
 void apply_mask(struct prefix * p);
 void apply_mask_ipv4 (struct prefix_ipv4 *p);
 void apply_mask_ipv6(struct prefix_ipv6 * p);

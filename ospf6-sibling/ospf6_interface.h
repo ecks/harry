@@ -37,6 +37,8 @@ struct ospf6_interface
   /* Interface state */
   u_char state;
 
+  struct list node;
+
   /* Linklocal LSA Database: includes Link-LSA */
   struct ospf6_lsdb * lsdb;;
   struct ospf6_lsdb * lsdb_self;
@@ -46,6 +48,7 @@ struct ospf6_interface
 
   /* Ongoing tasks */
   struct thread *thread_send_hello;
+  struct thread *thread_send_lsupdate;
   struct thread *thread_send_lsack;
   struct thread * thread_link_lsa;
 
@@ -65,6 +68,7 @@ struct ospf6_interface
 
 extern const char *ospf6_interface_state_str[];
 
+extern struct ospf6_interface * ospf6_interface_lookup_by_ifindex (int ifindex);
 extern struct ospf6_interface * ospf6_interface_create (struct interface *ifp);
 extern void ospf6_interface_if_add(struct interface * ifp, struct ctrl_client * ctrl_client);
 extern int interface_up(struct thread * thread);

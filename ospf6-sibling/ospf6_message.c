@@ -360,7 +360,7 @@ int ospf6_lsreq_send(struct thread * thread)
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    zlog_debug("About to send lsreq with xid: %d", on->ospf6_if->ctrl_client->current_xid);
+    zlog_debug("About to send lsreq with xid: %d, request list count: %d", on->ospf6_if->ctrl_client->current_xid, on->request_list->count);
   }
 
   /* schedule loading_done if request list is empty */
@@ -519,6 +519,11 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
   return 0;
 }
 
+int ospf6_lsupdate_send_interface(struct thread * thread)
+{
+  return 0;
+}
+
 int
 ospf6_lsack_send_neighbor (struct thread *thread)
 {
@@ -597,11 +602,6 @@ int ospf6_lsack_send_interface (struct thread *thread)
   int retval;
   struct ospf6_lsa *lsa;
 
-  if(IS_OSPF6_SIBLING_DEBUG_MSG)
-  {
-    zlog_debug("About to send lsack message");
-  } 
-
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
   oi->thread_send_lsack = (struct thread *) NULL;
 
@@ -616,6 +616,11 @@ int ospf6_lsack_send_interface (struct thread *thread)
   /* if we have nothing to send, return */
   if (oi->lsack_list->count == 0)
     return 0;
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("About to send lsack message with xid: %d", oi->ctrl_client->current_xid);
+  } 
 
   oi->ctrl_client->obuf = routeflow_alloc_xid(RFPT_FORWARD_OSPF6, RFP10_VERSION,
                                                         htonl(oi->ctrl_client->current_xid), sizeof(struct rfp_header));
@@ -640,6 +645,7 @@ int ospf6_lsack_send_interface (struct thread *thread)
     }
 
     ospf6_lsa_age_update_to_send (lsa, oi->transdelay);
+    p = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_lsa_header));
     memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
     p += sizeof (struct ospf6_lsa_header);
 

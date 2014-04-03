@@ -97,6 +97,13 @@ int if_is_up(struct interface * ifp)
   return ifp->state == RFPPS_FORWARD;
 }
 
+ /* Does this interface support broadcast ? */
+int if_is_broadcast(struct interface * ifp)
+{
+  return 0; // TODO
+//  return ifp->flags & IFF_BROADCAST;
+}
+
 int if_is_pointtopoint(struct interface * ifp)
 {
   return 0;  // disable p2p for now

@@ -15,6 +15,19 @@
 #include "table.h"
 #include "ospf6_route.h"
 
+
+void
+ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,
+                            struct prefix *prefix)
+{
+  memset (prefix, 0, sizeof (struct prefix));
+  prefix->family = AF_INET6;
+  prefix->prefixlen = 64;
+  memcpy (&prefix->u.prefix6.s6_addr[0], &adv_router, 4);
+  memcpy (&prefix->u.prefix6.s6_addr[4], &id, 4);
+}
+
+
 void
 ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf, int size)
 {
@@ -95,6 +108,20 @@ ospf6_route_cmp (struct ospf6_route *ra, struct ospf6_route *rb)
   }
 
   return 0;
+}
+
+struct ospf6_route * ospf6_route_lookup (struct prefix *prefix,
+                                         struct ospf6_route_table *table)
+{
+  struct route_node *node;
+  struct ospf6_route *route;
+
+  node = route_node_lookup (table->table, prefix);
+  if (node == NULL)
+    return NULL;
+
+  route = (struct ospf6_route *) node->info;
+  return route;
 }
 
 #ifndef NDEBUG

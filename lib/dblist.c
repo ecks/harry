@@ -16,7 +16,8 @@ list_new()
 void
 list_init(struct list *list)
 {
-    list->next = list->prev = list;
+  list->next = list->prev = list;
+  list->cmp = NULL;  
 }
 
 /* Initializes 'list' with pointers that will (probably) cause segfaults if
@@ -35,6 +36,26 @@ list_insert(struct list *before, struct list *elem)
     elem->next = before;
     before->prev->next = elem;
     before->prev = elem;
+}
+
+void
+list_push_back_sort(struct list * list, struct list * elem)
+{
+  struct list * i;
+  struct list * next;
+
+  for(next = list->next; i != list; next = next->next)
+  {
+    if((*list->cmp) (elem, next) < 0)
+    {
+      list_insert(elem, next);
+      return;
+    }
+  }
+
+  // at end of the list, didn't find any elements greater than current
+  // insert at end
+  list_insert(list, elem);
 }
 
 /* Inserts 'elem' at the end of 'list', so that it becomes the back in

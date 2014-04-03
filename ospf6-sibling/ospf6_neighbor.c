@@ -16,12 +16,12 @@
 #include "if.h"
 #include "ospf6_top.h"
 #include "ospf6_lsa.h"
-#include "ospf6_flood.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_proto.h"
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_flood.h"
 
 /* global ospf6d variable */
 struct ospf6 *ospf6;

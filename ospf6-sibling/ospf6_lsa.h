@@ -10,6 +10,7 @@
 #define OSPF6_LSTYPE_NETWORK          0x2002
 #define OSPF6_LSTYPE_INTER_PREFIX     0x2003
 #define OSPF6_LSTYPE_INTER_ROUTER     0x2004
+#define OSPF6_LSTYPE_AS_EXTERNAL      0x4005
 #define OSPF6_LSTYPE_LINK             0x0008
 #define OSPF6_LSTYPE_INTRA_PREFIX     0x2009
 
@@ -46,6 +47,10 @@ struct ospf6_lsa_header
     ((caddr_t)(h) + sizeof (struct ospf6_lsa_header))
 #define OSPF6_LSA_SIZE(h) \
     (ntohs (((struct ospf6_lsa_header *) (h))->length))
+#define OSPF6_LSA_END(h) \
+    ((caddr_t)(h) + ntohs (((struct ospf6_lsa_header *) (h))->length))
+#define OSPF6_LSA_IS_TYPE(t, L) \
+    ((L)->header->type == htons (OSPF6_LSTYPE_ ## t) ? 1 : 0)
 #define OSPF6_LSA_IS_SAME(L1, L2) \
     ((L1)->header->adv_router == (L2)->header->adv_router && \
         (L1)->header->id == (L2)->header->id && \
@@ -137,6 +142,7 @@ struct ospf6_lsa
       continue;                                        \
     }
 
+extern const char *ospf6_lstype_name (u_int16_t type);
 extern u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
 extern void ospf6_lsa_age_update_to_send (struct ospf6_lsa *, u_int32_t);
 extern void ospf6_lsa_premature_aging (struct ospf6_lsa *);

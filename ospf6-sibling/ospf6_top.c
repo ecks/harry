@@ -148,6 +148,8 @@ DEFUN(ospf6_interface_area,
   if(oa == NULL)
     oa = ospf6_area_create(area_id, o);
 
+  /* attach interface to area */
+  list_push_back(&oa->if_list, &oi->node);
   oi->area = oa;
 
   /* start up */
