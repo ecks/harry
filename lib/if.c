@@ -100,11 +100,11 @@ int if_is_up(struct interface * ifp)
  /* Does this interface support broadcast ? */
 int if_is_broadcast(struct interface * ifp)
 {
-  return 0; // TODO
+  return 1; // stub for now
 //  return ifp->flags & IFF_BROADCAST;
 }
 
-int if_is_pointtopoint(struct interface * ifp)
+int if_is_pointopoint(struct interface * ifp)
 {
   return 0;  // disable p2p for now
 }

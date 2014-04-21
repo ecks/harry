@@ -19,6 +19,8 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_proto.h"
 #include "ospf6_interface.h"
+#include "ospf6_intra.h"
+#include "ospf6_area.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_flood.h"
@@ -45,6 +47,17 @@ static void ospf6_neighbor_state_change(u_char next_state, struct ospf6_neighbor
   if(IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
   {
     zlog_debug("Neighbor state change %s: [%s]->[%s]", on->name, ospf6_neighbor_state_str[prev_state], ospf6_neighbor_state_str[next_state]);
+  }
+
+  if (prev_state == OSPF6_NEIGHBOR_FULL || next_state == OSPF6_NEIGHBOR_FULL)
+  {
+    OSPF6_ROUTER_LSA_SCHEDULE (on->ospf6_if->area);
+    if(on->ospf6_if->state == OSPF6_INTERFACE_DR)
+    {
+//       OSPF6_NETWORK_LSA_SCHEDULE (on->ospf6_if);
+//       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (on->ospf6_if);
+    }
+//    OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (on->ospf6_if->area);
   }
 }
 

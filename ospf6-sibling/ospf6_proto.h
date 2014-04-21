@@ -12,6 +12,11 @@
 #define INITIAL_SEQUENCE_NUMBER  0x80000001  /* signed 32-bit integer */
 #define MAX_SEQUENCE_NUMBER      0x7fffffff  /* signed 32-bit integer */
 
+#define OSPF6_ROUTER_BIT_W     (1 << 3)
+#define OSPF6_ROUTER_BIT_V     (1 << 2)
+#define OSPF6_ROUTER_BIT_E     (1 << 1)
+#define OSPF6_ROUTER_BIT_B     (1 << 0)
+
 /* OSPF options */
 /* present in HELLO, DD, LSA */
 #define OSPF6_OPT_SET(x,opt)   ((x)[2] |=  (opt))
@@ -49,7 +54,14 @@ struct ospf6_prefix
 
 #define OSPF6_PREFIX_NEXT(x) \
      ((struct ospf6_prefix *)((void *)(x) + OSPF6_PREFIX_SIZE (x)))
- 
+
+#define ospf6_prefix_in6_addr(in6, op)                            \
+  do {                                                            \
+      memset (in6, 0, sizeof (struct in6_addr));                  \
+      memcpy (in6, (caddr_t) (op) + sizeof (struct ospf6_prefix), \
+                    OSPF6_PREFIX_SPACE ((op)->prefix_length));    \
+  } while (0)
+
 extern void ospf6_options_printbuf (u_char *options, char *buf, int size);
 
 #endif

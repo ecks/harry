@@ -20,6 +20,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
+#include "ospf6_area.h"
 #include "ospf6_intra.h"
 #include "ospf6_restart.h"
 #include "ospf6_interface.h"
@@ -76,7 +77,7 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
   oi->hello_interval = 10;
   oi->dead_interval = 40;
   oi->rxmt_interval = 5;
- 
+  oi->cost = 1;
   oi->state = OSPF6_INTERFACE_DOWN;
  
   list_init(&oi->neighbor_list);
@@ -398,7 +399,7 @@ int interface_up(struct thread * thread)
   // mutex unlock
  
   /* decide next interface state */
-  if(if_is_pointtopoint(oi->interface))
+  if(if_is_pointopoint(oi->interface))
     ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
   else if(oi->priority == 0)
     ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);

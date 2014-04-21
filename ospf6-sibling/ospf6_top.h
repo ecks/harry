@@ -32,6 +32,10 @@ struct ospf6
   /* AS scope link state database */
   struct ospf6_lsdb *lsdb;
 
+  struct ospf6_route_table *route_table;
+
+  struct ospf6_route_table *external_table;
+
   struct RIACK_CLIENT * riack_client;
 
   bool restart_mode;

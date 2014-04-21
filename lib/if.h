@@ -49,7 +49,7 @@ struct interface * if_lookup_by_index(const unsigned int index);
 struct interface *if_get_by_name (const char *ifname);
 int if_is_up(struct interface * ifp);
 int if_is_broadcast(struct interface * ifp);
-int if_is_pointtopoint(struct interface * ifp);
+int if_is_pointopoint(struct interface * ifp);
 
 /* Connected address functions. */
 extern struct connected * connected_new(void);

@@ -24,15 +24,22 @@ struct ospf6_area
   struct ospf6_lsdb * lsdb;
   struct ospf6_lsdb * lsdb_self;
 
-  struct ospf6_route_table *spf_table;
+  struct ospf6_route_table * spf_table;
+
+  struct ospf6_route_table * route_table;
 
   struct thread * thread_spf_calculation;
+
+  struct thread * thread_router_lsa;
+  u_int32_t router_lsa_size_limit;
 
   struct list node;
 };
 
+#define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_STUB       0x08
 
+#define IS_AREA_ENABLED(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ENABLE))
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
 
 extern struct ospf6_area * ospf6_area_create (u_int32_t, struct ospf6 *);

@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
-#include "compiler.h"
+#include "util.h"
 #include "vector.h"
 #include "vty.h"
 #include "command.h"

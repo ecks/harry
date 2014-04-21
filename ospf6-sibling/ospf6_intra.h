@@ -1,6 +1,14 @@
 #ifndef OSPF6_INTRA_H
 #define OSPF6_INTRA_H
 
+/* Router-LSA */
+struct ospf6_router_lsa
+{
+  u_char bits;
+  u_char options[3];
+  /* followed by ospf6_router_lsdesc(s) */
+};
+
 /* Link State Description in Router-LSA */
 struct ospf6_router_lsdesc
 {
@@ -47,16 +55,54 @@ struct ospf6_link_lsa
   /* followed by ospf6 prefix(es) */
 };
 
+/* Intra-Area-Prefix-LSA */
+struct ospf6_intra_prefix_lsa
+{ 
+  u_int16_t prefix_num;
+  u_int16_t ref_type;
+  u_int32_t ref_id;
+  u_int32_t ref_adv_router;
+  /* followed by ospf6 prefix(es) */
+};
+  
+#define OSPF6_ROUTER_LSA_SCHEDULE(oa) \
+  do { \
+    if (! (oa)->thread_router_lsa) \
+      (oa)->thread_router_lsa = \
+        thread_add_event (master, ospf6_router_lsa_originate, oa, 0); \
+  } while (0)
+#define OSPF6_NETWORK_LSA_SCHEDULE(oi) \
+  do { \
+    if (! (oi)->thread_network_lsa) \
+      (oi)->thread_network_lsa = \
+        thread_add_event (master, ospf6_network_lsa_originate, oi, 0); \
+  } while (0)
 #define OSPF6_LINK_LSA_SCHEDULE(oi) \
   do { \
     if (! (oi)->thread_link_lsa) \
       (oi)->thread_link_lsa = \
         thread_add_event (master, ospf6_link_lsa_originate, oi, 0); \
   } while (0)
+#define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa) \
+  do { \
+    if (! (oa)->thread_intra_prefix_lsa) \
+      (oa)->thread_intra_prefix_lsa = \
+        thread_add_event (master, ospf6_intra_prefix_lsa_originate_stub, \
+                          oa, 0); \
+  } while (0)
+#define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi) \
+  do { \
+    if (! (oi)->thread_intra_prefix_lsa) \
+      (oi)->thread_intra_prefix_lsa = \
+        thread_add_event (master, ospf6_intra_prefix_lsa_originate_transit, \
+                          oi, 0); \
+  } while (0)
 
+extern int ospf6_router_lsa_originate (struct thread *thread);
 extern int ospf6_link_lsa_originate(struct thread *);
 
 extern void ospf6_intra_prefix_lsa_add(struct ospf6_lsa * lsa);
 extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa * lsa);
+extern void ospf6_intra_route_calculation(struct ospf6_area * oa);
 
 #endif

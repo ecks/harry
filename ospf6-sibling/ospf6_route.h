@@ -60,6 +60,9 @@ struct ospf6_path
   /* Optional Capabilities */
   u_char options[3];
 
+  /* Associated Area */
+  u_int32_t area_id;
+
   /* Path-type */
   u_char type;
 
@@ -109,6 +112,7 @@ struct ospf6_route
 
 #define OSPF6_ROUTE_CHANGE           0x01
 #define OSPF6_ROUTE_ADD              0x02
+#define OSPF6_ROUTE_REMOVE           0x04
 #define OSPF6_ROUTE_BEST             0x08
 #define OSPF6_ROUTE_WAS_REMOVED      0x40
 
@@ -129,12 +133,19 @@ struct ospf6_route_table
   void (*hook_remove) (struct ospf6_route *);
 };
 
+#define OSPF6_SCOPE_TYPE_NONE      0
+#define OSPF6_SCOPE_TYPE_GLOBAL    1
 #define OSPF6_SCOPE_TYPE_AREA      2
 #define OSPF6_SCOPE_TYPE_INTERFACE 3
 
 #define OSPF6_TABLE_TYPE_NONE              0
 #define OSPF6_TABLE_TYPE_ROUTES            1
 #define OSPF6_TABLE_TYPE_CONNECTED_ROUTES  3
+#define OSPF6_TABLE_TYPE_EXTERNAL_ROUTES   4
+#define OSPF6_TABLE_TYPE_SPF_RESULTS       5
+#define OSPF6_TABLE_TYPE_PREFIX_RANGES     6
+#define OSPF6_TABLE_TYPE_SUMMARY_PREFIXES  7
+#define OSPF6_TABLE_TYPE_SUMMARY_ROUTERS   8
 
 #define OSPF6_ROUTE_TABLE_CREATE(s, t) \
   ospf6_route_table_create (OSPF6_SCOPE_TYPE_ ## s, \

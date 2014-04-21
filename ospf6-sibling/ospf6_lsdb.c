@@ -294,6 +294,58 @@ ospf6_lsdb_type_router_next (u_int16_t type, u_int32_t adv_router,
   return next;
 }
 
+struct ospf6_lsa *
+ospf6_lsdb_type_head (u_int16_t type, struct ospf6_lsdb *lsdb)
+{
+  struct route_node *node;
+  struct prefix_ipv6 key;
+  struct ospf6_lsa *lsa;
+
+  memset (&key, 0, sizeof (key));
+  ospf6_lsdb_set_key (&key, &type, sizeof (type));
+
+  /* Walk down tree. */
+  node = lsdb->table->top;
+  while (node && node->p.prefixlen <= key.prefixlen &&
+         prefix_match (&node->p, (struct prefix *) &key))
+    node = node->link[prefix6_bit(&key.prefix, node->p.prefixlen)];
+
+  if (node)
+    route_lock_node (node);
+  while (node && node->info == NULL)
+    node = route_next (node);
+
+  if (node == NULL)
+    return NULL;
+  else
+    route_unlock_node (node);
+
+  if (! prefix_match ((struct prefix *) &key, &node->p))
+    return NULL;
+
+  lsa = node->info;
+  ospf6_lsa_lock (lsa);
+
+  return lsa;
+}
+
+struct ospf6_lsa *
+ospf6_lsdb_type_next (u_int16_t type, struct ospf6_lsa *lsa)
+{
+  struct ospf6_lsa *next = lsa->next;
+
+  if (next)
+  {
+    if (next->header->type != type)
+      next = NULL;
+  }
+
+  if (next)
+    ospf6_lsa_lock (next);
+  ospf6_lsa_unlock (lsa);
+  return next;
+}
+
 void ospf6_lsdb_remove_all(struct ospf6_lsdb * lsdb)
 {
   struct ospf6_lsa * lsa;

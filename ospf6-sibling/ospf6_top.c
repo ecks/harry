@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -9,6 +11,7 @@
 #include "routeflow-common.h"
 #include "util.h"
 #include "dblist.h"
+#include "prefix.h"
 #include "thread.h"
 #include "vector.h"
 #include "vty.h"
@@ -18,6 +21,7 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
+#include "ospf6_route.h"
 #include "ospf6_top.h"
 
 /* global ospf6d variable */
@@ -37,6 +41,18 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa * lsa)
   // TODO
 }
 
+static void ospf6_top_route_hook_add(struct ospf6_route * route)
+{
+  // ospf6_abr_originate_summary (route);
+//  ospf6_zebra_route_update_add (route);
+}
+
+static void ospf6_top_route_hook_remove(struct ospf6_route * route)
+{
+  // ospf6_abr_originate_summary (route);
+//  ospf6_zebra_route_update_remove (route);
+}
+
 static struct ospf6 * ospf6_create(void)
 {
   struct ospf6 * o;
@@ -49,6 +65,14 @@ static struct ospf6 * ospf6_create(void)
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
  
+  o->route_table = OSPF6_ROUTE_TABLE_CREATE(GLOBAL, ROUTES);
+  o->route_table->scope = o;
+  o->route_table->hook_add = ospf6_top_route_hook_add;
+  o->route_table->hook_remove = ospf6_top_route_hook_remove;
+
+  o->external_table = OSPF6_ROUTE_TABLE_CREATE(GLOBAL, ROUTES);
+  o->external_table->scope = o;
+
   list_init(&o->area_list);
  
   // this should be in separate function

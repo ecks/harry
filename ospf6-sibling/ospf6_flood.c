@@ -45,7 +45,7 @@ struct ospf6_lsdb * ospf6_get_scoped_lsdb_self(struct ospf6_lsa * lsa)
       lsdb_self = OSPF6_INTERFACE (lsa->lsdb->data)->lsdb_self;
       break;
     case OSPF6_SCOPE_AREA:
-//      lsdb_self = OSPF6_AREA (lsa->lsdb->data)->lsdb_self;
+      lsdb_self = OSPF6_AREA (lsa->lsdb->data)->lsdb_self;
       break;
     case OSPF6_SCOPE_AS:
 //      lsdb_self = OSPF6_PROCESS (lsa->lsdb->data)->lsdb_self;
@@ -122,11 +122,18 @@ ospf6_lsa_originate(struct ospf6_lsa * lsa)
     ospf6_lsa_header_print (lsa);
 //  }
 
-//  if (old)
-//    ospf6_flood_clear (old);
-//  ospf6_flood (NULL, lsa);
+  if (old)
+    ospf6_flood_clear (old);
+  ospf6_flood (NULL, lsa);
   ospf6_install_lsa (lsa);
 }
+
+void ospf6_lsa_originate_area (struct ospf6_lsa *lsa,
+                              struct ospf6_area *oa)
+{         
+  lsa->lsdb = oa->lsdb;
+  ospf6_lsa_originate (lsa);
+}   
 
 void
 ospf6_lsa_originate_interface (struct ospf6_lsa *lsa,
@@ -383,6 +390,16 @@ static void ospf6_flood_process (struct ospf6_neighbor *from,
 void ospf6_flood(struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
 {
   ospf6_flood_process(from, lsa, ospf6);
+}
+
+static void ospf6_flood_clear_process(struct ospf6_lsa * lsa, struct ospf6 * process)
+{
+  // TODO
+}
+
+void ospf6_flood_clear(struct ospf6_lsa * lsa)
+{
+  ospf6_flood_clear_process(lsa, ospf6);
 }
 
 /* RFC2328 13.5 (Table 19): Sending link state acknowledgements. */

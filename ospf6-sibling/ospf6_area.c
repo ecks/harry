@@ -36,7 +36,7 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa * lsa)
     break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
-//      ospf6_intra_prefix_lsa_add (lsa);
+      ospf6_intra_prefix_lsa_add (lsa);
       break;
 
     case OSPF6_LSTYPE_INTER_PREFIX:
@@ -79,6 +79,20 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa * lsa)
   }
 }
 
+static void ospf6_area_route_hook_add (struct ospf6_route *route)
+{
+//  struct ospf6_route * copy = ospf6_route_copy(route);
+//  ospf6_route_add(copy, ospf6->route_table);
+}
+
+static void
+ospf6_area_route_hook_remove (struct ospf6_route *route)
+{
+//  struct ospf6_route * copy;
+
+//  copy = ospf6_route_lookup_i
+}
+
 /* Make new area structure */
 struct ospf6_area * ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 {
@@ -95,8 +109,14 @@ struct ospf6_area * ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
   oa->lsdb_self = ospf6_lsdb_create(oa);
 
-  oa->spf_table = OSPF6_ROUTE_TABLE_CREATE(AREA, ROUTES);
+  oa->spf_table = OSPF6_ROUTE_TABLE_CREATE(AREA, SPF_RESULTS);
   oa->spf_table->scope = oa;
+
+  oa->route_table = OSPF6_ROUTE_TABLE_CREATE(AREA, ROUTES);
+  oa->route_table->scope = oa;
+  oa->route_table->hook_add = ospf6_area_route_hook_add;
+  oa->route_table->hook_remove = ospf6_area_route_hook_remove;
+
 
   /* set default options */
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);

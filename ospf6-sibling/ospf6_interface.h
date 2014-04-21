@@ -27,6 +27,9 @@ struct ospf6_interface
   u_int16_t dead_interval;
   u_int32_t rxmt_interval;
 
+  /* Cost */
+  u_int32_t cost;
+
   /* Decision of DR Election */
   u_int32_t drouter;
   u_int32_t bdrouter;

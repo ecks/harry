@@ -479,6 +479,8 @@ static int ospf6_spf_calculation_thread(struct thread * t)
   ospf6_spf_calculation(oa->ospf6->router_id, oa->spf_table, oa);
   zebralite_gettime(ZEBRALITE_CLK_MONOTONIC, &end);
 
+  ospf6_intra_route_calculation(oa);
+
   return 0;
 }
 
