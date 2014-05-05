@@ -18,6 +18,8 @@ extern "C" {
 
 #include "CppUTest/TestHarness.h"
 
+#define LSA_NUM 4 
+
 static unsigned int hello_xid = 0;
 static unsigned int dbdesc_xid = 1;
 
@@ -128,8 +130,8 @@ TEST(ospf6_db_test, ospf6_hello_put_get)
 
 TEST(ospf6_db_test, ospf6_dbdesc_put_get)
 {
-  struct ospf6_header * get_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc) + 2*sizeof(struct ospf6_lsa_header));
-  struct ospf6_header * put_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc) + 2*sizeof(struct ospf6_lsa_header));
+  struct ospf6_header * get_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc) + LSA_NUM*sizeof(struct ospf6_lsa_header));
+  struct ospf6_header * put_oh = (struct ospf6_header *)calloc(1, sizeof(struct ospf6_header) + sizeof(struct ospf6_dbdesc) + LSA_NUM*sizeof(struct ospf6_lsa_header));
 
   struct ospf6_dbdesc * dbdesc;
   struct ospf6_lsa_header * get_lsa_header;
@@ -160,7 +162,7 @@ TEST(ospf6_db_test, ospf6_dbdesc_put_get)
 
   p = (u_char *)((void *)dbdesc + sizeof(struct ospf6_dbdesc));
 
-  for(i = 0; i < 2; i++)
+  for(i = 0; i < LSA_NUM; i++)
   {
     get_lsa_header = (struct ospf6_lsa_header *)p;
     get_lsa_header->age = 5;

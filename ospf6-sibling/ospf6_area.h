@@ -18,6 +18,8 @@ struct ospf6_area
   /* OSPF Option */
   u_char options[3];
 
+  struct ospf6_route_table *range_table;
+
   /* OSPF interface list */
   struct list if_list;
 
@@ -41,6 +43,8 @@ struct ospf6_area
 
 #define IS_AREA_ENABLED(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ENABLE))
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
+
+#define OSPF6_AREA_ID_STR   "Area ID (as an IPv4 notation)\n"
 
 extern struct ospf6_area * ospf6_area_create (u_int32_t, struct ospf6 *);
 extern struct ospf6_area * ospf6_area_lookup (u_int32_t, struct ospf6 *);

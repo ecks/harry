@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
 
   /* initialize ospf6 */
   ospf6_top_init(restart_mode);
+  ospf6_area_init();
 
   sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
   if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_OSPF6_SBLING) < 0))

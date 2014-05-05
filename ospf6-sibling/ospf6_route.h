@@ -109,6 +109,7 @@ struct ospf6_route
 
 #define OSPF6_DEST_TYPE_NETWORK    2
 #define OSPF6_DEST_TYPE_LINKSTATE  4
+#define OSPF6_DEST_TYPE_RANGE      5
 
 #define OSPF6_ROUTE_CHANGE           0x01
 #define OSPF6_ROUTE_ADD              0x02
@@ -171,6 +172,9 @@ struct ospf6_route_table
 
 extern void ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id, struct prefix *prefix);
 extern struct ospf6_route * ospf6_route_create(void);
+extern void ospf6_route_delete (struct ospf6_route *);
+extern struct ospf6_route *ospf6_route_copy (struct ospf6_route *route);
+
 extern struct ospf6_route * ospf6_route_lookup (struct prefix *prefix,
                                                 struct ospf6_route_table *table);
 extern struct ospf6_route * ospf6_route_add(struct ospf6_route * route, 
@@ -179,6 +183,7 @@ extern void ospf6_route_remove (struct ospf6_route *route,
                                 struct ospf6_route_table *table);
 extern struct ospf6_route *ospf6_route_head (struct ospf6_route_table *table);
 extern struct ospf6_route *ospf6_route_next (struct ospf6_route *route);
+extern struct ospf6_route * ospf6_route_best_next (struct ospf6_route *route);
 
 extern void ospf6_route_remove_all (struct ospf6_route_table *);
 extern struct ospf6_route_table *ospf6_route_table_create (int s, int t);

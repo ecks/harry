@@ -93,12 +93,19 @@ struct route_ipv6
 extern struct prefix * prefix_new();
 extern void prefix_free(struct prefix * p);
 extern struct prefix_ipv4 * prefix_ipv4_new();
+extern int str2prefix (const char *str, struct prefix *p);
 extern int prefix2str (const struct prefix *, char *, int);
 #ifdef HAVE_IPV6
 struct prefix_ipv6 * prefix_ipv6_new();
 #endif
 
 struct route_ipv4 * new_route();
+
+/* Max bit/byte length of IPv4 address. */
+#define IPV4_MAX_BITLEN    32
+
+/* Max bit/byte length of IPv6 address. */
+#define IPV6_MAX_BITLEN    128
 
 /* Check bit of the prefix. */
 static inline unsigned int

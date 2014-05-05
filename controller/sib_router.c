@@ -569,6 +569,35 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
         if(xid == sr->current_egress_xid)
         {
           zlog_debug("forward ospf6 packet: xids %d matched from %s", xid, sr->rconn->target);
+
+          struct ospf6_header * oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
+          switch(oh->type)
+          {
+            case OSPF6_MESSAGE_TYPE_HELLO:
+              zlog_debug("hello received");
+              break; 
+
+            case OSPF6_MESSAGE_TYPE_DBDESC:
+              zlog_debug("dbdesc received");
+              break;
+
+            case OSPF6_MESSAGE_TYPE_LSREQ:
+              zlog_debug("lsreq received");
+              break;
+
+            case OSPF6_MESSAGE_TYPE_LSUPDATE:
+              zlog_debug("lsupdate received");
+              break;
+
+            case OSPF6_MESSAGE_TYPE_LSACK:
+              zlog_debug("lsack received");
+              break;
+
+            default:
+              zlog_debug("unknown message received, value: %d\n", oh->type);
+              break;
+          }
+
           struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
           list_init(&msg_rcvd->list_node);
           list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);

@@ -617,6 +617,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * l
       }
       new->lsdb = from->ospf6_if->lsdb;
       break;
+
     case OSPF6_SCOPE_AREA:
       if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
       {
@@ -624,13 +625,15 @@ void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * l
       }
       new->lsdb = from->ospf6_if->area->lsdb;
       break;
+
     case OSPF6_SCOPE_AS:
       if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
       {
         zlog_debug("receive_lsa: scope is as");
       }
-//      new->lsdb = from->ospf6_if->area->ospf6->lsdb; // not implemented
+      new->lsdb = from->ospf6_if->area->ospf6->lsdb; // not implemented
       break;
+
     default:
       if(IS_OSPF6_SIBLING_DEBUG_FLOOD)
       {

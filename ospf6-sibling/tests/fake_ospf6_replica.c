@@ -20,6 +20,11 @@ unsigned int ospf6_replica_get_id()
   return g_id;
 }
 
+unsigned int ospf6_replica_get_leader_id()
+{
+  return 0;
+}
+
 int ospf6_leader_elect()
 {
   return 0;

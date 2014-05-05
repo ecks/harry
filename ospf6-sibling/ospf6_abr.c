@@ -22,3 +22,8 @@ int ospf6_is_router_abr(struct ospf6 * o)
     return 1;
   return 0;
 }
+
+void ospf6_abr_enable_area(struct ospf6_area * area)
+{
+
+}

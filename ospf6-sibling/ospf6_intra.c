@@ -310,6 +310,198 @@ int ospf6_link_lsa_originate(struct thread * thread)
   return 0;
 }
 
+int ospf6_intra_prefix_lsa_originate_transit(struct thread * thread)
+{
+  struct ospf6_interface * oi;
+  char buffer[OSPF6_MAX_LSASIZE];
+  struct ospf6_lsa_header *lsa_header;
+  struct ospf6_lsa * old, * lsa;
+
+  struct ospf6_intra_prefix_lsa * intra_prefix_lsa;
+  struct ospf6_neighbor * on;
+  struct ospf6_route * route;
+  struct ospf6_prefix * op;
+  int full_count = 0;
+  unsigned short prefix_num = 0;
+  struct ospf6_route_table * route_advertise;
+  struct ospf6_link_lsa * link_lsa;
+  char * start, * end, * current;
+  u_int16_t type;
+
+  oi = (struct ospf6_interface *) THREAD_ARG (thread);
+  oi->thread_intra_prefix_lsa = NULL;
+
+  assert (oi->area);
+
+  /* find previous LSA */
+  old = ospf6_lsdb_lookup (htons (OSPF6_LSTYPE_INTRA_PREFIX),
+                                  htonl (oi->interface->ifindex),
+                                  oi->area->ospf6->router_id, oi->area->lsdb);
+
+//  if(CHECK_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE))
+//  {    
+//    if (old)
+//      ospf6_lsa_purge (old);
+//    return 0;
+//  }    
+
+//  if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//    zlog_debug ("Originate Intra-Area-Prefix-LSA for interface %s's prefix",
+//                oi->interface->name);
+
+  /* prepare buffer */
+  memset (buffer, 0, sizeof (buffer));
+  lsa_header = (struct ospf6_lsa_header *) buffer;
+  intra_prefix_lsa = (struct ospf6_intra_prefix_lsa *)
+                ((void *) lsa_header + sizeof (struct ospf6_lsa_header));
+
+  /* Fill Intra-Area-Prefix-LSA */
+  intra_prefix_lsa->ref_type = htons (OSPF6_LSTYPE_NETWORK);
+  intra_prefix_lsa->ref_id = htonl (oi->interface->ifindex);
+  intra_prefix_lsa->ref_adv_router = oi->area->ospf6->router_id;
+
+  if (oi->state != OSPF6_INTERFACE_DR)
+  {    
+//    if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      zlog_debug ("  Interface is not DR");
+    if (old)
+      ospf6_lsa_purge (old);
+    return 0;
+  }    
+
+  full_count = 0; 
+  LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list)
+    if (on->state == OSPF6_NEIGHBOR_FULL)
+      full_count++;
+
+  if (full_count == 0)
+  {
+//    if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      zlog_debug ("  Interface is stub");
+    if (old)
+      ospf6_lsa_purge (old);
+    return 0;
+  }
+
+  /* connected prefix to advertise */
+  route_advertise = ospf6_route_table_create (0, 0);
+
+  type = ntohs (OSPF6_LSTYPE_LINK);
+  for (lsa = ospf6_lsdb_type_head (type, oi->lsdb); lsa;
+       lsa = ospf6_lsdb_type_next (type, lsa))
+  {
+    if (OSPF6_LSA_IS_MAXAGE (lsa))
+      continue;
+
+//    if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      zlog_debug ("  include prefix from %s", lsa->name);
+
+    if (lsa->header->adv_router != oi->area->ospf6->router_id)
+    {
+      on = ospf6_neighbor_lookup (lsa->header->adv_router, oi);
+      if (on == NULL || on->state != OSPF6_NEIGHBOR_FULL)
+      {
+//        if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//          zlog_debug ("    Neighbor not found or not Full, ignore");
+        continue;
+      }
+    }
+
+    link_lsa = (struct ospf6_link_lsa *)
+        ((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
+
+    prefix_num = (unsigned short) ntohl (link_lsa->prefix_num);
+    start = (char *) link_lsa + sizeof (struct ospf6_link_lsa);
+    end = (char *) lsa->header + ntohs (lsa->header->length);
+    for (current = start; current < end && prefix_num;
+         current += OSPF6_PREFIX_SIZE (op))
+    {
+      op = (struct ospf6_prefix *) current;
+      if (op->prefix_length == 0 ||
+        current + OSPF6_PREFIX_SIZE (op) > end)
+      break;
+
+      route = ospf6_route_create ();
+      route->type = OSPF6_DEST_TYPE_NETWORK;
+      route->prefix.family = AF_INET6;
+      route->prefix.prefixlen = op->prefix_length;
+      memset (&route->prefix.u.prefix6, 0, sizeof (struct in6_addr));
+      memcpy (&route->prefix.u.prefix6, OSPF6_PREFIX_BODY (op),
+              OSPF6_PREFIX_SPACE (op->prefix_length));
+
+      route->path.origin.type = lsa->header->type;
+      route->path.origin.id = lsa->header->id;
+      route->path.origin.adv_router = lsa->header->adv_router;
+      route->path.options[0] = link_lsa->options[0];
+      route->path.options[1] = link_lsa->options[1];
+      route->path.options[2] = link_lsa->options[2];
+      route->path.prefix_options = op->prefix_options;
+      route->path.area_id = oi->area->area_id;
+      route->path.type = OSPF6_PATH_TYPE_INTRA;
+
+//      if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      {
+//        prefix2str (&route->prefix, buf, sizeof (buf));
+//        zlog_debug ("    include %s", buf);
+//      }
+
+      ospf6_route_add (route, route_advertise);
+      prefix_num--;
+    }
+//    if(current != end && IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      zlog_debug ("Trailing garbage in %s", lsa->name);
+  }
+
+  op = (struct ospf6_prefix *)
+            ((caddr_t) intra_prefix_lsa + sizeof (struct ospf6_intra_prefix_lsa));
+
+  prefix_num = 0;
+  for (route = ospf6_route_head (route_advertise); route;
+       route = ospf6_route_best_next (route))
+  {
+    op->prefix_length = route->prefix.prefixlen;
+    op->prefix_options = route->path.prefix_options;
+    op->prefix_metric = htons (0);
+    memcpy(OSPF6_PREFIX_BODY (op), &route->prefix.u.prefix6,
+           OSPF6_PREFIX_SPACE (op->prefix_length));
+    op = OSPF6_PREFIX_NEXT (op);
+    prefix_num++;
+  }
+
+  ospf6_route_table_delete (route_advertise);
+
+  if (prefix_num == 0)
+  {
+//    if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
+//      zlog_debug ("Quit to Advertise Intra-Prefix: no route to advertise");
+    return 0;
+  }
+
+  intra_prefix_lsa->prefix_num = htons (prefix_num);
+
+  /* Fill LSA Header */
+  lsa_header->age = 0;
+  lsa_header->type = htons (OSPF6_LSTYPE_INTRA_PREFIX);
+  lsa_header->id = htonl (oi->interface->ifindex);
+  lsa_header->adv_router = oi->area->ospf6->router_id;
+  lsa_header->seqnum =
+  ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                                                             lsa_header->adv_router, oi->area->lsdb);
+  lsa_header->length = htons ((caddr_t) op - (caddr_t) lsa_header);
+
+  /* LSA checksum */
+  ospf6_lsa_checksum (lsa_header);
+
+  /* create LSA */
+  lsa = ospf6_lsa_create (lsa_header);
+
+  /* Originate */
+  ospf6_lsa_originate_area (lsa, oi->area);
+
+
+  return 0;
+}
+
 void ospf6_intra_prefix_lsa_add(struct ospf6_lsa * lsa)
 {
   struct ospf6_area * oa;

@@ -280,6 +280,8 @@ int ospf6_dbdesc_send(struct thread * thread)
     }
   }
 
+  // need to do this everytime that we reuse the pointer since it may be stale
+  oh = (struct ospf6_header *)rfpbuf_at_assert(on->ospf6_if->ctrl_client->obuf, sizeof(struct rfp_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header));
   oh->type = OSPF6_MESSAGE_TYPE_DBDESC;
   oh->length = htons(p - (u_char *)(oh));
 
@@ -401,6 +403,7 @@ int ospf6_lsreq_send(struct thread * thread)
     p += sizeof (struct ospf6_lsreq_entry);
   }  
 
+  oh = (struct ospf6_header *)rfpbuf_at_assert(on->ospf6_if->ctrl_client->obuf, sizeof(struct rfp_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header));
   oh->type = OSPF6_MESSAGE_TYPE_LSREQ;
   oh->length = htons (p - (u_char *)oh);
 
@@ -491,18 +494,22 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
     memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));
     p += OSPF6_LSA_SIZE (lsa->header);
     num++;
-  }
+ }
 
+ // need to do this everytime that we reuse the pointer since it may be stale
+ lsupdate = (struct ospf6_lsupdate *)rfpbuf_at_assert(on->ospf6_if->ctrl_client->obuf, sizeof(struct rfp_header) + sizeof(struct ospf6_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header) + sizeof(struct ospf6_lsupdate));
  lsupdate->lsa_number = htonl (num);
 
+
+ oh = (struct ospf6_header *)rfpbuf_at_assert(on->ospf6_if->ctrl_client->obuf, sizeof(struct rfp_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header));
  oh->type = OSPF6_MESSAGE_TYPE_LSUPDATE;
  oh->length = htons (p - (u_char *)oh);
 
  ospf6_fill_header(on->ospf6_if, oh);
 
- retval = ospf6_msg_send(on->ospf6_if);
+ zlog_debug("Size of LSUpdate before sending is: %d", on->ospf6_if->ctrl_client->obuf->size);
 
- zlog_debug("xid is now %d", on->ospf6_if->ctrl_client->current_xid);
+ retval = ospf6_msg_send(on->ospf6_if);
 
  if (on->lsupdate_list->count != 0 ||
      on->retrans_list->count != 0)
@@ -584,6 +591,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
     ospf6_lsdb_remove (lsa, on->lsack_list);
   }    
 
+  oh = (struct ospf6_header *)rfpbuf_at_assert(on->ospf6_if->ctrl_client->obuf, sizeof(struct rfp_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header));
   oh->type = OSPF6_MESSAGE_TYPE_LSACK;
   oh->length = htons (p - (u_char *)oh);
 
@@ -653,6 +661,7 @@ int ospf6_lsack_send_interface (struct thread *thread)
     ospf6_lsdb_remove (lsa, oi->lsack_list);
   }
 
+  oh = (struct ospf6_header *)rfpbuf_at_assert(oi->ctrl_client->obuf, sizeof(struct rfp_header), sizeof(struct rfp_header) + sizeof(struct ospf6_header));
   oh->type = OSPF6_MESSAGE_TYPE_LSACK;
   oh->length = htons (p - (u_char *)oh);
 
@@ -682,6 +691,7 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   struct ospf6_neighbor * on;
   char * p;
   int twoway = 0;
+  int neighborchange = 0;
   int retval;
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
@@ -734,12 +744,43 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   }
   // mutex unlock
 
+  /* RouterPriority check */
+  if (on->priority != hello->priority)
+  {    
+    on->priority = hello->priority;
+      neighborchange++;
+  }    
+
+  /* DR check */
+  if (on->drouter != hello->drouter)
+  {    
+    on->prev_drouter = on->drouter;
+    on->drouter = hello->drouter;
+    if (on->prev_drouter == on->router_id || on->drouter == on->router_id)
+      neighborchange++;
+  }    
+
+  /* BDR check */
+  if (on->bdrouter != hello->bdrouter)
+  {    
+    on->prev_bdrouter = on->bdrouter;
+    on->bdrouter = hello->bdrouter;
+    if (on->prev_bdrouter == on->router_id || on->bdrouter == on->router_id)
+      neighborchange++;
+  } 
+
   /* Execute neighbor events */
   thread_execute(master, hello_received, on, 0);
   if(twoway)
     thread_execute(master, twoway_received, on, 0);
   else
     thread_execute(master, oneway_received, on, 0);
+
+  /* Schedule interface events */
+//  if(backupseen)
+//    thread_add_event(master, backup_seen, oi, 0);
+  if(neighborchange)
+    thread_add_event(master, neighbor_change, oi, 0);
 
   // mutex lock
   if(!ospf6->restart_mode)

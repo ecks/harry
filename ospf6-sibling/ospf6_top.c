@@ -179,6 +179,7 @@ DEFUN(ospf6_interface_area,
   /* start up */
   thread_add_event(master, interface_up, oi, 0);
 
+  // abr
   return CMD_SUCCESS;
 }
 

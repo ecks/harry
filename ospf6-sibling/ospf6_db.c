@@ -178,9 +178,9 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   /* initialize memory buffers */
   bucket = calloc(ID_SIZE, sizeof(char));
   key = calloc(ID_SIZE, sizeof(char));
-  json_msg = calloc(DATA_SIZE*2, sizeof(char));
-  json_lsa_headers = calloc(DATA_SIZE, sizeof(char));
-  json_packed = calloc(DATA_SIZE*3, sizeof(char));
+  json_msg = calloc(DATA_SIZE*3, sizeof(char));
+  json_lsa_headers = calloc(DATA_SIZE*3, sizeof(char));
+  json_packed = calloc(DATA_SIZE*4, sizeof(char));
 
   json_header = ospf6_db_json_header(oh);
 
@@ -220,10 +220,19 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
     sprintf(json_lsa_header_iter, "%s", json_lsa_header);
     json_lsa_header_iter += strlen(json_lsa_header);
 
+    if(IS_OSPF6_SIBLING_DEBUG_MSG)
+    {
+      zlog_debug("json_lsa_header: %s", json_lsa_header);
+      zlog_debug("json_lsa_headers: %s, strlen: %d", json_lsa_headers, strlen(json_lsa_headers));
+    }
+
+
     free(json_lsa_header);
   }
 
-  *json_lsa_header_iter = ']';
+   *json_lsa_header_iter = ']';
+  json_lsa_header_iter++;
+  *json_lsa_header_iter = '\0';
 
   sprintf(json_msg, "{reserved1: %d, options_0: %d, options_1: %d, options_2: %d, ifmtu: %d, reserved2: %d, bits: %d, seqnum: %d, lsa_headers: %s}",
     dbdesc->reserved1,
@@ -235,6 +244,9 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
     dbdesc->bits,
     dbdesc->seqnum,
     json_lsa_headers);
+
+  // dont need this string anymore so lets free it
+  free(json_lsa_headers);
 
   sprintf(json_packed, "{header: %s, dbdesc: %s}", json_header, json_msg);
 
@@ -276,7 +288,6 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   riack_put(ospf6->riack_client, object, 0, 0);
 
   free(json_packed);
-  free(json_lsa_headers);
   free(json_msg);
   free(json_header);
 
@@ -315,7 +326,7 @@ char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_hea
       content_size = obj.object.content[0].data_len;
       output_data = calloc(content_size, sizeof(char));
       strncpy(output_data, obj.object.content[0].data, content_size);
-      if(OSPF6_SIBLING_DEBUG_RESTART)
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
         zlog_debug("output data: %s", output_data);
       }

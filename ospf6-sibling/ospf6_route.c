@@ -55,6 +55,20 @@ void ospf6_route_delete(struct ospf6_route * route)
   free(route);
 }
 
+struct ospf6_route * ospf6_route_copy(struct ospf6_route * route)
+{
+  struct ospf6_route *new;
+
+  new = ospf6_route_create ();
+  memcpy (new, route, sizeof (struct ospf6_route));
+  new->rnode = NULL;
+  new->prev = NULL;
+  new->next = NULL;
+  new->table = NULL;
+  new->lock = 0; 
+  return new; 
+}
+
 void ospf6_route_lock(struct ospf6_route * route)
 {
   route->lock++;
@@ -439,6 +453,28 @@ struct ospf6_route * ospf6_route_next(struct ospf6_route * route)
   return next;
 }
 
+struct ospf6_route *
+ospf6_route_best_next (struct ospf6_route *route)
+{
+  struct route_node *rnode;
+  struct ospf6_route *next;
+
+  rnode = route->rnode;
+  route_lock_node (rnode);
+  rnode = route_next (rnode);
+  while (rnode && rnode->info == NULL)
+    rnode = route_next (rnode);
+  if (rnode == NULL)
+    return NULL;
+  route_unlock_node (rnode);
+
+  assert (rnode->info);
+  next = (struct ospf6_route *) rnode->info;
+  ospf6_route_unlock (route);
+  ospf6_route_lock (next);
+  return next;
+}
+
 void ospf6_route_remove_all(struct ospf6_route_table * table)
 {
   struct ospf6_route * route;
@@ -446,6 +482,13 @@ void ospf6_route_remove_all(struct ospf6_route_table * table)
   {
     ospf6_route_remove(route, table);
   }
+}
+
+extern void ospf6_route_table_delete (struct ospf6_route_table *table)
+{
+  ospf6_route_remove_all (table);
+  route_table_finish (table->table);
+  free(table);
 }
 
 struct ospf6_route_table * ospf6_route_table_create(int s, int t)

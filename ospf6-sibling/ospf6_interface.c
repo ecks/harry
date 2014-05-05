@@ -59,8 +59,19 @@ struct ospf6_interface * ospf6_interface_lookup_by_ifindex (int ifindex)
 }
 
 static void ospf6_interface_lsdb_hook(struct ospf6_lsa * lsa)
+
 {
-  // TODO
+  switch (ntohs (lsa->header->type))
+  {    
+    case OSPF6_LSTYPE_LINK:
+      if (OSPF6_INTERFACE (lsa->lsdb->data)->state == OSPF6_INTERFACE_DR)
+        OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (OSPF6_INTERFACE (lsa->lsdb->data));
+      ospf6_spf_schedule (OSPF6_INTERFACE (lsa->lsdb->data)->area);
+      break;
+
+    default:
+      break;
+  }    
 }
 
 /* Create new ospf6 interface structure */
@@ -430,12 +441,15 @@ int wait_timer(struct thread * thread)
 
 int neighbor_change(struct thread * thread)
 {
-  struct ospf6_intreface * oi;
+  struct ospf6_interface * oi;
 
   oi = THREAD_ARG(thread);
-//  assert(oi && oi->interface);
+  assert(oi && oi->interface);
 
-  // dr election
+  if (oi->state == OSPF6_INTERFACE_DROTHER ||
+      oi->state == OSPF6_INTERFACE_BDR ||
+      oi->state == OSPF6_INTERFACE_DR)
+    ospf6_interface_state_change (dr_election (oi), oi); 
 
 
   return 0;

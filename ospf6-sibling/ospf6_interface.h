@@ -43,7 +43,7 @@ struct ospf6_interface
   struct list node;
 
   /* Linklocal LSA Database: includes Link-LSA */
-  struct ospf6_lsdb * lsdb;;
+  struct ospf6_lsdb * lsdb;
   struct ospf6_lsdb * lsdb_self;
 
   struct ospf6_lsdb * lsupdate_list;
@@ -53,7 +53,9 @@ struct ospf6_interface
   struct thread *thread_send_hello;
   struct thread *thread_send_lsupdate;
   struct thread *thread_send_lsack;
+
   struct thread * thread_link_lsa;
+  struct thread *thread_intra_prefix_lsa;
 
   struct ospf6_route_table * route_connected;
 };

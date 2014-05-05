@@ -55,7 +55,7 @@ static void ospf6_neighbor_state_change(u_char next_state, struct ospf6_neighbor
     if(on->ospf6_if->state == OSPF6_INTERFACE_DR)
     {
 //       OSPF6_NETWORK_LSA_SCHEDULE (on->ospf6_if);
-//       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (on->ospf6_if);
+       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (on->ospf6_if);
     }
 //    OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (on->ospf6_if->area);
   }
