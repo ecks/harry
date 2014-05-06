@@ -77,6 +77,7 @@ static int zl_client_read(struct thread * t)
   struct ospf6_header * oh;
   uint16_t oh_msg_length;
   uint16_t length;
+  uint32_t xid;
   uint8_t type;
   size_t already = 0;
   ssize_t nbyte;
@@ -108,6 +109,7 @@ static int zl_client_read(struct thread * t)
 
   rh = rfpbuf_at_assert(zl_client->ibuf, 0, sizeof(struct rfp_header));
   length = ntohs(rh->length);
+  xid = ntohl(rh->xid);
   type = rh->type;
   rfpbuf_prealloc_tailroom(zl_client->ibuf, length - already);
 
@@ -133,11 +135,39 @@ static int zl_client_read(struct thread * t)
   switch(type)
   {
     case RFPT_FORWARD_OSPF6:
-      printf("Received OSPF6 handling traffic\n");
+      printf("Received OSPF6 handling traffic with length: %d and xid: %d\n", length, xid);
       rh = rfpbuf_at_assert(zl_client->ibuf, 0, sizeof(struct rfp_header));
 
       oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
       oh_msg_length = ntohs(oh->length);
+
+      switch(oh->type)
+      {
+        case OSPF6_MESSAGE_TYPE_HELLO:
+          printf("About to send HELLO\n");
+          break; 
+
+        case OSPF6_MESSAGE_TYPE_DBDESC:
+          printf("About to send DBDESC\n");
+          break;
+
+        case OSPF6_MESSAGE_TYPE_LSREQ:
+          printf("About to send LSREQ\n");
+          break;
+
+        case OSPF6_MESSAGE_TYPE_LSUPDATE:
+          printf("About to send LSUPDATE\n");
+          break;
+
+        case OSPF6_MESSAGE_TYPE_LSACK:
+          printf("About to send LSACK\n");
+          break;
+
+        default:
+          printf("About to send msg with unknown type\n");
+          break;
+
+      }
 
       if(zl_client->obuf == NULL)
       {

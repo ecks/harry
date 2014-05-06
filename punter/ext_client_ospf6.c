@@ -353,8 +353,22 @@ static int ext_client_ospf6_recvmsg(struct ext_client_ospf6 * ext_client_ospf6)
       printf("DBDESC received\n");
       break;
 
-    default:
+    case OSPF6_MESSAGE_TYPE_LSREQ:
+      printf("LSREQ received\n");
       break;
+
+    case OSPF6_MESSAGE_TYPE_LSUPDATE:
+      printf("LSUPDATE received\n");
+      break;
+
+    case OSPF6_MESSAGE_TYPE_LSACK:
+      printf("LSACK received\n");
+      break;
+
+    default:
+      printf("received msg with unknown type\n");
+      break;
+
   }
 
   return len;
@@ -490,8 +504,6 @@ static int ext_client_ospf6_recv(struct thread * t)
   // put a header with a unique xid
   P(ext_client_ospf6).ibuf = routeflow_alloc(RFPT_FORWARD_OSPF6, RFP10_VERSION, sizeof(struct rfp_header));
 
-  rh = P(ext_client_ospf6).ibuf->l2;
-
   oh = rfpbuf_put_uninit(P(ext_client_ospf6).ibuf, sizeof(struct ospf6_header));
 
   // copy data over, put the ospf6 header first
@@ -505,6 +517,10 @@ static int ext_client_ospf6_recv(struct thread * t)
 
   // copy the body of the data
   ext_client_ospf6_iobuf_cpy_mem_from_offset(ospf6_body, sizeof(struct ospf6_header), ospf6_body_len);
+
+  rh = P(ext_client_ospf6).ibuf->l2;
+
+  printf("xid tag of received msg: %d\n", ntohl(rh->xid));
 
   // update the length in the rfp header
   rh->length = htons(sizeof(struct rfp_header) + ospf6_len);

@@ -319,7 +319,7 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
         break;
 
       case RFPT_FORWARD_OSPF6:
-        printf("Forwarding OSPF6 traffic\n");
+        printf("Forwarding OSPF6 traffic with length %d and xid %d\n", ntohs(rh->length), ntohl(rh->xid));
         handler = forward_ospf6_msg;
         break;
 
