@@ -44,7 +44,7 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa * lsa)
 static void ospf6_top_route_hook_add(struct ospf6_route * route)
 {
   // ospf6_abr_originate_summary (route);
-//  ospf6_zebra_route_update_add (route);
+  sibling_ctrl_route_set(route);
 }
 
 static void ospf6_top_route_hook_remove(struct ospf6_route * route)

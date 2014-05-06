@@ -63,6 +63,7 @@ enum rfp_type {
     RFPT_STATS_ROUTES_REPLY,      /* Controller/switch message */
     RFPT_REDISTRIBUTE_REQUEST,    /* Sibling/controller message */
     RFPT_IPV4_ROUTE_ADD,          /* Controller/sibling message */
+    RFPT_IPV6_ROUTE_SET_REQUEST,  /* Controller/sibling message */
     RFPT_IF_ADDRESS_REQ,         /* Sibling/controller message */
     RFPT_IPV4_ADDRESS_ADD,        /* Controller/sibling message */
     RFPT_IPV6_ADDRESS_ADD,        /* Controller/sibling message */
@@ -182,6 +183,12 @@ struct rfp_ipv4_route {
   struct rfp_header header;
   uint16_t prefixlen;
   uint32_t p;
+};
+
+struct rfp_ipv6_route {
+  struct rfp_header header;
+  uint16_t prefixlen;
+  uint32_t p[4];
 };
 
 struct rfp_ipv4_address {

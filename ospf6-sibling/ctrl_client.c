@@ -21,6 +21,7 @@
 #include "debug.h"
 #include "thread.h"
 #include "ospf6_top.h"
+#include "ospf6_route.h"
 #include "ospf6_restart.h"
 #include "ospf6_interface.h"
 #include "ctrl_client.h"
@@ -399,6 +400,23 @@ static int ctrl_client_connected(struct thread * t)
 
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_REDISTRIBUTE_REQUEST, RFP10_VERSION, 
                                           htonl(ctrl_client->current_xid), sizeof(struct rfp_header));
+  retval = ctrl_send_message(ctrl_client);
+  ctrl_client->current_xid++;
+
+  return 0;
+}
+
+int ctrl_client_route_set(struct ctrl_client * ctrl_client, struct ospf6_route * route)
+{
+  int retval;
+
+  ctrl_client->obuf = routeflow_alloc_xid(RFPT_IPV6_ROUTE_SET_REQUEST, RFP10_VERSION,
+                                          htonl(ctrl_client->current_xid), sizeof(struct rfp_ipv6_route));
+
+  struct rfp_ipv6_route * rir = rfpbuf_at_assert(ctrl_client->obuf, 0, sizeof(struct rfp_ipv6_route));
+  rir->prefixlen = htons(route->prefix.prefixlen);
+  memcpy(&rir->p, &route->prefix.u.prefix, sizeof(struct in6_addr));
+
   retval = ctrl_send_message(ctrl_client);
   ctrl_client->current_xid++;
 

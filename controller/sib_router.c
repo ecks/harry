@@ -564,6 +564,13 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_IPV6_ROUTE_SET_REQUEST:
+      if(IS_CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("IPv6 Route Set Request, xid: %d from %s", xid, sr->rconn->target);
+      }
+      break;
+
     case RFPT_FORWARD_OSPF6:
       {
         if(xid == sr->current_egress_xid)

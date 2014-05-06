@@ -16,7 +16,8 @@
 #include "thread.h"
 #include "prefix.h"
 #include "if.h"
-#include "ospf6_interface.h"
+#include "ospf6_interface.h" 
+#include "ospf6_route.h"
 #include "ospf6_replica.h"
 #include "ctrl_client.h"
 #include "sibling_ctrl.h"
@@ -146,6 +147,11 @@ int if_address_add_v6(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   ospf6_interface_connected_route_update(ifc->ifp);
 
   return 0;
+}
+
+void sibling_ctrl_route_set(struct ospf6_route * route)
+{
+  ctrl_client_route_set(ctrl_client, route);  
 }
 
 int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
