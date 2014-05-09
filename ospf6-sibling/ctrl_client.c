@@ -416,6 +416,8 @@ int ctrl_client_route_set(struct ctrl_client * ctrl_client, struct ospf6_route *
   struct rfp_ipv6_route * rir = rfpbuf_at_assert(ctrl_client->obuf, 0, sizeof(struct rfp_ipv6_route));
   rir->prefixlen = htons(route->prefix.prefixlen);
   memcpy(&rir->p, &route->prefix.u.prefix, sizeof(struct in6_addr));
+  rir->ifindex = htons(route->nexthop[0].ifindex);
+  memcpy(&rir->nexthop_addr, &route->nexthop[0].address, sizeof(struct in6_addr));
 
   retval = ctrl_send_message(ctrl_client);
   ctrl_client->current_xid++;

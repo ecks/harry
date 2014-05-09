@@ -286,6 +286,13 @@ all_have_msg_rcvd()
   return true;
 }
 
+static void append_msg_to_rcvd_queue(struct sib_router * sr, struct rfpbuf * msg)
+{
+  struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
+  list_init(&msg_rcvd->list_node);
+  list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
+}
+
 static void
 vote_majority()
 {
@@ -569,6 +576,34 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       {
         zlog_debug("IPv6 Route Set Request, xid: %d from %s", xid, sr->rconn->target);
       }
+      if(xid == sr->current_egress_xid)
+      {
+        append_msg_to_rcvd_queue(sr, msg);
+        // first we check if all siblings are connected,
+        // then we check if majority have received the messages
+        if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
+          (majority_have_msg_rcvd()))
+        {
+          // increment the current xid inside vote_majority
+          vote_majority();
+        }
+      }
+      else if(xid > sr->current_egress_xid)
+      {
+        // we need to append the message at the end of the list
+        if(CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("forward ospf6 packet: queued for later, xid %d from %s, current egress xid: %d", xid, sr->rconn->target, sr->current_egress_xid);
+        }
+        append_msg_to_rcvd_queue(sr, msg);
+      }
+      else
+      {
+        if(CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("forward ospf6 packet: rejected, xid %d from %s, current egress xid: %d", xid, sr->rconn->target, sr->current_egress_xid);
+        }
+      }
       break;
 
     case RFPT_FORWARD_OSPF6:
@@ -605,9 +640,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
               break;
           }
 
-          struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
-          list_init(&msg_rcvd->list_node);
-          list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
+          append_msg_to_rcvd_queue(sr, msg);
           // first we check if all siblings are connected,
           // then we check if majority have received the messages
           if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
@@ -623,10 +656,8 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
           if(CONTROLLER_DEBUG_MSG)
           {
             zlog_debug("forward ospf6 packet: queued for later, xid %d from %s, current egress xid: %d", xid, sr->rconn->target, sr->current_egress_xid);
-            struct rfpbuf * msg_rcvd = rfpbuf_clone(msg);
-            list_init(&msg_rcvd->list_node);
-            list_push_back(&sr->msgs_rcvd_queue, &msg_rcvd->list_node);
           }
+          append_msg_to_rcvd_queue(sr, msg);
          }
         else
         {

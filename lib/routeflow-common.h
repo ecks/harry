@@ -189,6 +189,8 @@ struct rfp_ipv6_route {
   struct rfp_header header;
   uint16_t prefixlen;
   uint32_t p[4];
+  uint32_t ifindex;
+  uint32_t nexthop_addr;
 };
 
 struct rfp_ipv4_address {
