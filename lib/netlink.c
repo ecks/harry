@@ -74,6 +74,50 @@ netlink_socket(struct nlsock * nl, unsigned long groups)
   return ret;
 }
 
+/* Utility function  comes from iproute2. 
+   Authors:     Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru> */
+static int
+addattr_l (struct nlmsghdr *n, int maxlen, int type, void *data, int alen)
+{
+  int len;
+  struct rtattr *rta;
+
+  len = RTA_LENGTH (alen);
+
+  if (NLMSG_ALIGN (n->nlmsg_len) + len > maxlen)
+    return -1;
+
+  rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
+  rta->rta_type = type;
+  rta->rta_len = len;
+  memcpy (RTA_DATA (rta), data, alen);
+  n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + len;
+
+  return 0;
+}
+
+/* Utility function comes from iproute2. 
+ *    Authors:     Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru> */
+static int
+addattr32 (struct nlmsghdr *n, int maxlen, int type, int data)
+{
+  int len; 
+  struct rtattr *rta;
+
+  len = RTA_LENGTH (4); 
+
+  if (NLMSG_ALIGN (n->nlmsg_len) + len > maxlen)
+    return -1;
+
+  rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
+  rta->rta_type = type;
+  rta->rta_len = len; 
+  memcpy (RTA_DATA (rta), &data, 4);
+  n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + len; 
+
+  return 0;
+}
+
 /* Get type specified information from netlink. */
 static int
 netlink_request (int family, int type, struct nlsock *nl)
@@ -564,6 +608,51 @@ int netlink_link_read(struct netlink_port_info * info)
   ret = netlink_parse_info ( netlink_interface, &netlink_cmd, (void*)info);
   if (ret < 0)
     return ret;
+
+  return 0;
+}
+
+int netlink_route_set(struct prefix * p, unsigned int ifindex, struct in6_addr * gateway_addr)
+{
+  int ret;
+  int bytelen;
+  int save_errno;
+  struct sockaddr_nl snl;
+
+  struct
+  {
+    struct nlmsghdr nlh;
+    struct rtmsg r;
+    char buf[1024];
+  } req; 
+
+  memset(&snl, 0, sizeof snl);
+  snl.nl_family = AF_NETLINK;
+
+  memset(&req, 0, sizeof req);
+
+  bytelen = 16;
+
+  req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.nlh.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+  req.nlh.nlmsg_type = RTM_NEWROUTE;
+  req.r.rtm_family = AF_INET6;
+  req.r.rtm_table = RT_TABLE_MAIN;
+  req.r.rtm_dst_len = p->prefixlen;
+  req.r.rtm_protocol = RTPROT_ZEBRA;
+  req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+  req.r.rtm_type = RTN_UNICAST;
+  
+  addattr_l(&req.nlh, sizeof(req), RTA_DST, &p->u.prefix, bytelen);
+  addattr32(&req.nlh, sizeof(req), RTA_OIF, ifindex);
+  addattr_l(&req.nlh, sizeof(req), RTA_GATEWAY, gateway_addr, sizeof(struct in6_addr));
+
+  ret = sendto(netlink_cmd.sock, (void *) &req, sizeof(req), 0,
+               (struct sockaddr *) &snl, sizeof(snl));
+  save_errno = errno;
+
+  if(ret < 0)
+    return -1;
 
   return 0;
 }

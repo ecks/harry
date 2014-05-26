@@ -276,6 +276,37 @@ recv_stats_routes_request(struct conn * conn, const struct sender * sender,
   return 0;
 }
 
+static int 
+recv_ipv6_route_set_request(struct conn * conn, const struct sender * sender,
+                            struct rfpbuf * msg) 
+{
+  struct route_ipv6 * route;
+  struct rfp_ipv6_route * rfp_route;
+  struct in6_addr * nexthop_addr;
+
+  rfp_route = rfpbuf_at_assert(msg, 0, sizeof(struct rfp_ipv6_route));
+
+  route = calloc(1, sizeof(struct route_ipv6));
+  route->p = calloc(1, sizeof(struct prefix_ipv6));
+
+  route->p->family = AF_INET6;
+  memcpy(&route->p->prefix, rfp_route->p, 16);
+  route->p->prefixlen = ntohs(rfp_route->prefixlen);
+  route->ifindex = ntohs(rfp_route->ifindex);
+  
+  nexthop_addr = calloc(1, sizeof(struct in6_addr));
+  memcpy(nexthop_addr, &rfp_route->nexthop_addr, sizeof(struct in6_addr));
+
+  set_route_v6(route, nexthop_addr);
+
+  // the routes are set, so free memory
+  free(route->p);
+  free(route);
+  free(nexthop_addr);
+
+  return 0;
+}
+
 static int
 forward_ospf6_msg(struct conn * conn, const struct sender * sender, struct rfpbuf * msg)
 {
@@ -316,6 +347,11 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
       case RFPT_STATS_ROUTES_REQUEST:
         printf("Receiving stats routes request message\n");
         handler = recv_stats_routes_request;
+        break;
+
+      case RFPT_IPV6_ROUTE_SET_REQUEST:
+        printf("Receiving IPv6 Route Set Request\n");
+        handler = recv_ipv6_route_set_request;
         break;
 
       case RFPT_FORWARD_OSPF6:

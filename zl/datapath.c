@@ -281,6 +281,22 @@ get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
   }
 }
 
+void 
+set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr)
+{
+  if(IS_ZEBRALITE_DEBUG_RIB)
+  {
+    char prefix_str[INET6_ADDRSTRLEN];
+    if(inet_ntop(AF_INET6, &(route->p->prefix.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+      zlog_debug("Adding route to kernel rib: %s/%d", prefix_str, route->p->prefixlen);
+    char nexthop_str[INET6_ADDRSTRLEN];
+    if(inet_ntop(AF_INET6, nexthop_addr, nexthop_str, INET6_ADDRSTRLEN) != 1)
+      zlog_debug("Nexthop addr is %s", nexthop_str);
+  }
+
+  install_route_v6(route, nexthop_addr);
+}
+
 /*
 static void
 rfconn_run(struct datapath * dp, struct rfconn *r)

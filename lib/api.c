@@ -71,3 +71,10 @@ int interface_list(struct list * list, int (*add_port)(int index, unsigned int f
 
   return 0;
 }
+
+int install_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr)
+{
+  netlink_route_set((struct prefix *)route->p, route->ifindex, nexthop_addr);
+
+  return 0;
+}
