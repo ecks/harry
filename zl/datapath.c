@@ -282,8 +282,10 @@ get_routes(struct list * ipv4_rib_routes, struct list * ipv6_rib_routes)
 }
 
 void 
-set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr)
+set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr, struct list * ipv6_rib_routes)
 {
+  struct route_ipv6 * rib_route;
+
   if(IS_ZEBRALITE_DEBUG_RIB)
   {
     char prefix_str[INET6_ADDRSTRLEN];
@@ -293,6 +295,21 @@ set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr)
     if(inet_ntop(AF_INET6, nexthop_addr, nexthop_str, INET6_ADDRSTRLEN) != 1)
       zlog_debug("Nexthop addr is %s", nexthop_str);
   }
+
+  LIST_FOR_EACH(rib_route, struct route_ipv6, node, ipv6_rib_routes)
+  {
+    if((memcmp(&(route->p->prefix), &(rib_route->p->prefix), sizeof(struct in6_addr)) == 0) && 
+       (route->p->prefixlen == rib_route->p->prefixlen))
+    {
+      if(IS_ZEBRALITE_DEBUG_RIB)
+        zlog_debug("Found matching rib already in RIB, no need to add it to FIB");
+      return;
+    }
+  }
+
+
+  list_init(&route->node);
+  list_push_back(ipv6_rib_routes, &route->node);
 
   install_route_v6(route, nexthop_addr);
 }

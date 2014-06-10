@@ -276,6 +276,13 @@ recv_stats_routes_request(struct conn * conn, const struct sender * sender,
   return 0;
 }
 
+static void 
+process_ipv6_route_set(struct conn * conn, struct route_ipv6 * route, struct in6_addr * nexthop_addr)
+{
+  // add to dotapath and to kernel FIB
+  set_route_v6(route, nexthop_addr, &conn->dp->ipv6_rib_routes);
+}
+
 static int 
 recv_ipv6_route_set_request(struct conn * conn, const struct sender * sender,
                             struct rfpbuf * msg) 
@@ -297,7 +304,7 @@ recv_ipv6_route_set_request(struct conn * conn, const struct sender * sender,
   nexthop_addr = calloc(1, sizeof(struct in6_addr));
   memcpy(nexthop_addr, &rfp_route->nexthop_addr, sizeof(struct in6_addr));
 
-  set_route_v6(route, nexthop_addr);
+  process_ipv6_route_set(conn, route, nexthop_addr);
 
   // the routes are set, so free memory
   free(route->p);
