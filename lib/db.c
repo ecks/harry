@@ -15,8 +15,23 @@ int keys_compare(const void * a, const void * b)
 
   char * a_str = *a_str_ptr;
   char * b_str = *b_str_ptr;
-  
-  return strcmp(a_str, b_str);
+ 
+  long int a_timestamp_sec, a_timestamp_msec, b_timestamp_sec, b_timestamp_msec;
+
+  sscanf(a_str, "%ld,%ld", &a_timestamp_sec, &a_timestamp_msec);
+  sscanf(b_str, "%ld,%ld", &b_timestamp_sec, &b_timestamp_msec);
+
+  if(a_timestamp_sec < b_timestamp_sec)
+    return -1;
+  else if(a_timestamp_sec > b_timestamp_sec)
+    return 1;
+  else
+    if(b_timestamp_msec < b_timestamp_msec)
+      return -1;
+    else if(b_timestamp_msec > b_timestamp_msec)
+      return 1;
+    else
+      return 0;
 }
 
 extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned int bucket, bool sort_req)

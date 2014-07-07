@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -7,15 +9,18 @@
 
 #include <sys/socket.h>
 #include <assert.h>
+#include <netinet/in.h>
 
 #include "util.h"
 #include "routeflow-common.h"
 #include "dblist.h"
 #include "debug.h"
 #include "thread.h"
+#include "prefix.h"
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "if.h"
+#include "ospf6_route.h"
 #include "ctrl_client.h"
 #include "ospf6_top.h"
 #include "ospf6_proto.h"
@@ -685,7 +690,7 @@ int ospf6_lsack_send_interface (struct thread *thread)
 }
 
 static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_header * oh, 
-                             struct ospf6_interface * oi, unsigned int xid)
+                             struct ospf6_interface * oi, timestamp_t timestamp, unsigned int xid)
 {
   struct ospf6_hello * hello;
   struct ospf6_neighbor * on;
@@ -740,7 +745,7 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   // mutex lock
   if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
   {
-    ospf6_db_put_hello(oh, xid);
+    ospf6_db_put_hello(oh, timestamp);
   }
   // mutex unlock
 
@@ -1006,7 +1011,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header * oh,
 static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
                               struct ospf6_header * oh, 
                               struct ospf6_interface * oi,
-                              unsigned int xid)
+                              timestamp_t timestamp, unsigned int xid)
 {
   struct ospf6_neighbor * on;
   struct ospf6_dbdesc * dbdesc;
@@ -1049,7 +1054,7 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
   // mutex lock
   if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
   {
-    ospf6_db_put_dbdesc(oh, xid);
+    ospf6_db_put_dbdesc(oh, timestamp);
   }
   // mutex unlock
 
@@ -1067,6 +1072,7 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
 static void ospf6_lsreq_recv(struct ctrl_client * ctrl_client,
                              struct ospf6_header * oh,
                              struct ospf6_interface * oi,
+                             timestamp_t timestamp, 
                              unsigned int xid)
 {
   struct ospf6_neighbor * on;
@@ -1138,7 +1144,11 @@ static void ospf6_lsreq_recv(struct ctrl_client * ctrl_client,
     thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
 }
 
-static void ospf6_lsupdate_recv(struct ctrl_client * ctrl_client, struct ospf6_header * oh, struct ospf6_interface * oi, unsigned int xid)
+static void ospf6_lsupdate_recv(struct ctrl_client * ctrl_client, 
+                                struct ospf6_header * oh, 
+                                struct ospf6_interface * oi, 
+                                timestamp_t timestamp,
+                                unsigned int xid)
 {
   struct ospf6_neighbor * on;
   struct ospf6_lsupdate * lsupdate;
@@ -1215,6 +1225,7 @@ static void ospf6_lsupdate_recv(struct ctrl_client * ctrl_client, struct ospf6_h
 
 int ospf6_receive(struct ctrl_client * ctrl_client, 
                   struct ospf6_header * oh, 
+                  timestamp_t timestamp,
                   unsigned int xid,
                   struct ospf6_interface * oi)
 {
@@ -1225,7 +1236,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       {
         zlog_debug("hello_recv");
       }
-      ospf6_hello_recv(ctrl_client, oh, oi, xid);
+      ospf6_hello_recv(ctrl_client, oh, oi, timestamp, xid);
       break; 
 
     case OSPF6_MESSAGE_TYPE_DBDESC:
@@ -1233,7 +1244,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       {
         zlog_debug("dbdesc_recv");
       }
-      ospf6_dbdesc_recv(ctrl_client, oh, oi, xid);
+      ospf6_dbdesc_recv(ctrl_client, oh, oi, timestamp, xid);
       break;
 
     case OSPF6_MESSAGE_TYPE_LSREQ:
@@ -1241,7 +1252,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       {
         zlog_debug("lsreq_recv");
       }
-      ospf6_lsreq_recv(ctrl_client, oh, oi, xid);
+      ospf6_lsreq_recv(ctrl_client, oh, oi, timestamp, xid);
       break;
 
     case OSPF6_MESSAGE_TYPE_LSUPDATE:
@@ -1249,7 +1260,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       {
         zlog_debug("lsupdate_recv");
       }
-      ospf6_lsupdate_recv(ctrl_client, oh, oi, xid);
+      ospf6_lsupdate_recv(ctrl_client, oh, oi, timestamp, xid);
       break;
 
     case OSPF6_MESSAGE_TYPE_LSACK:

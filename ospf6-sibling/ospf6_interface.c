@@ -390,7 +390,7 @@ int interface_up(struct thread * thread)
   }
 
   /* Update ctrl client with interface name */
-  sibling_ctrl_interface_init(oi->interface->name);
+  sibling_ctrl_interface_init(oi);
 
   /* Start state catchup if running in restart mode */
   if(ospf6->restart_mode)

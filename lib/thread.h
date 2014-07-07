@@ -62,7 +62,8 @@ struct thread
 
 /* Clocks supported by Zebralite */
 enum zebralite_clkid {
-      ZEBRALITE_CLK_MONOTONIC = 0,         /* monotonic, against an indeterminate base */
+      ZEBRALITE_CLK_REALTIME = 0,          /* ala gettimeofday() */
+      ZEBRALITE_CLK_MONOTONIC,         /* monotonic, against an indeterminate base */
 };
 
 /* Thread types. */

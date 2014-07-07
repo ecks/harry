@@ -29,6 +29,8 @@
 #include "vconn.h"
 #include "ospf6_top.h"
 #include "ospf6_replica.h"
+#include "ospf6_route.h"
+#include "ospf6_interface.h"
 #include "sisis.h"
 #include "sisis_api.h"
 #include "sisis_process_types.h"
@@ -137,6 +139,9 @@ int main(int argc, char *argv[])
 
   free(sisis_addr);
 
+  // init ctrl clients and restart msg queue
+  sibling_ctrl_init();
+
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
 
   if(IS_OSPF6_SIBLING_DEBUG_SISIS)
@@ -155,7 +160,7 @@ int main(int argc, char *argv[])
 
     struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
     memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
-    sibling_ctrl_init(ctrl_addr, sibling_addr);
+    sibling_ctrl_add_ctrl_client(ctrl_addr, sibling_addr);
   }
 
 

@@ -24,6 +24,7 @@
 #include "ospf6_route.h"
 #include "ospf6_restart.h"
 #include "ospf6_interface.h"
+#include "sibling_ctrl.h"
 #include "ctrl_client.h"
 #include "ospf6_message.h"
 
@@ -59,7 +60,6 @@ void ctrl_client_init(struct ctrl_client * ctrl_client,
   ctrl_client->current_xid = 0;
   ctrl_client->state = CTRL_CONNECTING;
 
-  list_init(&ctrl_client->restart_msg_queue);
   ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
 }
 
@@ -245,6 +245,7 @@ static int ctrl_client_connect(struct thread * t)
 static int ctrl_client_read(struct thread * t)
 {
   int ret;
+  timestamp_t timestamp;
   size_t already = 0;
   struct rfp_header * rh;
   struct ospf6_header * oh;
@@ -358,7 +359,8 @@ static int ctrl_client_read(struct thread * t)
         oi = (struct ospf6_interface *)ifp->info;
         oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
         xid = ntohl(rh->xid);
-        ospf6_receive(ctrl_client, oh, xid, oi);
+        timestamp = sibling_ctrl_ingress_timestamp();
+        ospf6_receive(ctrl_client, oh, timestamp, xid, oi);
       }
       else
       {
@@ -371,12 +373,15 @@ static int ctrl_client_read(struct thread * t)
 
         struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
         list_init(&msg_rcvd->list_node);
+        timestamp = sibling_ctrl_ingress_timestamp();
+        msg_rcvd->timestamp = timestamp;
 
         pthread_mutex_lock(&restart_msg_q_mutex);
-        list_push_back(&ctrl_client->restart_msg_queue, &msg_rcvd->list_node);
+        sibling_ctrl_push_to_restart_msg_queue(msg_rcvd);
         pthread_mutex_unlock(&restart_msg_q_mutex);
 
-        pthread_mutex_unlock(&first_xid_mutex);
+        // unlock the restart thread so it knows what is the first message that has been received
+        pthread_mutex_unlock(&first_timestamp_mutex);
       }
       break;
   }
@@ -409,7 +414,24 @@ static int ctrl_client_connected(struct thread * t)
 int ctrl_client_route_set(struct ctrl_client * ctrl_client, struct ospf6_route * route)
 {
   int retval;
+  char buf[INET6_ADDRSTRLEN];
 
+
+  if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+  {
+    inet_ntop(AF_INET6, &(route->prefix.u.prefix6.s6_addr), buf, INET6_ADDRSTRLEN);
+    zlog_debug("Route Set: %s", buf);
+  }
+
+  /* Only the best path will be sent to zebra. */
+  if(!ospf6_route_is_best(route))
+  {   
+    /* this is not preferred best route, ignore */
+    if (IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      zlog_debug ("  Ignore non-best route");
+    return;
+  }
+                            
   ctrl_client->obuf = routeflow_alloc_xid(RFPT_IPV6_ROUTE_SET_REQUEST, RFP10_VERSION,
                                           htonl(ctrl_client->current_xid), sizeof(struct rfp_ipv6_route));
 
@@ -435,20 +457,6 @@ int ctrl_client_if_addr_req(struct ctrl_client * ctrl_client)
   ctrl_client->current_xid++;
 
   return 0;
-}
-
-int ctrl_client_first_xid_rcvd(struct ctrl_client * ctrl_client)
-{
-  struct list * first_msg_list;
-  struct rfpbuf * first_msg_rcvd;
-  struct rfp_header * rh;
-
-  if((first_msg_list = list_peek_front(&ctrl_client->restart_msg_queue)) == NULL)
-    return -1;
-
-  first_msg_rcvd = CONTAINER_OF(first_msg_list, struct rfpbuf, list_node);
-  rh = rfpbuf_at_assert(first_msg_rcvd, 0, sizeof(struct rfp_header));
-  return ntohl(rh->xid);
 }
 
 static void 

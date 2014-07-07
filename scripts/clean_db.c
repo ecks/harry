@@ -17,7 +17,7 @@ int main(int argc, char * argv[])
 {
   int opt;
   unsigned int bucket;
-  char * host = "127.0.0.1";
+  char * host = "10.100.2.1";
   int port = 8087;
   int i;
   struct RIACK_CLIENT * riack_client;

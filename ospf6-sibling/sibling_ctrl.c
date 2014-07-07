@@ -22,7 +22,8 @@
 #include "ctrl_client.h"
 #include "sibling_ctrl.h"
 
-struct ctrl_client * ctrl_client = NULL;
+struct list ctrl_clients;
+struct list restart_msg_queue;
 
 int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
@@ -151,7 +152,12 @@ int if_address_add_v6(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 
 void sibling_ctrl_route_set(struct ospf6_route * route)
 {
-  ctrl_client_route_set(ctrl_client, route);  
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ctrl_client_route_set(ctrl_client, route);  
+  }
 }
 
 int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
@@ -174,9 +180,35 @@ int recv_routes_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   return 0;
 }
 
-void sibling_ctrl_init(struct in6_addr * ctrl_addr, 
-                       struct in6_addr * sibling_addr)
+void sibling_ctrl_init() 
 {
+  list_init(&ctrl_clients);
+  list_init(&restart_msg_queue);
+}
+
+timestamp_t sibling_ctrl_ingress_timestamp()
+{
+  timestamp_t timestamp;
+  long int timestamp_sec;
+  long int timestamp_msec;
+
+  zebralite_gettime(ZEBRALITE_CLK_REALTIME, &timestamp);
+  timestamp_sec = (long int)timestamp.tv_sec;
+  timestamp_msec = (long int)timestamp.tv_usec;
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("Populating timestamp: %ld,%ld", timestamp_sec, timestamp_msec);
+  }
+
+  return timestamp;
+}
+
+void sibling_ctrl_add_ctrl_client(struct in6_addr * ctrl_addr,
+                                  struct in6_addr * sibling_addr)
+{
+  struct ctrl_client * ctrl_client;
+
   ctrl_client = ctrl_client_new();
   ctrl_client_init(ctrl_client, ctrl_addr, sibling_addr);
   ctrl_client->features_reply = recv_features_reply;
@@ -184,19 +216,38 @@ void sibling_ctrl_init(struct in6_addr * ctrl_addr,
   ctrl_client->leader_elect = ospf6_leader_elect;
   ctrl_client->address_add_v4 = if_address_add_v4;
   ctrl_client->address_add_v6 = if_address_add_v6;
+
+  list_push_back(&ctrl_clients, &ctrl_client->node);
 }
 
-void sibling_ctrl_interface_init(char * interface)
+void sibling_ctrl_interface_init(struct ospf6_interface * oi)
 {
-  ctrl_client_interface_init(ctrl_client, interface);
+  ctrl_client_interface_init(oi->ctrl_client, oi->interface->name);
 }
 
-int sibling_ctrl_first_xid_rcvd()
+// functions dealing with restart msg queue
+timestamp_t sibling_ctrl_first_timestamp_rcvd()
 {
-  return ctrl_client_first_xid_rcvd(ctrl_client);
+  struct list * first_msg_list;
+  struct rfpbuf * first_msg_rcvd;
+  timestamp_t err_timestamp;
+
+  err_timestamp.tv_sec = (long int)0;
+  err_timestamp.tv_usec = (long int)0;
+
+  if((first_msg_list = list_peek_front(&restart_msg_queue)) == NULL)
+    return err_timestamp;
+
+  first_msg_rcvd = CONTAINER_OF(first_msg_list, struct rfpbuf, list_node);
+  return first_msg_rcvd->timestamp;
 }
 
 struct list * sibling_ctrl_restart_msg_queue()
 {
-  return &ctrl_client->restart_msg_queue;
+  return &restart_msg_queue;
+}
+
+int sibling_ctrl_push_to_restart_msg_queue(struct rfpbuf * msg_rcvd)
+{
+  list_push_back(&restart_msg_queue, &msg_rcvd->list_node);
 }

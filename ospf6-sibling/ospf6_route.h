@@ -164,6 +164,7 @@ struct ospf6_route_table
         memcmp (&(ra)->path, &(rb)->path, sizeof (struct ospf6_path)) == 0 && \
         memcmp (&(ra)->nexthop, &(rb)->nexthop,                               \
                      sizeof (struct ospf6_nexthop) * OSPF6_MULTI_PATH_LIMIT) == 0)
+#define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
 #define ospf6_linkstate_prefix_adv_router(x) \
     (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[0]))

@@ -1,7 +1,7 @@
 #ifndef DB_H
 #define DB_H
 
-#define ID_SIZE 10
+#define ID_SIZE 30
 
 struct keys
 {

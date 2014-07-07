@@ -33,6 +33,7 @@ struct rfpbuf {
     void *l7;                   /* Application data. */
 
     struct list list_node;      /* Private list element for use by owner. */
+    timestamp_t timestamp;         /* Rfpbuf timestamp for use by owner. */
     void *private_p;            /* Private pointer for use by owner. */
 };
 

@@ -10,6 +10,8 @@
 
 #include "thread.h"
 
+/* Recent absolute time of day */
+struct timeval recent_time;
 /* Relative time, since startup */
 static struct timeval relative_time;
 
@@ -58,6 +60,25 @@ timeval_cmp (struct timeval a, struct timeval b)
                   ? a.tv_usec - b.tv_usec : a.tv_sec - b.tv_sec);
 }
 
+/* gettimeofday wrapper, to keep recent_time updated */
+static int 
+zebralite_gettimeofday(struct timeval * tv)
+{
+  int ret;
+
+  assert(tv);
+
+  if(!(ret = gettimeofday(&recent_time, NULL)))
+  {
+    /* avoid copy if user passed recent_time pointer.. */
+    if(tv != &recent_time)
+      *tv = recent_time;
+    return 0;
+  }
+
+  return ret;
+}
+
 static int zebralite_get_relative(struct timeval * tv)
 {
   int ret; 
@@ -85,7 +106,9 @@ static int zebralite_get_relative(struct timeval * tv)
 int zebralite_gettime(enum zebralite_clkid clkid, struct timeval * tv)
 {
   switch (clkid)
-  {    
+  {
+    case ZEBRALITE_CLK_REALTIME:
+      return zebralite_gettimeofday(tv);
     case ZEBRALITE_CLK_MONOTONIC:
       return zebralite_get_relative (tv);
     default:

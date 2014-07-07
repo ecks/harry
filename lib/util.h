@@ -3,6 +3,7 @@
 
 #include "compiler.h"
 
+#include <sys/time.h>
 #include <stddef.h>
 
 /* Flag manipulation macros. */
@@ -31,6 +32,8 @@
 #define CHECK_FLAG(V,F)      ((V) & (F)) 
 #define SET_FLAG(V,F)        (V) |= (F)
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
+
+typedef struct timeval timestamp_t;
 
 char *xasprintf(const char *format, ...) PRINTF_FORMAT(1, 2) MALLOC_LIKE;
 char *xstrdup(const char *) MALLOC_LIKE;

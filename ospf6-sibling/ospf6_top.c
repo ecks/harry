@@ -56,7 +56,7 @@ static void ospf6_top_route_hook_remove(struct ospf6_route * route)
 static struct ospf6 * ospf6_create(void)
 {
   struct ospf6 * o;
-  char * host = "127.0.0.1";
+  char * host = "10.100.2.1";
   int port = 8087;
 
   o = calloc(1, sizeof(struct ospf6));

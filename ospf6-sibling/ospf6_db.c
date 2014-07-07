@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -5,6 +6,7 @@
 
 #include <riack.h>
 
+#include "util.h"
 #include "dblist.h"
 #include "db.h"
 #include "routeflow-common.h"
@@ -33,7 +35,7 @@ char * ospf6_db_json_header(struct ospf6_header * oh)
   return json_header;
 }
 
-int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
+int ospf6_db_put_hello(struct ospf6_header * oh, timestamp_t timestamp)
 {
   unsigned int id;
   char * bucket;
@@ -50,6 +52,9 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   struct RIACK_PAIR * indexes;
   struct RIACK_CONTENT content;
   struct RIACK_OBJECT object;
+
+  long int timestamp_sec;
+  long int timestamp_msec;
 
   /* initialize memory buffers */
   bucket = calloc(ID_SIZE, sizeof(char));
@@ -111,41 +116,18 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   id = ospf6_replica_get_id();
   sprintf(bucket, "%d", id);
 
-  sprintf(key, "%d", xid);
+  timestamp_sec = (long int)timestamp.tv_sec;
+  timestamp_msec = (long int)timestamp.tv_usec;
+
+  sprintf(key, "%ld,%ld", timestamp_sec, timestamp_msec);
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     zlog_debug("about to commit to database=> bucket: %s, key: %s, data: %s", bucket, key, json_packed);
   }
 
-  indexes = calloc(1, sizeof(struct RIACK_PAIR));
-  indexes[0].key.value = INDEX_KEY;
-  indexes[0].key.len = strlen(indexes[0].key.value);
-  indexes[0].value_present = 1;
+  riack_put_simple(ospf6->riack_client, bucket, key, (uint8_t *)json_packed, strlen(key), "application/json");
 
-  indexes[0].value_len = strlen(key);
-  indexes[0].value = (uint8_t*)key;
-
-  memset(&content, 0, sizeof(content));
-  memset(&object, 0, sizeof(object));
-
-  object.bucket.value = bucket;
-  object.bucket.len = strlen(bucket);
-  object.key.value = key;
-  object.key.len = strlen(key);
-  object.content_count = 1;
-  object.content = &content;
-
-  content.content_type.value = "application/json";
-  content.content_type.len = strlen(content.content_type.value);
-  content.index_count = 1;
-  content.indexes = indexes;
-  content.data = (uint8_t*)json_packed;
-  content.data_len = strlen(json_packed);
-
-  riack_put(ospf6->riack_client, object, 0, 0);
-
-  free(indexes);
   free(json_packed);
   free(json_router_ids);
   free(json_msg);
@@ -157,7 +139,7 @@ int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid)
   return 0;
 }
 
-int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
+int ospf6_db_put_dbdesc(struct ospf6_header * oh, timestamp_t timestamp)
 {
   unsigned int id;
   char * bucket;
@@ -174,6 +156,9 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   struct RIACK_PAIR * indexes;
   struct RIACK_CONTENT content;
   struct RIACK_OBJECT object;
+
+  long int timestamp_sec;
+  long int timestamp_msec;
 
   /* initialize memory buffers */
   bucket = calloc(ID_SIZE, sizeof(char));
@@ -253,39 +238,17 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   id = ospf6_replica_get_id();
   sprintf(bucket, "%d", id);
 
-  sprintf(key, "%d", xid);
+  timestamp_sec = (long int)timestamp.tv_sec;
+  timestamp_msec = (long int)timestamp.tv_usec;
+
+  sprintf(key, "%ld,%ld", timestamp_sec, timestamp_msec);
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     zlog_debug("about to commit to database=> bucket: %s, key: %s, data: %s", bucket, key, json_packed);
   }
 
-  indexes = calloc(1, sizeof(struct RIACK_PAIR));
-  indexes[0].key.value = "index1_int";
-  indexes[0].key.len = strlen(indexes[0].key.value);
-  indexes[0].value_present = 1;
-
-  indexes[0].value_len = strlen(key);
-  indexes[0].value = (uint8_t*)key;
-
-  memset(&content, 0, sizeof(content));
-  memset(&object, 0, sizeof(object));
-
-  object.bucket.value = bucket;
-  object.bucket.len = strlen(bucket);
-  object.key.value = key;
-  object.key.len = strlen(key);
-  object.content_count = 1;
-  object.content = &content;
-
-  content.content_type.value = "application/json";
-  content.content_type.len = strlen(content.content_type.value);
-  content.index_count = 1;
-  content.indexes = indexes;
-  content.data = (uint8_t*)json_packed;
-  content.data_len = strlen(json_packed);
-
-  riack_put(ospf6->riack_client, object, 0, 0);
+  riack_put_simple(ospf6->riack_client, bucket, key, (uint8_t *)json_packed, strlen(key), "application/json");
 
   free(json_packed);
   free(json_msg);
@@ -297,7 +260,7 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   return 0;
 }
 
-char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_header * oh, timestamp_t timestamp, unsigned int bucket)
 {
   char * output_data;
   struct RIACK_GET_OBJECT obj;
@@ -315,7 +278,7 @@ char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_hea
   sprintf(bucket_str.value, "%d", bucket);
   bucket_str.len = strlen(bucket_str.value);
 
-  sprintf(key.value, "%d", xid);
+  sprintf(key.value, "%ld,%ld", timestamp.tv_sec, timestamp.tv_usec);
   key.len = strlen(key.value);
 
 
@@ -340,9 +303,9 @@ char * ospf6_db_fill_header(struct RIACK_CLIENT * riack_client, struct ospf6_hea
   return output_data;
 }
 
-char * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket)
+char * ospf6_db_get(struct ospf6_header * oh, timestamp_t timestamp, unsigned int bucket)
 {
-  return ospf6_db_fill_header(ospf6->riack_client, oh, xid, bucket);
+  return ospf6_db_fill_header(ospf6->riack_client, oh, timestamp, bucket);
 }
 
 // void * here would be pointer to 
@@ -360,9 +323,9 @@ extern struct keys * ospf6_db_list_keys(unsigned int bucket)
   return db_list_keys(ospf6->riack_client, bucket, true);
 }
 
-extern struct keys * ospf6_db_range_keys(unsigned int bucket, unsigned int start_xid, unsigned int end_xid)
+extern struct keys * ospf6_db_range_keys(unsigned int bucket, timestamp_t start_timestamp, timestamp_t end_timestamp)
 {
-  RIACK_STRING bucket_str, index, min_xid, max_xid;
+  RIACK_STRING bucket_str, index, min_timestamp, max_timestamp;
   RIACK_STRING_LIST list;
   struct keys * keys = NULL;
   int i;
@@ -377,20 +340,20 @@ extern struct keys * ospf6_db_range_keys(unsigned int bucket, unsigned int start
   sprintf(bucket_str.value, "%d", bucket);
   bucket_str.len = strlen(bucket_str.value);
 
-  min_xid.value = calloc(ID_SIZE, sizeof(char));
-  sprintf(min_xid.value, "%d", start_xid);
-  min_xid.len = strlen(min_xid.value);
+  min_timestamp.value = calloc(ID_SIZE, sizeof(char));
+  sprintf(min_timestamp.value, "%ld,%ld", start_timestamp.tv_sec, start_timestamp.tv_usec);
+  min_timestamp.len = strlen(min_timestamp.value);
 
-  max_xid.value = calloc(ID_SIZE, sizeof(char));
-  sprintf(max_xid.value, "%d", end_xid);
-  max_xid.len = strlen(max_xid.value);
+  max_timestamp.value = calloc(ID_SIZE, sizeof(char));
+  sprintf(max_timestamp.value, "%ld,%ld", end_timestamp.tv_sec, end_timestamp.tv_usec);
+  max_timestamp.len = strlen(max_timestamp.value);
 
   
-  if(riack_2i_query_range(ospf6->riack_client, bucket_str, index, min_xid, max_xid, &list) == RIACK_SUCCESS)
+  if(riack_2i_query_range(ospf6->riack_client, bucket_str, index, min_timestamp, max_timestamp, &list) == RIACK_SUCCESS)
   {
     if(OSPF6_SIBLING_DEBUG_RESTART)
     {
-      zlog_debug("range query executed successfully with bucket: %s, min_xid: %s, max_xid: %s", bucket_str.value, min_xid.value, max_xid.value);
+      zlog_debug("range query executed successfully with bucket: %s, min_timestamp: %s, max_timestamp: %s", bucket_str.value, min_timestamp.value, max_timestamp.value);
     }
 
     keys = calloc(1, sizeof(struct keys));
@@ -408,8 +371,8 @@ extern struct keys * ospf6_db_range_keys(unsigned int bucket, unsigned int start
   }
 
   free(bucket_str.value);
-  free(min_xid.value);
-  free(max_xid.value);
+  free(min_timestamp.value);
+  free(max_timestamp.value);
 
   return keys;
 }
