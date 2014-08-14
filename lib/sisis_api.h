@@ -7,7 +7,7 @@
 #ifndef _SISIS_API_H
 #define _SISIS_API_H
 
-#define SISIS_VERSION 1
+#define PTYPE_VERSION 1
 
 #define SISIS_REREGISTRATION_TIMEOUT			20
 

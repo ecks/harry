@@ -12,11 +12,13 @@
 #include "dblist.h"
 #include "prefix.h"
 #include "rfpbuf.h"
+#include "sisis.h"
 #include "routeflow-common.h"
 #include "thread.h"
 #include "prefix.h"
 #include "if.h"
 #include "ospf6_interface.h" 
+#include "ospf6_area.h"
 #include "ospf6_route.h"
 #include "ospf6_replica.h"
 #include "ctrl_client.h"
@@ -24,6 +26,14 @@
 
 struct list ctrl_clients;
 struct list restart_msg_queue;
+
+struct ospf6 * ospf6;
+
+extern struct thread_master * master;
+
+void sibling_ctrl_set_address(struct ctrl_client * ctrl_client,
+                              struct in6_addr * ctrl_addr,
+                              struct in6_addr * sibling_addr);
 
 int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
@@ -50,7 +60,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
       zlog_notice("port #: %d, name: %s, mtu: %d", ifindex, rpp->name, mtu);
     }
     /* create new interface if not created */
-    ifp = if_get_by_name(rpp->name);
+    ifp = if_get_by_name(ctrl_client->if_list, rpp->name);
 
     // fill up the interface info
     ifp->ifindex = ifindex;
@@ -70,7 +80,7 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
 int if_address_add_v4(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
   const struct rfp_ipv4_address * address = buffer->data;
-  struct interface * ifp = if_lookup_by_index(address->ifindex);
+  struct interface * ifp = if_lookup_by_index(ctrl_client->if_list, address->ifindex);
   struct connected * ifc;
 
   struct prefix p;
@@ -110,7 +120,7 @@ int if_address_add_v4(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 int if_address_add_v6(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
 {
   const struct rfp_ipv6_address * address = buffer->data;
-  struct interface * ifp = if_lookup_by_index(address->ifindex);
+  struct interface * ifp = if_lookup_by_index(ctrl_client->if_list, address->ifindex);
   struct connected * ifc;
 
   struct prefix p;
@@ -204,26 +214,142 @@ timestamp_t sibling_ctrl_ingress_timestamp()
   return timestamp;
 }
 
-void sibling_ctrl_add_ctrl_client(struct in6_addr * ctrl_addr,
-                                  struct in6_addr * sibling_addr)
+void sibling_ctrl_add_ctrl_client(unsigned int hostnum, char * ifname, char * area)
 {
   struct ctrl_client * ctrl_client;
+  struct interface * ifp;
+  struct ospf6_interface * oi;
+  struct ospf6_area * oa;
+
+  u_int32_t area_id;
 
   ctrl_client = ctrl_client_new();
+  ctrl_client->hostnum = hostnum;
+
+  list_push_back(&ctrl_clients, &ctrl_client->node);
+
+  /* find/create ospf6 interface */
+  ifp = if_get_by_name(ctrl_client->if_list, ifname);
+  oi = (struct ospf6_interface *) ifp->info;
+  if(oi == NULL)
+  {
+    oi = ospf6_interface_create(ifp);
+  }
+
+  /* parse Area-ID */
+  if (inet_pton (AF_INET, area, &area_id) != 1)  
+  {
+    printf("Invalid Area-ID: %s\n", area);
+  }
+  
+  /* find/create ospf6 area */
+  oa = ospf6_area_lookup (area_id, ospf6); 
+  if(oa == NULL)
+    oa = ospf6_area_create(area_id, ospf6); 
+ 
+  /* attach interface to area */
+  list_push_back(&oa->if_list, &oi->node);
+  oi->area = oa;
+
+  /* start up */
+  thread_add_event(master, interface_up, oi, 0); 
+}
+
+void sibling_ctrl_set_addresses(struct in6_addr * sibling_ctrl)
+{
+  struct ctrl_client * ctrl_client;
+  struct route_ipv6 * route_iter;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    struct list * ctrl_addrs = get_ctrl_addrs_for_hostnum(ctrl_client->hostnum);
+
+    LIST_FOR_EACH(route_iter, struct route_ipv6, node, ctrl_addrs)
+    {
+      char s_addr[INET6_ADDRSTRLEN+1];
+      inet_ntop(AF_INET6, &route_iter->p->prefix, s_addr, INET6_ADDRSTRLEN+1);
+      zlog_debug("done getting ctrl addr %s for hostnum: %d ", s_addr);
+
+      struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
+      memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
+ 
+      sibling_ctrl_set_address(ctrl_client, ctrl_addr, sibling_ctrl);
+    }
+
+    // free  the list, no longer needed
+    while(!list_empty(ctrl_addrs))
+    {
+      struct list * addr_to_remove = list_pop_front(ctrl_addrs);
+      struct route_ipv6 * route_to_remove = CONTAINER_OF(addr_to_remove, struct route_ipv6, node);
+      free(route_to_remove->p);
+      free(route_to_remove->gate);
+    }
+
+    free(ctrl_addrs);
+ 
+  }
+}
+
+void sibling_ctrl_set_address(struct ctrl_client * ctrl_client,
+                              struct in6_addr * ctrl_addr,
+                              struct in6_addr * sibling_addr)
+{
   ctrl_client_init(ctrl_client, ctrl_addr, sibling_addr);
+
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
   ctrl_client->leader_elect = ospf6_leader_elect;
   ctrl_client->address_add_v4 = if_address_add_v4;
   ctrl_client->address_add_v6 = if_address_add_v6;
-
-  list_push_back(&ctrl_clients, &ctrl_client->node);
 }
 
 void sibling_ctrl_interface_init(struct ospf6_interface * oi)
 {
   ctrl_client_interface_init(oi->ctrl_client, oi->interface->name);
 }
+
+struct interface * sibling_ctrl_if_lookup_by_name(const char * ifname)
+{
+  struct interface * ifp;
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ifp = if_lookup_by_name(ctrl_client->if_list, ifname);
+    if(ifp != NULL &&
+       ifp->info != NULL)  // make sure that ospf6_interface is initialized, otherwise we don't care about the interface
+      return ifp;
+  }
+
+  return NULL;
+}
+
+struct interface * sibling_ctrl_if_lookup_by_index(int ifindex)
+{
+  struct interface * ifp;
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ifp = if_lookup_by_index(ctrl_client->if_list, ifindex);
+    if(ifp != NULL &&
+       ifp->info != NULL)
+      return ifp;
+  }
+
+  return NULL;
+}
+
+//struct interface * sibling_ctrl_if_get_by_name(const char * ifname)
+//{
+//  struct ctrl_client * ctrl_client;
+
+//  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+//  {
+//    return if_get_by_name(ctrl_client->if_list, 
+//  }
+//  return NULL;
+//}
 
 // functions dealing with restart msg queue
 timestamp_t sibling_ctrl_first_timestamp_rcvd()

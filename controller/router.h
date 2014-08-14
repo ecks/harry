@@ -18,12 +18,13 @@ enum port_state
 };
 
 struct router {
-    struct rconn *rconn;
-    enum router_state state;
-    struct list port_list;
+  struct rconn *rconn;
+  enum router_state state;
+  struct list port_list;
+  struct list * iflist;
 };
 
-struct if_list
+struct iflist_
 {
   struct list node;
   struct interface * ifp;

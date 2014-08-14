@@ -42,11 +42,11 @@ struct connected
   struct prefix *destination;
 };
 
-void if_init();
-struct interface *if_create (const char *name, int namelen);
-struct interface *if_lookup_by_name (const char *ifname);
-struct interface * if_lookup_by_index(const unsigned int index);
-struct interface *if_get_by_name (const char *ifname);
+struct list * if_init();
+struct interface *if_create (struct list * iflist, const char *name, int namelen);
+struct interface *if_lookup_by_name (struct list * iflist, const char *ifname);
+struct interface * if_lookup_by_index(struct list * iflist, const unsigned int index);
+struct interface *if_get_by_name (struct list * iflist, const char *ifname);
 int if_is_up(struct interface * ifp);
 int if_is_broadcast(struct interface * ifp);
 int if_is_pointopoint(struct interface * ifp);

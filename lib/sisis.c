@@ -20,7 +20,7 @@ int sisis_init(char * sisis_addr, uint64_t host_num, uint64_t ptype)
   // not used for now
   int ret = 0;
 
-  sisis_register_host(sisis_addr, host_num, ptype, SISIS_VERSION);
+  sisis_register_host(sisis_addr, host_num, ptype, PTYPE_VERSION);
 
   kernel_init();
 
@@ -38,6 +38,16 @@ struct list * get_ctrl_addrs(void)
     return ctrl_addrs;
   }
   return NULL; 
+}
+
+struct list * get_ctrl_addrs_for_hostnum(unsigned int hostnum)
+{
+  char ctrl_addr[INET6_ADDRSTRLEN+1];
+  sisis_create_addr(ctrl_addr, (uint64_t)SISIS_PTYPE_CTRL, (uint64_t)PTYPE_VERSION, (uint64_t)hostnum, (uint64_t)0, (uint64_t)0);
+  struct prefix_ipv6 ctrl_prefix = sisis_make_ipv6_prefix(ctrl_addr, 74);
+  struct list * ctrl_addrs = get_sisis_addrs_for_prefix(&ctrl_prefix);
+  
+  return ctrl_addrs;
 }
 
 struct list * get_ospf6_sibling_addrs(void)

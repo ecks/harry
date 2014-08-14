@@ -48,6 +48,9 @@ router_create(struct rconn *rconn)
   rt->state = R_CONNECTING;
 
   list_init(&rt->port_list);
+
+  rt->iflist = if_init();
+
   return rt;
 }
 
@@ -294,7 +297,7 @@ router_process_addresses(struct router * rt, void * rh)
         printf("v4 addr: %s/%d\n", prefix_str, connected4->prefixlen);
       }
 
-      struct interface * ifp = if_lookup_by_index(connected4->ifindex);
+      struct interface * ifp = if_lookup_by_index(rt->iflist, connected4->ifindex);
       
       // add addresss to list of connected 
       list_push_back(&ifp->connected, &ifc->node);
@@ -320,7 +323,7 @@ router_process_addresses(struct router * rt, void * rh)
         printf("v6 addr: %s/%d\n", prefix_str, connected6->prefixlen);
       }
 
-      struct interface * ifp = if_lookup_by_index(connected6->ifindex);
+      struct interface * ifp = if_lookup_by_index(rt->iflist, connected6->ifindex);
       
       // add addresss to list of connected 
       list_push_back(&ifp->connected, &ifc->node);
@@ -374,21 +377,21 @@ router_process_phy_port(struct router * rt, void * rpp_)
   uint16_t port_no = ntohs(rpp->port_no);
   uint32_t state = ntohl(rpp->state);
   unsigned int mtu = ntohl(rpp->mtu);
-  struct if_list * if_list;
+  struct iflist_ * iflist_;
 
-  struct interface * ifp = if_get_by_name(rpp->name);
+  struct interface * ifp = if_get_by_name(rt->iflist, rpp->name);
 
   ifp->ifindex = port_no;
   ifp->state = state;
   ifp->mtu = mtu;
 
-  if_list = calloc(1, sizeof(struct if_list));
-  list_init(&if_list->node);
+  iflist_ = calloc(1, sizeof(struct iflist_));
+  list_init(&iflist_->node);
 
   // link to ifp and back
-  ifp->info = if_list;
-  if_list->ifp = ifp;
-  list_push_back(&rt->port_list, &if_list->node);
+  ifp->info = iflist_;
+  iflist_->ifp = ifp;
+  list_push_back(&rt->port_list, &iflist_->node);
 
   printf("Port number: %d, name: %s, mtu: %d", port_no, rpp->name, mtu);
   

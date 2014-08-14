@@ -61,6 +61,18 @@ static int sib_listener_accept(struct thread * t);
 static void
 new_sib_router(struct sib_router **, struct vconn *, const char *, struct router **, int *);
 
+uint64_t hostnum;
+
+DEFUN(hostnumber,
+      hostnumber_cmd,
+      "hostnum NUM",
+      "Set hostnumber controller should reside on\n")
+{
+  hostnum = (uint64_t)strtol(argv[0], NULL, 10);
+
+  return CMD_SUCCESS;
+}
+
 int main(int argc, char *argv[])
 {
   char * config_file = "/etc/zebralite/controller.conf";
@@ -88,6 +100,7 @@ int main(int argc, char *argv[])
   vty_init(master);
 
   controller_debug_init();
+  install_element(CONFIG_NODE, &hostnumber_cmd);
 
   vty_read_config(config_file, config_default);
 
@@ -98,15 +111,13 @@ int main(int argc, char *argv[])
 
   time_init();
   rib_init();
-  if_init();
 
   // initialize internal socket to sisis
   int sisis_fd;
-  uint64_t host_num = 1;
 
   sisis_addr = calloc(INET6_ADDRSTRLEN, sizeof(char));
 
-  if((sisis_fd = sisis_init(sisis_addr, host_num, SISIS_PTYPE_CTRL)) < 0)
+  if((sisis_fd = sisis_init(sisis_addr, hostnum, SISIS_PTYPE_CTRL)) < 0)
   {
     printf("sisis_init error\n");
     exit(1);

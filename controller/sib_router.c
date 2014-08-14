@@ -63,7 +63,7 @@ static void sib_router_if_addr_add(struct sib_router * sr, unsigned int xid);
 static void sib_router_send_leader_elect();
 static void state_transition(struct sib_router * sr, enum sib_router_state state);
 
-sib_router_init(struct router ** my_routers, int * my_n_routers_p)
+void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
 {
   int retval;
   int i;
@@ -755,10 +755,10 @@ sib_router_send_features_reply(struct sib_router * sr, unsigned int xid)
 
     for(i = 0; i < *n_routers_p; i++) // dereference the pointer
     {
-      struct if_list * if_node;
-      LIST_FOR_EACH(if_node, struct if_list, node, &routers[i]->port_list)
+      struct iflist_ * ifnode_;
+      LIST_FOR_EACH(ifnode_, struct iflist_, node, &routers[i]->port_list)
       {
-        struct interface * ifp = if_node->ifp;
+        struct interface * ifp = ifnode_->ifp;
         struct rfp_phy_port * rpp = rfpbuf_put_uninit(buffer, sizeof(struct rfp_phy_port));
         memset(rpp, 0, sizeof *rpp);
         rpp->port_no = htons(ifp->ifindex);
@@ -825,10 +825,10 @@ sib_router_if_addr_add(struct sib_router * sr, unsigned int xid)
   int i;
   for(i = 0; i < *n_routers_p; i++)
   {
-    struct if_list * if_node;
-    LIST_FOR_EACH(if_node, struct if_list, node, &routers[i]->port_list)
+    struct iflist_ * ifnode_;
+    LIST_FOR_EACH(ifnode_, struct iflist_, node, &routers[i]->port_list)
     {
-      struct interface * ifp = if_node->ifp;
+      struct interface * ifp = ifnode_->ifp;
       struct connected * ifc;
       LIST_FOR_EACH(ifc, struct connected, node, &ifp->connected)
       {

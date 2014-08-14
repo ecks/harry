@@ -46,6 +46,8 @@ extern struct thread_master * master;
 struct ctrl_client * ctrl_client_new()
 {
   struct ctrl_client * ctrl_client = calloc(1, sizeof(*ctrl_client));
+  ctrl_client->if_list = if_init();
+
   return ctrl_client;
 }
 
@@ -65,7 +67,9 @@ void ctrl_client_init(struct ctrl_client * ctrl_client,
 
 void ctrl_client_interface_init(struct ctrl_client * ctrl_client, char * interface_name)
 {
-  ctrl_client->interface_name = interface_name;
+  ctrl_client->interface_name = calloc(strlen(interface_name), sizeof(char));
+
+  strncpy(ctrl_client->interface_name, interface_name, strlen(interface_name));
 }
 
 void ctrl_client_stop(struct ctrl_client * ctrl_client)
@@ -260,6 +264,11 @@ static int ctrl_client_read(struct thread * t)
 
   ctrl_client->t_read = NULL;
 
+  if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+  {
+    zlog_debug("Ctrl client addr: %p", ctrl_client);
+  }
+
   if(ctrl_client->ibuf == NULL)
   {
     ctrl_client->ibuf = rfpbuf_new(rh_size);
@@ -355,7 +364,7 @@ static int ctrl_client_read(struct thread * t)
       {
         pthread_mutex_unlock(&restart_mode_mutex);
         rh = rfpbuf_at_assert(ctrl_client->ibuf, 0, sizeof(struct rfp_header));
-        ifp = if_get_by_name(ctrl_client->interface_name);
+        ifp = if_get_by_name(ctrl_client->if_list, ctrl_client->interface_name);
         oi = (struct ospf6_interface *)ifp->info;
         oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
         xid = ntohl(rh->xid);

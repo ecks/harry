@@ -101,9 +101,6 @@ int main(int argc, char *argv[])
   /* thread master */
   master = thread_master_create();
 
-  // initialize our interface list
-  if_init();
-
   /* initialize ospf6 */
   ospf6_top_init(restart_mode);
   ospf6_area_init();
@@ -123,6 +120,9 @@ int main(int argc, char *argv[])
 
   ospf6_replicas_init(sibling_addr, replicas);
 
+  // init ctrl clients and restart msg queue
+  sibling_ctrl_init();
+
   // this is where the command actually gets executed
   vty_read_config(config_file, config_default);
 
@@ -139,9 +139,6 @@ int main(int argc, char *argv[])
 
   free(sisis_addr);
 
-  // init ctrl clients and restart msg queue
-  sibling_ctrl_init();
-
   unsigned int num_of_controllers = number_of_sisis_addrs_for_process_type(SISIS_PTYPE_CTRL);
 
   if(IS_OSPF6_SIBLING_DEBUG_SISIS)
@@ -149,32 +146,8 @@ int main(int argc, char *argv[])
     zlog_debug("num of controllers: %d", num_of_controllers);
   }
  
-  struct list * ctrl_addrs = get_ctrl_addrs();
-  struct route_ipv6 * route_iter;
-  LIST_FOR_EACH(route_iter, struct route_ipv6, node, ctrl_addrs)
-  {
-    
-    char s_addr[INET6_ADDRSTRLEN+1];
-    inet_ntop(AF_INET6, &route_iter->p->prefix, s_addr, INET6_ADDRSTRLEN+1);
-    zlog_debug("done getting ctrl addr: %s", s_addr);
+  sibling_ctrl_set_addresses(sibling_addr);
 
-    struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
-    memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
-    sibling_ctrl_add_ctrl_client(ctrl_addr, sibling_addr);
-  }
-
-
-  // free  the list, no longer needed
-  while(!list_empty(ctrl_addrs))
-  {
-    struct list * addr_to_remove = list_pop_front(ctrl_addrs);
-    struct route_ipv6 * route_to_remove = CONTAINER_OF(addr_to_remove, struct route_ipv6, node);
-    free(route_to_remove->p);
-    free(route_to_remove->gate);
-  }
-
-  free(ctrl_addrs);
-  
   // Monitor rib changes in the case that we need to restart it
   struct subscribe_to_rib_changes_info info;
   info.rib_add_ipv4_route = rib_monitor_add_ipv4_route;

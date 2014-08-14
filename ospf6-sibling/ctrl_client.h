@@ -24,6 +24,10 @@ struct ctrl_client
   char * interface_name;
   int state; 
 
+  struct list * if_list;
+
+  unsigned int hostnum;
+
   /* Pointer to the callback functions */
   int (*features_reply) (struct ctrl_client *, struct rfpbuf *);
   int (*routes_reply) (struct ctrl_client *, struct rfpbuf *);

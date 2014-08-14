@@ -139,45 +139,25 @@ DEFUN(ospf6_router_id,
 
 DEFUN(ospf6_interface_area,
       ospf6_interface_area_cmd,
-      "interface IFNAME area A.B.C.D",
+      "interface IFNAME area A.B.C.D ctrl HOSTNUM",
       "Enable routing on an IPv6 interface\n"
       IFNAME_STR
       "Specify the OSPF6 area ID\n"
-      "OSPF6 area ID in IPv4 address notation\n")
+      "OSPF6 area ID in IPv4 address notation\n"
+      "Controller to attach interface to\n")
 {
   struct ospf6 *o;
   struct ospf6_area *oa;
   struct interface * ifp;
   struct ospf6_interface * oi;
   u_int32_t area_id;
+  unsigned int hostnum;
 
   o = (struct ospf6 *)vty->index;
 
-  /* find/create ospf6 interface */
-  ifp = if_get_by_name(argv[0]);
-  oi = (struct ospf6_interface *) ifp->info;
-  if(oi == NULL)
-  {
-    oi = ospf6_interface_create(ifp);
-  }
+  hostnum = strtol(argv[2], NULL, 10);
 
-  /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[1], &area_id) != 1) 
-  {
-    printf("Invalid Area-ID: %s\n", argv[1]);
-  }
-
-  /* find/create ospf6 area */
-  oa = ospf6_area_lookup (area_id, o);
-  if(oa == NULL)
-    oa = ospf6_area_create(area_id, o);
-
-  /* attach interface to area */
-  list_push_back(&oa->if_list, &oi->node);
-  oi->area = oa;
-
-  /* start up */
-  thread_add_event(master, interface_up, oi, 0);
+  sibling_ctrl_add_ctrl_client(hostnum, argv[0], argv[1]);
 
   // abr
   return CMD_SUCCESS;

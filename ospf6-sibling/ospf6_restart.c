@@ -72,7 +72,7 @@ void process_restarted_msg(unsigned int bid, timestamp_t timestamp, char * inter
 
   ospf6_db_fill_body(json_buffer, oh);
 
-  ifp = if_get_by_name(interface_name);
+//  ifp = if_get_by_name(interface_name);
   oi = (struct ospf6_interface *)ifp->info;
 
   ospf6_receive(NULL, oh, timestamp, oi);
@@ -177,7 +177,7 @@ void * ospf6_restart_start(void * arg)
     rh = rfpbuf_at_assert(own_msg, 0, sizeof(struct rfp_header));
     oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
     timestamp = own_msg->timestamp;
-    ifp = if_get_by_name(interface_name);
+    ifp = sibling_ctrl_if_lookup_by_name(interface_name);
     oi = (struct ospf6_interface *)ifp->info;
 
     ospf6_receive(NULL, oh, timestamp, oi);

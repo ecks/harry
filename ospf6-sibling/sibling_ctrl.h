@@ -4,9 +4,13 @@
 void sibling_ctrl_init();
 timestamp_t sibling_ctrl_ingress_timestamp();
 
-void sibling_ctrl_add_ctrl_client(struct in6_addr * ctrl_addr,
-                                  struct in6_addr * sibling_addr);
+void sibling_ctrl_add_ctrl_client(unsigned int hostnum, char * ifname, char * area);
+void sibling_ctrl_set_addresses(struct in6_addr * sibling_ctrl);
+
 void sibling_ctrl_interface_init(struct ospf6_interface * oi);
+
+struct interface * sibling_ctrl_if_lookup_by_name(const char * ifname);
+struct interface * sibling_ctrl_if_lookup_by_index(int ifindex);
 
 void sibling_ctrl_route_set(struct ospf6_route * route);
 

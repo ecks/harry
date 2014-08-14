@@ -16,17 +16,18 @@
 #include "dblist.h"
 #include "if.h"
 
-/* Master list of interfaces. */
-struct list * iflist;
-
-void if_init()
+struct list * if_init()
 {
+  struct list * iflist;
+
   iflist = list_new();
   list_init(iflist);
+
+  return iflist;
 }
 
 /* Create new interface structure */
-struct interface * if_create(const char * name, int namelen)
+struct interface * if_create(struct list * iflist, const char * name, int namelen)
 {
   struct interface * ifp;
 
@@ -40,7 +41,7 @@ struct interface * if_create(const char * name, int namelen)
   assert (namelen <= RFP_MAX_PORT_NAME_LEN); /* Need space for '\0' at end. */
   strncpy (ifp->name, name, namelen);
   ifp->name[namelen] = '\0';
-  if (if_lookup_by_name(ifp->name) == NULL)
+  if (if_lookup_by_name(iflist, ifp->name) == NULL)
     list_push_back(iflist, &ifp->node);
 //    listnode_add_sort (iflist, ifp);
   else
@@ -54,7 +55,7 @@ struct interface * if_create(const char * name, int namelen)
 
 /* Interface existance check by interface name. */
 struct interface *
-if_lookup_by_name (const char *name)
+if_lookup_by_name (struct list * iflist, const char *name)
 {
   struct interface * ifp, * next;
 
@@ -68,7 +69,7 @@ if_lookup_by_name (const char *name)
 }
 
 /* Interface existence check by ifindex. */
-struct interface * if_lookup_by_index(const unsigned int index)
+struct interface * if_lookup_by_index(struct list * iflist, const unsigned int index)
 {
   struct interface * ifp, * next;
 
@@ -83,12 +84,12 @@ struct interface * if_lookup_by_index(const unsigned int index)
 /* Get interface by name if given name interface doesn't exist create
    one. */
 struct interface *
-if_get_by_name (const char *name)
+if_get_by_name (struct list * iflist, const char *name)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp :
-         if_create(name, strlen(name));
+  return ((ifp = if_lookup_by_name(iflist, name)) != NULL) ? ifp :
+         if_create(iflist, name, strlen(name));
 }
 
 /* Is interface up? */

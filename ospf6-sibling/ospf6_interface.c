@@ -26,6 +26,7 @@
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_message.h"
+#include "sibling_ctrl.h"
 
 /* global ospf6d variable */
 struct ospf6 *ospf6;
@@ -50,7 +51,7 @@ struct ospf6_interface * ospf6_interface_lookup_by_ifindex (int ifindex)
   struct ospf6_interface *oi; 
   struct interface *ifp;
 
-  ifp = if_lookup_by_index (ifindex);
+  ifp = sibling_ctrl_if_lookup_by_index (ifindex);
   if (ifp == NULL)
     return (struct ospf6_interface *) NULL;
 
