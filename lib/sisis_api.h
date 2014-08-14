@@ -8,6 +8,7 @@
 #define _SISIS_API_H
 
 #define PTYPE_VERSION 1
+#define SISIS_VERSION 1
 
 #define SISIS_REREGISTRATION_TIMEOUT			20
 
