@@ -555,7 +555,7 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
     }
   }
 
-  sibling_ctrl_update_state(LEAD_ELECT_COMPL);
+  sibling_ctrl_update_state(SCG_LEAD_ELECT_COMPL);
 }
 
 static int ospf6_replica_read(struct thread * t)

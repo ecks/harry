@@ -3,9 +3,9 @@
 
 enum sc_state_update_req
 {
-  CTRL_INT_UP_REQ,
-  CTRL_LEAD_ELECT_RCVD_REQ,
-  LEAD_ELECT_COMPL
+  SCG_CTRL_INT_UP_REQ,
+  SCG_CTRL_LEAD_ELECT_RCVD_REQ,
+  SCG_LEAD_ELECT_COMPL
 };
 
 void sibling_ctrl_init();

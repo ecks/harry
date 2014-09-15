@@ -265,7 +265,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
   bool all_interface_up;
   bool all_rcvd_lead_elect;
 
-  if(state_update_req == CTRL_INT_UP_REQ)
+  if(state_update_req == SCG_CTRL_INT_UP_REQ)
   {
     if(state == SC_INIT)
     {
@@ -304,7 +304,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
       }
     }
   }
-  else if(state_update_req == CTRL_LEAD_ELECT_RCVD_REQ)
+  else if(state_update_req == SCG_CTRL_LEAD_ELECT_RCVD_REQ)
   {
     if(state == SC_INIT)
     {
@@ -335,7 +335,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     }
  
   }
-  else if(state_update_req == LEAD_ELECT_COMPL)
+  else if(state_update_req == SCG_LEAD_ELECT_COMPL)
   {
     if(state == SC_LEAD_ELECT_START)
     {

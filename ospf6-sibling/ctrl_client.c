@@ -64,12 +64,12 @@ void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_cl
     if(ctrl_client->state == CTRL_RCVD_HELLO)
     {
       ctrl_client->state = new_state;
-      sibling_ctrl_update_state(ctrl_client, CTRL_INTERFACE_UP);
+      sibling_ctrl_update_state(ctrl_client, SCG_CTRL_INT_UP_REQ);
     }
     else if(ctrl_client->state == CTRL_LEAD_ELECT_RCVD)
     {
       ctrl_client->state = CTRL_CONNECTED;
-      sibling_ctrl_update_state(ctrl_client, CTRL_INTERFACE_UP);
+      sibling_ctrl_update_state(ctrl_client, SCG_CTRL_INT_UP_REQ);
     }
     else
     {
@@ -80,17 +80,17 @@ void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_cl
       }
     }
   }
-  else if(new_state = CTRL_LEAD_ELECT_RCVD)
+  else if(new_state == CTRL_LEAD_ELECT_RCVD)
   {
     if(ctrl_client->state == CTRL_RCVD_HELLO)
     {
       ctrl_client->state = new_state;
-      sibling_ctrl_update_state(ctrl_client, CTRL_LEAD_ELECT_RCVD);
+      sibling_ctrl_update_state(ctrl_client, SCG_CTRL_LEAD_ELECT_RCVD_REQ);
     }
     else if(ctrl_client->state == CTRL_INTERFACE_UP)
     {
       ctrl_client->state = CTRL_CONNECTED;
-      sibling_ctrl_update_state(ctrl_client, CTRL_LEAD_ELECT_RCVD);
+      sibling_ctrl_update_state(ctrl_client, SCG_CTRL_LEAD_ELECT_RCVD_REQ);
     }
     else
     {
