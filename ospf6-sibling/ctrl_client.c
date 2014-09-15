@@ -28,14 +28,6 @@
 #include "ctrl_client.h"
 #include "ospf6_message.h"
 
-enum ctrl_client_state
-{
-  CTRL_CONNECTING,        /* not connected */
-  CTRL_SEND_HELLO,        /* waiting to send HELLO */
-  CTRL_RECV_HELLO,        /* waiting to receive HELLO */
-  CTRL_CONNECTED          /* connectionn established */
-};
-
 enum event {CTRL_CLIENT_SCHEDULE, CTRL_CLIENT_CONNECT, CTRL_CLIENT_READ, CTRL_CLIENT_CONNECTED};
 
 /* Prototype for event manager */
@@ -63,6 +55,57 @@ void ctrl_client_init(struct ctrl_client * ctrl_client,
   ctrl_client->state = CTRL_CONNECTING;
 
   ctrl_client_event(CTRL_CLIENT_SCHEDULE, ctrl_client);
+}
+
+void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_client_state new_state)
+{
+  if(new_state == CTRL_INTERFACE_UP)
+  {
+    if(ctrl_client->state == CTRL_RCVD_HELLO)
+    {
+      ctrl_client->state = new_state;
+      sibling_ctrl_update_state(ctrl_client, CTRL_INTERFACE_UP);
+    }
+    else if(ctrl_client->state == CTRL_LEAD_ELECT_RCVD)
+    {
+      ctrl_client->state = CTRL_CONNECTED;
+      sibling_ctrl_update_state(ctrl_client, CTRL_INTERFACE_UP);
+    }
+    else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      {
+        zlog_debug("Entered a bad state");
+        exit(1);
+      }
+    }
+  }
+  else if(new_state = CTRL_LEAD_ELECT_RCVD)
+  {
+    if(ctrl_client->state == CTRL_RCVD_HELLO)
+    {
+      ctrl_client->state = new_state;
+      sibling_ctrl_update_state(ctrl_client, CTRL_LEAD_ELECT_RCVD);
+    }
+    else if(ctrl_client->state == CTRL_INTERFACE_UP)
+    {
+      ctrl_client->state = CTRL_CONNECTED;
+      sibling_ctrl_update_state(ctrl_client, CTRL_LEAD_ELECT_RCVD);
+    }
+    else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      {
+        zlog_debug("Entered a bad state");
+        exit(1);
+      }
+    }
+     
+  }
+  else
+  {
+    ctrl_client->state = new_state;  
+  }
 }
 
 void ctrl_client_interface_init(struct ctrl_client * ctrl_client, char * interface_name)
@@ -230,7 +273,7 @@ int ctrl_client_start(struct ctrl_client * ctrl_client)
 
   retval = ctrl_send_message(ctrl_client);
   if(!retval)
-    ctrl_client->state = CTRL_RECV_HELLO;
+    ctrl_client_state_transition(ctrl_client, CTRL_SENT_HELLO);
   
   return 0; 
 }
@@ -324,18 +367,20 @@ static int ctrl_client_read(struct thread * t)
         zlog_debug("Hello message received");
       }
 
-      if(ctrl_client->state == CTRL_RECV_HELLO)
-        ctrl_client->state = CTRL_CONNECTED;
+      if(ctrl_client->state == CTRL_SENT_HELLO)
+        ctrl_client_state_transition(ctrl_client, CTRL_RCVD_HELLO);
   
       ctrl_client_event(CTRL_CLIENT_CONNECTED, ctrl_client);
       break;
 
     case RFPT_LEADER_ELECT:
-      ret = ctrl_client->leader_elect();
+      ctrl_client_state_transition(ctrl_client, CTRL_LEAD_ELECT_RCVD);
       break;
     
     case RFPT_FEATURES_REPLY:
       ret = ctrl_client->features_reply(ctrl_client, ctrl_client->ibuf);
+
+      ctrl_client_if_addr_req(ctrl_client);
       break;
 
     case RFPT_IPV4_ADDRESS_ADD:

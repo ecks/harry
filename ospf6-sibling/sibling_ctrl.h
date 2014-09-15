@@ -1,7 +1,15 @@
 #ifndef SIBLING_CTRL_H
 #define SIBLING_CTRL_H
 
+enum sc_state_update_req
+{
+  CTRL_INT_UP_REQ,
+  CTRL_LEAD_ELECT_RCVD_REQ,
+  LEAD_ELECT_COMPL
+};
+
 void sibling_ctrl_init();
+//void sibling_ctrl_state_transition(enum sibling_ctrl_state);
 timestamp_t sibling_ctrl_ingress_timestamp();
 
 void sibling_ctrl_add_ctrl_client(unsigned int hostnum, char * ifname, char * area);

@@ -21,11 +21,24 @@
 #include "ospf6_area.h"
 #include "ospf6_route.h"
 #include "ospf6_replica.h"
+#include "ospf6_message.h"
 #include "ctrl_client.h"
 #include "sibling_ctrl.h"
 
 struct list ctrl_clients;
 struct list restart_msg_queue;
+
+enum sibling_ctrl_state
+{
+  SC_INIT,                         /* Sibling Ctrl has been initialized */
+  SC_LEAD_ELECT_START,             /* Leader Election Algorithm has been triggered */
+  SC_ALL_INT_UP,                   /* All the External Interfaces are up */
+  SC_LEAD_ELECT_COMPL,             /* Leader Election has been completed, however all interfaces are not up yet */
+  SC_ALL_INT_UP_LEAD_ELECT_START,  /* All interfaces are up, leader election algorithm has been triggered */
+  SC_READY_TO_SEND                 /* Start sending OSPF6 messages, beginning with Hello messages */
+};
+
+enum sibling_ctrl_state state;
 
 struct ospf6 * ospf6;
 
@@ -71,8 +84,6 @@ int recv_features_reply(struct ctrl_client * ctrl_client, struct rfpbuf * buffer
     ifp->state = ntohl(rpp->state);
     ospf6_interface_if_add(ifp, ctrl_client);
   }
-
-  ctrl_client_if_addr_req(ctrl_client);
 
   return 0;
 }
@@ -194,6 +205,161 @@ void sibling_ctrl_init()
 {
   list_init(&ctrl_clients);
   list_init(&restart_msg_queue);
+  state = SC_INIT;
+}
+
+// helper function
+bool check_all_interface_up()
+{
+  bool all_interface_up = true;
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    if(ctrl_client->state != CTRL_INTERFACE_UP || ctrl_client->state != CTRL_CONNECTED)
+    {
+      all_interface_up = false;
+      break;
+    }
+  }
+
+  return all_interface_up;
+}
+
+// helper function
+bool check_all_rcvd_lead_elect()
+{
+  bool all_rcvd_lead_elect = true;
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    if(ctrl_client->state != CTRL_LEAD_ELECT_RCVD || ctrl_client->state != CTRL_CONNECTED)
+    {
+      all_rcvd_lead_elect = false;
+      break;
+    }
+  }
+
+  return all_rcvd_lead_elect;
+}
+
+// helper function
+void schedule_hellos_on_interfaces()
+{
+  struct interface * ifp;
+  struct ospf6_interface * oi;
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ifp = if_get_by_name(ctrl_client->if_list, ctrl_client->interface_name);
+    oi = (struct ospf6_interface *)ifp->info;
+
+    thread_add_event(master, ospf6_hello_send, oi, 0);
+  }
+}
+ 
+void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
+{
+  bool all_interface_up;
+  bool all_rcvd_lead_elect;
+
+  if(state_update_req == CTRL_INT_UP_REQ)
+  {
+    if(state == SC_INIT)
+    {
+      all_interface_up = check_all_interface_up();
+
+      if(all_interface_up)
+      {
+        state = SC_ALL_INT_UP;
+      }
+    }
+    else if(state == SC_LEAD_ELECT_START)
+    {
+      all_interface_up = check_all_interface_up();
+
+      if(all_interface_up)
+      {
+        state = SC_ALL_INT_UP_LEAD_ELECT_START;
+      }
+    }
+    else if(state == SC_LEAD_ELECT_COMPL)
+    {
+      all_interface_up = check_all_interface_up();
+
+      if(all_interface_up)
+      {
+        state = SC_READY_TO_SEND;
+        // schedule ospf6 hellos here
+      }
+ 
+    }
+    else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      {
+        zlog_debug("Sibling ctrl entered invalid state");
+      }
+    }
+  }
+  else if(state_update_req == CTRL_LEAD_ELECT_RCVD_REQ)
+  {
+    if(state == SC_INIT)
+    {
+      all_rcvd_lead_elect = check_all_rcvd_lead_elect();
+
+      if(all_rcvd_lead_elect)
+      {
+        state = SC_LEAD_ELECT_START;
+        ospf6_leader_elect();
+      }
+    }
+    else if(state == SC_ALL_INT_UP)
+    {
+      all_rcvd_lead_elect = check_all_rcvd_lead_elect();
+
+      if(all_rcvd_lead_elect)
+      {
+        state = SC_ALL_INT_UP_LEAD_ELECT_START;
+        ospf6_leader_elect();
+      }
+    }
+   else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      {
+        zlog_debug("Sibling ctrl entered invalid state");
+      }
+    }
+ 
+  }
+  else if(state_update_req == LEAD_ELECT_COMPL)
+  {
+    if(state == SC_LEAD_ELECT_START)
+    {
+      state = SC_LEAD_ELECT_COMPL;
+
+      /* Schedule Hello for all interfaces */
+      schedule_hellos_on_interfaces();
+    }
+    else if(state == SC_ALL_INT_UP_LEAD_ELECT_START)
+    {
+      state = SC_READY_TO_SEND;
+
+      /* Schedule Hello */
+      schedule_hellos_on_interfaces();
+    }
+   else
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      {
+        zlog_debug("Sibling ctrl entered invalid state");
+      }
+    }
+ 
+  }
 }
 
 timestamp_t sibling_ctrl_ingress_timestamp()
@@ -268,7 +434,7 @@ void sibling_ctrl_set_addresses(struct in6_addr * sibling_ctrl)
     {
       char s_addr[INET6_ADDRSTRLEN+1];
       inet_ntop(AF_INET6, &route_iter->p->prefix, s_addr, INET6_ADDRSTRLEN+1);
-      zlog_debug("done getting ctrl addr %s for hostnum: %d ", s_addr);
+      zlog_debug("done getting ctrl addr %s for hostnum: %d ", s_addr, ctrl_client->hostnum);
 
       struct in6_addr * ctrl_addr = calloc(1, sizeof(struct in6_addr));
       memcpy(ctrl_addr, &route_iter->p->prefix, sizeof(struct in6_addr));
@@ -298,7 +464,6 @@ void sibling_ctrl_set_address(struct ctrl_client * ctrl_client,
 
   ctrl_client->features_reply = recv_features_reply;
   ctrl_client->routes_reply = recv_routes_reply;
-  ctrl_client->leader_elect = ospf6_leader_elect;
   ctrl_client->address_add_v4 = if_address_add_v4;
   ctrl_client->address_add_v6 = if_address_add_v6;
 }

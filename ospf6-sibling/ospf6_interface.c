@@ -26,6 +26,7 @@
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_message.h"
+#include "ctrl_client.h"
 #include "sibling_ctrl.h"
 
 /* global ospf6d variable */
@@ -403,10 +404,13 @@ int interface_up(struct thread * thread)
   ospf6_interface_connected_route_update(oi->interface);
 
   // mutex lock
-  if(!ospf6->restart_mode)
+  if(!ospf6->restart_mode) // the following if statement is prob not necessary
   {
     /* Schedule Hello */
-    thread_add_event(master, ospf6_hello_send, oi, 0);
+    // thread_add_event(master, ospf6_hello_send, oi, 0);
+    // Dont send hellos yet, just update ctrl_client that interface is up
+ 
+    ctrl_client_state_transition(oi->ctrl_client, CTRL_INTERFACE_UP);
   }
   // mutex unlock
  

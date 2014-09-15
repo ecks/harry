@@ -26,6 +26,9 @@
 #include "rfp-msgs.h"
 #include "thread.h"
 #include "ospf6_replica.h"
+#include "ospf6_interface.h"
+#include "ospf6_route.h"
+#include "sibling_ctrl.h"
 
 enum event {REPLICA_READ};
 
@@ -551,6 +554,8 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
       zlog_debug("udp received on an address which is not ipv6");
     }
   }
+
+  sibling_ctrl_update_state(LEAD_ELECT_COMPL);
 }
 
 static int ospf6_replica_read(struct thread * t)

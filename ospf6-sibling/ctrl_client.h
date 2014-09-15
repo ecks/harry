@@ -1,6 +1,16 @@
 #ifndef CTRL_CLIENT_H
 #define CTRL_CLIENT_H
 
+enum ctrl_client_state
+{
+  CTRL_CONNECTING,           /* not connected */
+  CTRL_SENT_HELLO,           /* Sent HELLO */
+  CTRL_RCVD_HELLO,           /* Received HELLO */
+  CTRL_INTERFACE_UP,         /* Interface is up for the Appropriate Controller */
+  CTRL_LEAD_ELECT_RCVD,    /* Leader Election Message Received */
+  CTRL_CONNECTED             /* connectionn established */
+};
+
 struct ctrl_client
 {
   int sock;
@@ -22,7 +32,7 @@ struct ctrl_client
   struct thread * t_connected;   /* thread to call when already connected */
  
   char * interface_name;
-  int state; 
+  enum ctrl_client_state state; 
 
   struct list * if_list;
 
@@ -33,7 +43,6 @@ struct ctrl_client
   int (*routes_reply) (struct ctrl_client *, struct rfpbuf *);
   int (*address_add_v4)(struct ctrl_client *, struct rfpbuf *);
   int (*address_add_v6)(struct ctrl_client *, struct rfpbuf *);
-  int (*leader_elect) ();
 };
 
 extern struct ctrl_client * ctrl_client_new();
