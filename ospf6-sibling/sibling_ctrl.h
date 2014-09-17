@@ -9,7 +9,7 @@ enum sc_state_update_req
 };
 
 void sibling_ctrl_init();
-//void sibling_ctrl_state_transition(enum sibling_ctrl_state);
+void sibling_ctrl_update_state(enum sc_state_update_req);
 timestamp_t sibling_ctrl_ingress_timestamp();
 
 void sibling_ctrl_add_ctrl_client(unsigned int hostnum, char * ifname, char * area);

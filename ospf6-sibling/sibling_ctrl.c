@@ -216,7 +216,7 @@ bool check_all_interface_up()
 
   LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
   {
-    if(ctrl_client->state != CTRL_INTERFACE_UP || ctrl_client->state != CTRL_CONNECTED)
+    if( !(ctrl_client->state == CTRL_INTERFACE_UP || ctrl_client->state == CTRL_CONNECTED))
     {
       all_interface_up = false;
       break;
@@ -234,7 +234,7 @@ bool check_all_rcvd_lead_elect()
 
   LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
   {
-    if(ctrl_client->state != CTRL_LEAD_ELECT_RCVD || ctrl_client->state != CTRL_CONNECTED)
+    if( !(ctrl_client->state == CTRL_LEAD_ELECT_RCVD || ctrl_client->state == CTRL_CONNECTED))
     {
       all_rcvd_lead_elect = false;
       break;
