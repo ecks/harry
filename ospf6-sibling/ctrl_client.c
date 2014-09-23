@@ -374,6 +374,10 @@ static int ctrl_client_read(struct thread * t)
       break;
 
     case RFPT_LEADER_ELECT:
+      if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+      {
+        zlog_debug("Leader elect message received");
+      }
       ctrl_client_state_transition(ctrl_client, CTRL_LEAD_ELECT_RCVD);
       break;
     

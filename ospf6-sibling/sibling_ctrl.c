@@ -351,14 +351,20 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
       /* Schedule Hello */
       schedule_hellos_on_interfaces();
     }
-   else
+    else if(state == SC_LEAD_ELECT_COMPL || state == SC_READY_TO_SEND)
+    {
+      if(IS_OSPF6_SIBLING_DEBUG_MSG)
+      {
+        zlog_debug("Duplicate Leader Election Complete State");
+      }
+    }
+    else
     {
       if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
         zlog_debug("Sibling ctrl entered invalid state");
       }
     }
- 
   }
 }
 

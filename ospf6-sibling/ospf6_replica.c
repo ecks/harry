@@ -108,16 +108,20 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
   }
  
   sibling = find_replica_from_addr(&route->p->prefix);
-  sibling->valid = false; // may need to wrap this around in a mutex
 
   // Free memory
   free(route);
 
-
-  if(ospf6_replica->own_replica->leader)
+  if(sibling)
   {
-    // try to restart the replica
-    ospf6_replica_restart(sibling->id);
+    sibling->valid = false; // may need to wrap this around in a mutex
+
+
+    if(ospf6_replica->own_replica->leader)
+    {
+      // try to restart the replica
+      ospf6_replica_restart(sibling->id);
+    }
   }
 }
 
@@ -555,6 +559,10 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
     }
   }
 
+  if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+  {
+    zlog_debug("About to update sibling => Leader Election Complete");
+  }
   sibling_ctrl_update_state(SCG_LEAD_ELECT_COMPL);
 }
 
