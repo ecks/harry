@@ -30,8 +30,8 @@ void ospf6_restart_init(char * interface)
 {
   pthread_t * thread = calloc(1, sizeof(pthread_t));
 
-  pthread_mutex_init(&first_timestamp_mutex, NULL);
-  pthread_mutex_lock(&first_timestamp_mutex);
+  pthread_mutex_init(&first_xid_mutex, NULL);
+  pthread_mutex_lock(&first_xid_mutex);
 
   pthread_mutex_init(&restart_mode_mutex, NULL);
 
@@ -40,7 +40,7 @@ void ospf6_restart_init(char * interface)
   pthread_create(thread, NULL, ospf6_restart_start, interface);
 }
 
-void process_restarted_msg(unsigned int bid, timestamp_t timestamp, char * interface_name)
+void process_restarted_msg(unsigned int bid, unsigned int xid, char * interface_name)
 {
   struct rfpbuf * msg;
   size_t oh_size;
@@ -56,12 +56,12 @@ void process_restarted_msg(unsigned int bid, timestamp_t timestamp, char * inter
   // get the header
   oh = rfpbuf_tail(msg);
 
-  if((json_buffer = ospf6_db_get(oh, timestamp, bid)) == NULL)
-  {
+  if((json_buffer = ospf6_db_get(oh, xid, bid)) == NULL)
+//  {
     // we reached end of messages in db
-    rfpbuf_delete(msg);
-    return;
-  }
+//    rfpbuf_delete(msg);
+//    return;
+//  }
 
   msg->size += oh_size;
 
@@ -75,7 +75,7 @@ void process_restarted_msg(unsigned int bid, timestamp_t timestamp, char * inter
 //  ifp = if_get_by_name(interface_name);
   oi = (struct ospf6_interface *)ifp->info;
 
-  ospf6_receive(NULL, oh, timestamp, oi);
+  ospf6_receive(NULL, oh, xid, oi);
 
   rfpbuf_delete(msg);
 }
@@ -84,9 +84,9 @@ void * ospf6_restart_start(void * arg)
 {
   unsigned int replica_id;
   unsigned int leader_id;
-  timestamp_t timestamp;
-  timestamp_t first_timestamp_rcvd;
-  timestamp_t last_timestamp_to_process;
+  unsigned int xid;
+  unsigned int last_key_to_process;
+  unsigned int first_xid_rcvd;
 
   struct rfpbuf * own_msg;
   struct list * restart_msg_queue;
@@ -121,13 +121,12 @@ void * ospf6_restart_start(void * arg)
       zlog_debug("key to process that is coming from the replica: %s", keys->key_str_ptrs[i]);
     }
 
-    //timestamp = (long int) strtol(keys->key_str_ptrs[i], NULL, 10);
-    sscanf(keys->key_str_ptrs[i], "%ld,%ld", &timestamp.tv_sec, &timestamp.tv_usec);
+    xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
 
-    process_restarted_msg(replica_id, timestamp, interface_name);
+    process_restarted_msg(replica_id, xid, interface_name);
 
     //last_timestamp_to_process = (long int)strtol(keys->key_str_ptrs[i], NULL, 10);
-    last_timestamp_to_process = timestamp;
+    last_key_to_process = xid;
   }
 
   // no longer need the keys structure, free it here
@@ -144,15 +143,15 @@ void * ospf6_restart_start(void * arg)
   }
 
   // try to acquire the lock, block if not ready yet
-  pthread_mutex_lock(&first_timestamp_mutex);
-  first_timestamp_rcvd = sibling_ctrl_first_timestamp_rcvd();
-  pthread_mutex_unlock(&first_timestamp_mutex);
+  pthread_mutex_lock(&first_xid_mutex);
+  first_xid_rcvd = sibling_ctrl_first_xid_rcvd();
+  pthread_mutex_unlock(&first_xid_mutex);
 
   leader_id = ospf6_replica_get_leader_id();
 
   // get all the keys from next after last processed key until the first received xid
   // this may not work, will need to test it
-  keys = ospf6_db_range_keys(leader_id, last_timestamp_to_process, first_timestamp_rcvd);
+  keys = ospf6_db_range_keys(leader_id, last_key_to_process+1, first_xid_rcvd);
 
   for(i = 0; i < keys->num_keys; i++)
   {
@@ -161,9 +160,8 @@ void * ospf6_restart_start(void * arg)
       zlog_debug("key to process that is coming from the leader: %s", keys->key_str_ptrs[i]);
     }
 
-    sscanf(keys->key_str_ptrs[i], "%ld,%ld", &timestamp.tv_sec, &timestamp.tv_usec);
-
-    process_restarted_msg(leader_id, timestamp, interface_name);
+    xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
+    process_restarted_msg(leader_id, xid, interface_name);
   }
 
   // no longer need the keys structure, free it again
@@ -176,11 +174,11 @@ void * ospf6_restart_start(void * arg)
   {
     rh = rfpbuf_at_assert(own_msg, 0, sizeof(struct rfp_header));
     oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
-    timestamp = own_msg->timestamp;
+    xid = ntohl(rh->xid);
     ifp = sibling_ctrl_if_lookup_by_name(interface_name);
     oi = (struct ospf6_interface *)ifp->info;
 
-    ospf6_receive(NULL, oh, timestamp, oi);
+    ospf6_receive(NULL, oh, xid, oi);
   }
   pthread_mutex_unlock(&restart_msg_q_mutex);
 

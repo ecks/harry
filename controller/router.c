@@ -142,6 +142,7 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
   enum rfptype type;
   struct rfp_header * rh;
   int i;
+  int xid;
 
   rh = msg->data;
 
@@ -212,13 +213,22 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
     case RFPT_FORWARD_OSPF6:
       if(rt->state == R_ROUTING)
       {
+        // try to get a unique xid
+        xid = etcd_get_unique_xid();
+
         if(IS_CONTROLLER_DEBUG_MSG)
         {
           // forward to all siblings
-          zlog_debug("forward ospf6 packet: controller => sibling, xid: %d", ntohl(rh->xid));
+//          zlog_debug("forward ospf6 packet: controller => sibling, xid: %d", ntohl(rh->xid));
+          zlog_debug("forward ospf6 packet: controller => sibling, xid: %d", xid);
         }
         struct rfpbuf * msg_copy = rfpbuf_clone(msg);
-        sib_router_forward_ospf6(msg_copy, ntohl(rh->xid));
+
+        // need to modify xid here
+        rh = msg_copy->data;
+        rh->xid = htonl(xid);
+
+        sib_router_forward_ospf6(msg_copy, xid);
 
         // sent the data, no longer needed
         rfpbuf_delete(msg_copy);

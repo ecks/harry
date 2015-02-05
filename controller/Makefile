@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -ggdb -I../lib
-LIBS = -pthread -lrt
+CFLAGS = -ggdb -I../lib -I../../etcd-api
+LIBS = -pthread -lrt -letcd -L../../etcd-api
 EXECUTABLE = controller
-SRCS = vconn.c rconn.c vconn-stream.c util.c rfpbuf.c rfp-msgs.c dblist.c stream-fd.c stream.c socket-util.c stream-tcp.c poll-loop.c timeval.c fatal-signal.c router.c sib_router.c table.c prefix.c rib.c vector.c sisis.c sisis_api.c netlink.c if.c thread.c log.c command.c vty.c debug.c
+SRCS = vconn.c rconn.c vconn-stream.c util.c rfpbuf.c rfp-msgs.c dblist.c stream-fd.c stream.c socket-util.c stream-tcp.c poll-loop.c timeval.c fatal-signal.c router.c sib_router.c table.c prefix.c rib.c vector.c sisis.c sisis_api.c netlink.c if.c thread.c log.c command.c vty.c debug.c etcd.c
 OBJECTS = ${SRCS:.c=.o}
 VPATH = ../lib
 
@@ -96,6 +96,9 @@ vty.o: vty.c
 	$(CC) $(CFLAGS) $(LIBS) -c $^
 
 debug.o: debug.c
+	$(CC) $(CFLAGS) $(LIBS) -c $^
+
+etcd.o: etcd.c
 	$(CC) $(CFLAGS) $(LIBS) -c $^
 
 .c.o:

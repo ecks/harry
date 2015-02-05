@@ -523,20 +523,18 @@ struct interface * sibling_ctrl_if_lookup_by_index(int ifindex)
 //}
 
 // functions dealing with restart msg queue
-timestamp_t sibling_ctrl_first_timestamp_rcvd()
+int sibling_ctrl_first_xid_rcvd()
 {
   struct list * first_msg_list;
   struct rfpbuf * first_msg_rcvd;
-  timestamp_t err_timestamp;
-
-  err_timestamp.tv_sec = (long int)0;
-  err_timestamp.tv_usec = (long int)0;
+  struct rfp_header * rh;
 
   if((first_msg_list = list_peek_front(&restart_msg_queue)) == NULL)
-    return err_timestamp;
+    return -1;
 
   first_msg_rcvd = CONTAINER_OF(first_msg_list, struct rfpbuf, list_node);
-  return first_msg_rcvd->timestamp;
+  rh = rfpbuf_at_assert(first_msg_rcvd, 0, sizeof(struct rfp_header));
+  return ntohl(rh->xid);
 }
 
 struct list * sibling_ctrl_restart_msg_queue()

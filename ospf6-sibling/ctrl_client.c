@@ -417,8 +417,7 @@ static int ctrl_client_read(struct thread * t)
         oi = (struct ospf6_interface *)ifp->info;
         oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
         xid = ntohl(rh->xid);
-        timestamp = sibling_ctrl_ingress_timestamp();
-        ospf6_receive(ctrl_client, oh, timestamp, xid, oi);
+        ospf6_receive(ctrl_client, oh, xid, oi);
       }
       else
       {
@@ -439,7 +438,7 @@ static int ctrl_client_read(struct thread * t)
         pthread_mutex_unlock(&restart_msg_q_mutex);
 
         // unlock the restart thread so it knows what is the first message that has been received
-        pthread_mutex_unlock(&first_timestamp_mutex);
+        pthread_mutex_unlock(&first_xid_mutex);
       }
       break;
   }
