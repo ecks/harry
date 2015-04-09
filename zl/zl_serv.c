@@ -5,6 +5,7 @@
 #include "stdbool.h"
 #include "string.h"
 #include <stddef.h>
+#include <time.h>
 #include "errno.h"
 #include "sys/un.h"
 #include "sys/types.h"
@@ -26,6 +27,10 @@ static int zl_serv_start();
 extern struct thread_master * master;
 
 static struct zl_serv * zl_serv_g = NULL;
+
+#ifdef DP_MEASUREMENT
+bool measurement_started = false;
+#endif
 
 struct zl_serv * zl_serv_new(void)
 {
@@ -179,6 +184,8 @@ static int zl_serv_read(struct thread * thread)
   struct zl_serv_cl * zl_serv_cl = THREAD_ARG(thread);
   struct rfp_header * rh;
 
+  struct timespec time;
+
   zl_serv_cl->t_read = 0;
 
   printf("read called from zl_serv with fd: %d\n", sock);
@@ -197,6 +204,16 @@ static int zl_serv_read(struct thread * thread)
   {
     case RFPT_FORWARD_OSPF6:
     case RFPT_FORWARD_BGP:
+
+#ifdef DP_MEASUREMENT
+      if(!measurement_started)
+      {
+        measurement_started = true;
+        clock_gettime(CLOCK_REALTIME, &time);
+        printf("[%ld.%09ld]: Started measurement\n", time.tv_sec, time.tv_nsec);
+      }
+#endif
+
       printf("rh type: %d\n", rh->type);
       routeflow_len = ntohs(rh->length);
       body_len = routeflow_len - header_len;

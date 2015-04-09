@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 #include <arpa/inet.h>
 
 #include "util.h"
@@ -32,6 +33,10 @@ static int send_routeflow_buffer(struct rfpbuf *buffer,
                      const struct sender *sender);
 static int conn_recv(struct thread * t);
 static void conn_destroy(struct conn *);
+
+#ifdef DP_MEASUREMNT
+bool measurement_stopped = false;
+#endif
 
 struct conn *
 conn_create(struct datapath *dp, struct rconn * rconn)
@@ -329,6 +334,8 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
     int (*handler)(struct conn *, const struct sender *, struct rfpbuf *);
     struct rfp_header * rh;
 
+    struct timespec time;
+
     /* Check encapsulated length. */
     rh = (struct rfp_header *) buf->data;
 
@@ -359,6 +366,15 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
       case RFPT_IPV6_ROUTE_SET_REQUEST:
         printf("Receiving IPv6 Route Set Request\n");
         handler = recv_ipv6_route_set_request;
+
+#ifdef DP_MEASUREMENT
+        if(!measurement_stopped)
+        {
+          measurement_stopped = true;
+          clock_gettime(CLOCK_REALTIME, &time);
+          printf("[%ld.%09ld]: Stopped measurement\n", time.tv_sec, time.tv_nsec);
+        }
+#endif
         break;
 
       case RFPT_FORWARD_OSPF6:

@@ -14,4 +14,6 @@
 
 #define SYSCONFDIR "/etc/zebralite"
 
+// data plane measuremnt
+#define DP_MEASUREMNT 0
 #endif
