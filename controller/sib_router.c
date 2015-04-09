@@ -128,7 +128,10 @@ static int sib_listener_accept(struct thread * t)
       if(strcmp(sib_listener->name, "ptcp6:6634") == 0)
       {
         // ospf6 connection
-        printf("new ospf6 sibling connection\n");
+        if(CONTROLLER_DEBUG_MSG)
+        {
+          zlog_debug("new ospf6 sibling connection");
+        }
 
         // try to find disconnected sib routers in order to try and reuse them
         for(i = 0; i < n_ospf6_siblings; i++)
@@ -364,8 +367,12 @@ vote_majority()
         zlog_debug("b msg xid: %d", ntohl(rh->xid));
       }
 
-        if(!rfpbuf_equal(a, b))
+      if(!rfpbuf_equal(a, b))
       {
+        struct ospf6_hello * a_hello = (struct ospf6_hello *)((void *)a->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
+        struct ospf6_hello * b_hello = (struct ospf6_hello *)((void *)b->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
+
+        zlog_debug("a and b not equal");
         seen_before = false;
       }
       else
@@ -374,7 +381,7 @@ vote_majority()
         {
           num_of_equal_msgs = num_of_equal_msgs + 2;
         }
-          else
+        else
         {
           num_of_equal_msgs++;
         }
@@ -384,8 +391,17 @@ vote_majority()
     }
   }
 
+  if(CONTROLLER_DEBUG_MSG)
+  {
+    zlog_debug("num of equal msgs: %d", num_of_equal_msgs);
+  }
+
   if(((float)num_of_equal_msgs/OSPF6_NUM_SIBS) > 0.5)
   {
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("achieved majority");
+    }
     // delete members from beginning of queue for the majority that matched
     for(i = 0; i < n_ospf6_siblings; i++)
     {

@@ -24,9 +24,12 @@
 #include "db.h"
 #include "ospf6_restart.h"
 
+bool measurement_started = false;
+bool measurement_stopped = false;
+
 static void * ospf6_restart_start(void * arg);
 
-void ospf6_restart_init(char * interface)
+void ospf6_restart_init(struct ospf6_interface * oi)
 {
   pthread_t * thread = calloc(1, sizeof(pthread_t));
 
@@ -37,17 +40,15 @@ void ospf6_restart_init(char * interface)
 
   pthread_mutex_init(&restart_msg_q_mutex, NULL);
 
-  pthread_create(thread, NULL, ospf6_restart_start, interface);
+  pthread_create(thread, NULL, ospf6_restart_start, oi);
 }
 
-void process_restarted_msg(unsigned int bid, unsigned int xid, char * interface_name)
+void process_restarted_msg(unsigned int bid, unsigned int xid, struct ospf6_interface * oi)
 {
   struct rfpbuf * msg;
   size_t oh_size;
   struct ospf6_header * oh;
   char * json_buffer;
-  struct interface * ifp;
-  struct ospf6_interface * oi;
 
   oh_size = sizeof(struct ospf6_header);
 
@@ -57,11 +58,18 @@ void process_restarted_msg(unsigned int bid, unsigned int xid, char * interface_
   oh = rfpbuf_tail(msg);
 
   if((json_buffer = ospf6_db_get(oh, xid, bid)) == NULL)
-//  {
+  {
     // we reached end of messages in db
 //    rfpbuf_delete(msg);
 //    return;
-//  }
+  }
+  else
+  {
+    if(OSPF6_SIBLING_DEBUG_RESTART)
+    {
+      zlog_debug("Return from ospf6_db_get");
+    }    
+  }
 
   msg->size += oh_size;
 
@@ -72,10 +80,12 @@ void process_restarted_msg(unsigned int bid, unsigned int xid, char * interface_
 
   ospf6_db_fill_body(json_buffer, oh);
 
-//  ifp = if_get_by_name(interface_name);
-  oi = (struct ospf6_interface *)ifp->info;
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Before ospf6_receive");
+  }
 
-  ospf6_receive(NULL, oh, xid, oi);
+  ospf6_receive(oi->ctrl_client, oh, xid, oi);
 
   rfpbuf_delete(msg);
 }
@@ -100,11 +110,20 @@ void * ospf6_restart_start(void * arg)
 
   struct keys * keys;
   
-  char * interface_name = (char *)arg;
+  struct timespec time;
+
+  oi = (struct ospf6_interface *)arg;
 
   if(OSPF6_SIBLING_DEBUG_RESTART)
   {
     zlog_debug("In ospf6_restart_start");
+
+    if(!measurement_started)
+    {
+      measurement_started = true;
+      clock_gettime(CLOCK_REALTIME, &time);
+      zlog_debug("[%ld.%09ld]: Started measurement", time.tv_sec, time.tv_nsec);
+    }
   }
 
   replica_id = ospf6_replica_get_id();
@@ -123,13 +142,20 @@ void * ospf6_restart_start(void * arg)
 
     xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
 
-    process_restarted_msg(replica_id, xid, interface_name);
+    process_restarted_msg(replica_id, xid, oi);
 
     //last_timestamp_to_process = (long int)strtol(keys->key_str_ptrs[i], NULL, 10);
     last_key_to_process = xid;
   }
 
-  // no longer need the keys structure, free it here
+  if(!measurement_stopped)
+  {
+    measurement_stopped = true;
+    clock_gettime(CLOCK_REALTIME, &time);
+    zlog_debug("[%ld.%09ld]: Stopped measurement", time.tv_sec, time.tv_nsec);
+  }
+
+// no longer need the keys structure, free it here
   db_free_keys(keys);
 
   if(!ospf6->ready_to_checkpoint)
@@ -144,14 +170,41 @@ void * ospf6_restart_start(void * arg)
 
   // try to acquire the lock, block if not ready yet
   pthread_mutex_lock(&first_xid_mutex);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Before mutex_lock");
+  }
+  
   first_xid_rcvd = sibling_ctrl_first_xid_rcvd();
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("After mutex_lock");
+  }
+
   pthread_mutex_unlock(&first_xid_mutex);
+
+  clock_gettime(CLOCK_REALTIME, &time);
+  zlog_debug("[%ld.%09ld]: First message received", time.tv_sec, time.tv_nsec);
+
 
   leader_id = ospf6_replica_get_leader_id();
 
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Before calling db_range_keys");
+  }
+
   // get all the keys from next after last processed key until the first received xid
   // this may not work, will need to test it
-  keys = ospf6_db_range_keys(leader_id, last_key_to_process+1, first_xid_rcvd);
+  keys = ospf6_db_range_keys(leader_id, last_key_to_process+1, first_xid_rcvd-1);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("After calling db_range_keys");
+  }
+
 
   for(i = 0; i < keys->num_keys; i++)
   {
@@ -161,10 +214,13 @@ void * ospf6_restart_start(void * arg)
     }
 
     xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
-    process_restarted_msg(leader_id, xid, interface_name);
+    process_restarted_msg(leader_id, xid, oi);
   }
 
-  // no longer need the keys structure, free it again
+  clock_gettime(CLOCK_REALTIME, &time);
+  zlog_debug("[%ld.%09ld]: Keys from leader's replica", time.tv_sec, time.tv_nsec);
+
+ // no longer need the keys structure, free it again
   db_free_keys(keys);
 
   restart_msg_queue = sibling_ctrl_restart_msg_queue();
@@ -175,17 +231,22 @@ void * ospf6_restart_start(void * arg)
     rh = rfpbuf_at_assert(own_msg, 0, sizeof(struct rfp_header));
     oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
     xid = ntohl(rh->xid);
-    ifp = sibling_ctrl_if_lookup_by_name(interface_name);
-    oi = (struct ospf6_interface *)ifp->info;
 
-    ospf6_receive(NULL, oh, xid, oi);
+    ospf6_receive(oi->ctrl_client, oh, xid, oi);
   }
   pthread_mutex_unlock(&restart_msg_q_mutex);
 
   if(OSPF6_SIBLING_DEBUG_RESTART)
   {
     zlog_debug("We are done processing in restart mode");
-  }
+ 
+//    if(!measurement_stopped)
+//    {
+//      measurement_stopped = true;
+//      clock_gettime(CLOCK_REALTIME, &time);
+//      zlog_debug("[%ld.%09ld]: Stopped measurement", time.tv_sec, time.tv_nsec);
+//    }
+ }
 
   // flip the switch, we are no longer in restart mode
   pthread_mutex_lock(&restart_mode_mutex);

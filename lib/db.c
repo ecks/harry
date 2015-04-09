@@ -16,21 +16,17 @@ int keys_compare(const void * a, const void * b)
   char * a_str = *a_str_ptr;
   char * b_str = *b_str_ptr;
  
-  long int a_timestamp_sec, a_timestamp_msec, b_timestamp_sec, b_timestamp_msec;
+  unsigned int a_xid, b_xid;
 
-  sscanf(a_str, "%ld,%ld", &a_timestamp_sec, &a_timestamp_msec);
-  sscanf(b_str, "%ld,%ld", &b_timestamp_sec, &b_timestamp_msec);
+  sscanf(a_str, "%d", &a_xid);
+  sscanf(b_str, "%d", &b_xid);
 
-  if(a_timestamp_sec < b_timestamp_sec)
+  if(a_xid < b_xid)
     return -1;
-  else if(a_timestamp_sec > b_timestamp_sec)
+  else if(a_xid > b_xid)
     return 1;
   else
-    if(b_timestamp_msec < b_timestamp_msec)
-      return -1;
-    else if(b_timestamp_msec > b_timestamp_msec)
-      return 1;
-    else
+    if(b_xid == b_xid)
       return 0;
 }
 
@@ -82,6 +78,64 @@ extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned i
 
   free(bucket_str.value);
   return keys;
+}
+
+extern struct keys * db_range_keys(struct RIACK_CLIENT * riack_client, unsigned int bucket, unsigned int start_xid, unsigned int end_xid, bool sort_req)
+{
+  RIACK_STRING bucket_str, index, min_xid, max_xid;
+  RIACK_STRING_LIST list;
+  struct keys * keys = NULL;
+  size_t list_size;
+  int i;
+
+  char * cur_str;
+  unsigned int cur_str_len;
+
+  index.value = INDEX_KEY;
+  index.len = strlen(index.value);
+  
+  bucket_str.value = calloc(ID_SIZE, sizeof(char));
+  sprintf(bucket_str.value, "%d", bucket);
+  bucket_str.len = strlen(bucket_str.value);
+
+  min_xid.value = calloc(ID_SIZE, sizeof(char));
+  sprintf(min_xid.value, "%d", start_xid);
+  min_xid.len = strlen(min_xid.value);
+
+  max_xid.value = calloc(ID_SIZE, sizeof(char));
+  sprintf(max_xid.value, "%d", end_xid);
+  max_xid.len = strlen(max_xid.value);
+
+  
+  if(riack_2i_query_range(riack_client, bucket_str, index, min_xid, max_xid, &list) == RIACK_SUCCESS)
+  {
+    list_size = list.string_count;
+
+    keys = calloc(1, sizeof(struct keys));
+    keys->num_keys = list_size;
+    keys->key_str_ptrs = calloc(list_size, sizeof(char *));
+
+    for(i = 0; i < list_size; i++)
+    {
+      cur_str = list.strings[i].value;
+      cur_str_len = list.strings[i].len;
+      keys->key_str_ptrs[i] = calloc(cur_str_len + 1, sizeof(char)); // 1 extra for null byte
+      strncpy(keys->key_str_ptrs[i], cur_str, cur_str_len);
+      keys->key_str_ptrs[i][cur_str_len] = '\0';
+    }
+
+    if(sort_req)
+    {
+      qsort(keys->key_str_ptrs, keys->num_keys, sizeof(char *), keys_compare);
+    }
+  }
+
+  free(bucket_str.value);
+  free(min_xid.value);
+  free(max_xid.value);
+
+  return keys;
+
 }
 
 extern void db_free_keys(struct keys * keys)

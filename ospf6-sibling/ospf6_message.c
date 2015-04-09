@@ -96,7 +96,8 @@ static void ospf6_fill_header(struct ospf6_interface * oi, struct ospf6_header *
   oh->instance_id = htons(0);
   oh->reserved = htons(0);
 
-
+  // checksum is calculated by kernel however needs to be set here
+  oh->checksum = htons(0);
 }
 
 // helper function
@@ -698,6 +699,7 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   int twoway = 0;
   int neighborchange = 0;
   int retval;
+  unsigned int replica_id;
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
@@ -746,6 +748,8 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
   {
     ospf6_db_put_hello(oh, xid);
+
+    ospf6_replica_check_for_slowness();
   }
   // mutex unlock
 

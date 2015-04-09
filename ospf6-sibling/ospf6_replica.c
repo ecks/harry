@@ -116,6 +116,10 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
   {
     sibling->valid = false; // may need to wrap this around in a mutex
 
+    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    {
+      zlog_debug("The sibling corresponding to removed route has id: %d", sibling->id);
+    }
 
     if(ospf6_replica->own_replica->leader)
     {
@@ -290,7 +294,7 @@ int ospf6_leader_elect()
             zlog_debug("pushing sibling for replica %s", addr);
           }
 
-          // create a sibling, not our own
+          // create a sibling if already not created, not our own
           sibling = ospf6_update_replicas(&route_iter->p->prefix);
 
           if(ts == own_ts && sibling->leader)
@@ -465,7 +469,7 @@ static void send_ids()
 
   ospf6_replica->obuf = routeflow_alloc_xid(RFPT_REPLICA_EX, RFP10_VERSION, htonl(0), sizeof(struct rfp_header));
   r_ex = rfpbuf_put_uninit(ospf6_replica->obuf, sizeof(struct ospf6_replica_ex));
-  r_ex->id = htonl(own_replica->id);
+  r_ex->id = htons(own_replica->id);
   r_ex->leader = own_replica->leader == true ? 1 : 0;
       
   rfpmsg_update_length(ospf6_replica->obuf);
@@ -548,6 +552,9 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
         inet_ntop(AF_INET6, &ip6addr->sin6_addr, s_addr, INET6_ADDRSTRLEN);
 
         zlog_debug("could not find sibling to set id to: %s", s_addr);
+        sibling = ospf6_create_replica(&ip6addr->sin6_addr, false);
+        sibling->leader = leader;
+        sibling->id = id;
       }
     }
   }
@@ -559,6 +566,7 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
     }
   }
 
+  // bug 
   if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
   {
     zlog_debug("About to update sibling => Leader Election Complete");
@@ -671,7 +679,7 @@ static int ospf6_replica_read(struct thread * t)
         zlog_debug("received RFPT_REPLICA_EX: id %d, leader %d", ntohs(r_ex->id), r_ex->leader);
       }
 
-      id = ntohl(r_ex->id);
+      id = ntohs(r_ex->id);
       leader = r_ex->leader;
       fill_id((struct sockaddr *)&src, leader, id);
 
@@ -700,6 +708,7 @@ void ospf6_replica_restart(unsigned int id)
   {
     zlog_debug("About to restart sibling with id %d", id);
   }
+  // temporarily disable
 
   if((pid = vfork()) == 0)
   {
@@ -734,6 +743,44 @@ unsigned int ospf6_replica_get_leader_id()
 
   printf("Error!\n");
   exit(1);
+}
+
+void ospf6_replica_check_for_slowness()
+{
+  unsigned int my_id;
+  int my_xid;
+  int xid_of_other;
+  int id_diff;
+
+  int slower = 0; // this replica is slower from how many other replicas
+  int threshold = 5;  // for testing, make the threshold be 5
+  
+  my_id = ospf6_replica_get_id();
+  my_xid = ospf6_db_get_current_xid(my_id);
+
+  struct sibling * sibl;
+  LIST_FOR_EACH(sibl, struct sibling, node, &ospf6_replica->replicas)
+  {
+    if(sibl->id != my_id)
+    {
+      // current sibling is different
+      xid_of_other = ospf6_db_get_current_xid(sibl->id);
+      id_diff = xid_of_other - my_xid;
+      if(id_diff < 0)
+      {
+        continue; 
+      }
+
+      if(id_diff > threshold)
+      {
+        slower++;
+      }
+    }
+  }
+  if(((float)slower/OSPF6_NUM_SIBS) > 0.5)
+  {
+    zlog_debug("I am too slow, will need to catch up to others");
+  }
 }
 
 void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas)

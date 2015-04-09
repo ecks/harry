@@ -22,8 +22,8 @@
 #include "ospf6_route.h"
 #include "ospf6_area.h"
 #include "ospf6_intra.h"
-#include "ospf6_restart.h"
 #include "ospf6_interface.h"
+#include "ospf6_restart.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_message.h"
 #include "ctrl_client.h"
@@ -397,7 +397,7 @@ int interface_up(struct thread * thread)
   /* Start state catchup if running in restart mode */
   if(ospf6->restart_mode)
   {
-    ospf6_restart_init(oi->interface->name);
+    ospf6_restart_init(oi);
   }
 
   /* Update interface route */

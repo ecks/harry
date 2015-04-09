@@ -22,8 +22,8 @@
 #include "thread.h"
 #include "ospf6_top.h"
 #include "ospf6_route.h"
-#include "ospf6_restart.h"
 #include "ospf6_interface.h"
+#include "ospf6_restart.h"
 #include "sibling_ctrl.h"
 #include "ctrl_client.h"
 #include "ospf6_message.h"
@@ -90,6 +90,12 @@ void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_cl
     else if(ctrl_client->state == CTRL_INTERFACE_UP)
     {
       ctrl_client->state = CTRL_CONNECTED;
+      sibling_ctrl_update_state(SCG_CTRL_LEAD_ELECT_RCVD_REQ);
+    }
+    else if(ctrl_client->state == CTRL_CONNECTED)
+    {
+      // leader election can happen for a restarted sibling
+      // in this case, we redo leader election even though we have done it previously
       sibling_ctrl_update_state(SCG_CTRL_LEAD_ELECT_RCVD_REQ);
     }
     else
@@ -292,7 +298,7 @@ static int ctrl_client_connect(struct thread * t)
 static int ctrl_client_read(struct thread * t)
 {
   int ret;
-  timestamp_t timestamp;
+//  timestamp_t timestamp;
   size_t already = 0;
   struct rfp_header * rh;
   struct ospf6_header * oh;
@@ -430,12 +436,24 @@ static int ctrl_client_read(struct thread * t)
 
         struct rfpbuf * msg_rcvd = rfpbuf_clone(ctrl_client->ibuf);
         list_init(&msg_rcvd->list_node);
-        timestamp = sibling_ctrl_ingress_timestamp();
-        msg_rcvd->timestamp = timestamp;
+//        timestamp = sibling_ctrl_ingress_timestamp();
+//        msg_rcvd->timestamp = timestamp;
+
+        if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+        {
+          zlog_debug("Start appending to msg_rcvd");
+        }
+
 
         pthread_mutex_lock(&restart_msg_q_mutex);
         sibling_ctrl_push_to_restart_msg_queue(msg_rcvd);
         pthread_mutex_unlock(&restart_msg_q_mutex);
+
+        if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+        {
+          zlog_debug("Stop appending to msg_rcvd");
+        }
+
 
         // unlock the restart thread so it knows what is the first message that has been received
         pthread_mutex_unlock(&first_xid_mutex);
@@ -443,8 +461,18 @@ static int ctrl_client_read(struct thread * t)
       break;
   }
 
+  if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+  {
+    zlog_debug("Before rfpbuf_delete");
+  }
+
   rfpbuf_delete(ctrl_client->ibuf);
   ctrl_client->ibuf = NULL;
+
+  if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+  {
+    zlog_debug("End of ctrl_client");
+  }
 
   ctrl_client_event(CTRL_CLIENT_READ, ctrl_client);
   return 0;

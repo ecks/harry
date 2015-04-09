@@ -35,6 +35,7 @@ enum sibling_ctrl_state
   SC_ALL_INT_UP,                   /* All the External Interfaces are up */
   SC_LEAD_ELECT_COMPL,             /* Leader Election has been completed, however all interfaces are not up yet */
   SC_ALL_INT_UP_LEAD_ELECT_START,  /* All interfaces are up, leader election algorithm has been triggered */
+  SC_READY_TO_SEND_LEAD_ELECT_START,/* Leader re-election due to a failed sibling, just perform leader election */
   SC_READY_TO_SEND                 /* Start sending OSPF6 messages, beginning with Hello messages */
 };
 
@@ -43,6 +44,8 @@ enum sibling_ctrl_state state;
 struct ospf6 * ospf6;
 
 extern struct thread_master * master;
+
+bool scheduled_hellos = false;
 
 void sibling_ctrl_set_address(struct ctrl_client * ctrl_client,
                               struct in6_addr * ctrl_addr,
@@ -251,6 +254,12 @@ void schedule_hellos_on_interfaces()
   struct ospf6_interface * oi;
   struct ctrl_client * ctrl_client;
 
+  // if we already scheduled hellos, dont need to do it again
+  if(scheduled_hellos)
+  {
+    return;
+  }
+
   LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
   {
     ifp = if_get_by_name(ctrl_client->if_list, ctrl_client->interface_name);
@@ -258,6 +267,8 @@ void schedule_hellos_on_interfaces()
 
     thread_add_event(master, ospf6_hello_send, oi, 0);
   }
+
+  scheduled_hellos = true;
 }
  
 void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
@@ -326,7 +337,19 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
         ospf6_leader_elect();
       }
     }
-   else
+    else if(state == SC_READY_TO_SEND)
+    {
+      // leader election for a restarted sibling
+      // redo leader election, however do not need to reschedule sending of hellos
+      all_interface_up = check_all_interface_up();
+
+      if(all_interface_up)
+      {
+        state = SC_READY_TO_SEND_LEAD_ELECT_START;
+        ospf6_leader_elect();
+      }
+    }
+    else
     {
       if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
@@ -350,6 +373,11 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
 
       /* Schedule Hello */
       schedule_hellos_on_interfaces();
+    }
+    else if(state == SC_READY_TO_SEND_LEAD_ELECT_START)
+    {
+      // sinche hellos are already scheduled, dont need to reschedule them
+      state = SC_READY_TO_SEND;
     }
     else if(state == SC_LEAD_ELECT_COMPL || state == SC_READY_TO_SEND)
     {

@@ -1,4 +1,5 @@
 #include "stdio.h"
+#include "stdlib.h"
 #include "etcd-api.h"
  
 #define ETCD_PROXY "127.0.0.1:8080"
@@ -53,6 +54,8 @@ int etcd_get_and_set(etcd_session sess, char * key)
     fprintf(stderr, "etcd_set failed\n");
     return -1;
   }
+
+  free(value);
 
   // successful at acquiring a unique xid
   return curr_xid;
