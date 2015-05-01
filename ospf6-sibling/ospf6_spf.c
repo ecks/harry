@@ -15,6 +15,7 @@
 #include "prefix.h"
 #include "debug.h"
 #include "thread.h"
+#include "riack.h"
 #include "ospf6_interface.h"
 #include "ospf6_area.h"
 #include "ospf6_lsa.h"

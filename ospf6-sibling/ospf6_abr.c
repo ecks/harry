@@ -5,6 +5,7 @@
 
 #include "util.h"
 #include "dblist.h"
+#include "riack.h"
 #include "ospf6_top.h"
 #include "ospf6_abr.h"
 #include "ospf6_area.h"

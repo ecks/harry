@@ -8,6 +8,7 @@
 #include "util.h"
 #include "dblist.h"
 #include "prefix.h"
+#include "riack.h"
 #include "ospf6_route.h"
 #include "ospf6_top.h"
 #include "ospf6_asbr.h"

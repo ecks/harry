@@ -14,6 +14,7 @@
 #include "routeflow-common.h"
 #include "debug.h"
 #include "if.h"
+#include "riack.h"
 #include "ospf6_top.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"

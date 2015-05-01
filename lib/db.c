@@ -8,6 +8,21 @@
 
 #include "db.h"
 
+extern riack_client * db_init(char * host, int port)
+{
+  riack_client * riack_client;
+
+  riack_init();
+  riack_client = riack_new_client(0);
+  if(riack_connect(riack_client, host, port, 0) != RIACK_SUCCESS)
+  {
+    printf("Failed to connect to riak server\n");
+    riack_free(riack_client);
+  }
+
+  return riack_client;
+}
+
 int keys_compare(const void * a, const void * b)
 {
   char ** a_str_ptr = (char **)a;
@@ -30,11 +45,11 @@ int keys_compare(const void * a, const void * b)
       return 0;
 }
 
-extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned int bucket, bool sort_req)
+extern struct keys * db_list_keys(riack_client * riack_client, unsigned int bucket, bool sort_req)
 {
-  struct RIACK_STRING_LINKED_LIST * list;
-  struct RIACK_STRING_LINKED_LIST * current;
-  RIACK_STRING bucket_str;
+  riack_string_linked_list * list;
+  riack_string_linked_list * current;
+  riack_string bucket_str;
   size_t list_size;
 
   size_t cur_str_len;
@@ -45,7 +60,7 @@ extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned i
   sprintf(bucket_str.value, "%d", bucket);
   bucket_str.len = strlen(bucket_str.value);
 
-  if(riack_list_keys(riack_client, bucket_str, &list) == RIACK_SUCCESS)
+  if(riack_list_keys(riack_client, &bucket_str, &list) == RIACK_SUCCESS)
   {
     list_size = riack_string_linked_list_size(&list);
 
@@ -73,17 +88,99 @@ extern struct keys * db_list_keys(struct RIACK_CLIENT * riack_client, unsigned i
       qsort(keys->key_str_ptrs, keys->num_keys, sizeof(char *), keys_compare);
     }
 
-    riack_free_string_linked_list(riack_client, &list);
+    riack_free_string_linked_list_p(riack_client, &list);
   }
 
   free(bucket_str.value);
   return keys;
 }
 
-extern struct keys * db_range_keys(struct RIACK_CLIENT * riack_client, unsigned int bucket, unsigned int start_xid, unsigned int end_xid, bool sort_req)
+extern int db_get_unique_id(riack_client * riack_client)
 {
-  RIACK_STRING bucket_str, index, min_xid, max_xid;
-  RIACK_STRING_LIST list;
+  riack_string bucket_type_str, bucket_str, key_str;
+
+  bucket_type_str.value = "strongly_consistent";
+  bucket_type_str.len = strlen(bucket_type_str.value);
+
+  bucket_str.value = "ids";
+  bucket_str.len = strlen(bucket_str.value);
+
+  key_str.value = "ingress_id";
+  key_str.len = strlen(key_str.value);
+
+  return db_get_and_set(riack_client, &bucket_type_str, &bucket_str, &key_str);
+}
+
+int db_get_and_set(riack_client * riack_client, riack_string * bucket_type_str, riack_string * bucket_str, riack_string * key_str)
+{
+  riack_object object;
+  riack_get_object * res_object;
+
+  size_t data_len;
+  int curr_xid;
+  char * curr_xid_str, * output_data;
+
+  if(riack_get_ext(riack_client, bucket_str, key_str, (riack_get_properties *)0, bucket_type_str, &res_object, 0) != RIACK_SUCCESS)
+  {
+    fprintf(stderr, "riack_get failed\n");
+    return -1;
+  }
+ 
+  if(res_object->object.content_count == 1)
+  {
+    data_len = res_object->object.content[0].data_len;
+    output_data = calloc(30, sizeof(char));
+    strncpy(output_data, res_object->object.content[0].data, data_len);
+    printf("%s\n", output_data);
+
+    printf("%d\n", (int)    res_object->object.vclock.len);
+    printf("%d\n", (int) *(res_object->object.vclock.clock));
+
+
+    object.vclock.len = res_object->object.vclock.len;
+
+    object.vclock.clock = calloc(object.vclock.len, sizeof(void));
+
+    memcpy(object.vclock.clock, res_object->object.vclock.clock, object.vclock.len);
+
+    object.bucket.value = bucket_str->value;
+    object.bucket.len = strlen(object.bucket.value);
+
+    object.key.value = key_str->value;
+    object.key.len = strlen(object.key.value);
+
+    curr_xid = (int)strtol(output_data, NULL, 10);
+    curr_xid++;
+
+    // change to default value
+    curr_xid_str = calloc(30, sizeof(char));
+    sprintf(curr_xid_str, "%d", curr_xid);
+
+    object.content = (riack_content *)calloc(1, sizeof(riack_content));
+
+    memset(object.content, 0, sizeof(riack_content));
+
+    object.content[0].content_type.value = "text/plain";
+    object.content[0].content_type.len = strlen(object.content[0].content_type.value);
+    object.content[0].data = (uint8_t *)curr_xid_str;
+    object.content[0].data_len = strlen(curr_xid_str);
+
+    if(riack_put_ext(riack_client, &object, bucket_type_str, (riack_object **)0, (riack_put_properties *)0, 0) != RIACK_SUCCESS)
+    {
+      fprintf(stderr, "riack_put_ext failed\n");
+      return -1;
+    }
+
+    return curr_xid;
+  }
+
+  return 0;
+}
+
+extern struct keys * db_range_keys(riack_client * riack_client, unsigned int bucket, unsigned int start_xid, unsigned int end_xid, bool sort_req)
+{
+  riack_string bucket_str, index, min_xid, max_xid;
+  riack_string_list * list;
   struct keys * keys = NULL;
   size_t list_size;
   int i;
@@ -107,9 +204,9 @@ extern struct keys * db_range_keys(struct RIACK_CLIENT * riack_client, unsigned 
   max_xid.len = strlen(max_xid.value);
 
   
-  if(riack_2i_query_range(riack_client, bucket_str, index, min_xid, max_xid, &list) == RIACK_SUCCESS)
+  if(riack_2i_query_range(riack_client, &bucket_str, &index, &min_xid, &max_xid, &list) == RIACK_SUCCESS)
   {
-    list_size = list.string_count;
+    list_size = list->string_count;
 
     keys = calloc(1, sizeof(struct keys));
     keys->num_keys = list_size;
@@ -117,8 +214,8 @@ extern struct keys * db_range_keys(struct RIACK_CLIENT * riack_client, unsigned 
 
     for(i = 0; i < list_size; i++)
     {
-      cur_str = list.strings[i].value;
-      cur_str_len = list.strings[i].len;
+      cur_str = list->strings[i].value;
+      cur_str_len = list->strings[i].len;
       keys->key_str_ptrs[i] = calloc(cur_str_len + 1, sizeof(char)); // 1 extra for null byte
       strncpy(keys->key_str_ptrs[i], cur_str, cur_str_len);
       keys->key_str_ptrs[i][cur_str_len] = '\0';

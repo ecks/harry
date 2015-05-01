@@ -27,6 +27,7 @@
 #include "rib.h"
 #include "debug.h"
 #include "thread.h"
+#include "riack.h"
 #include "router.h"
 #include "sib_router.h"
 

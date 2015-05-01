@@ -36,7 +36,7 @@ struct ospf6
 
   struct ospf6_route_table *external_table;
 
-  struct RIACK_CLIENT * riack_client;
+  riack_client * riack_client;
 
   bool restart_mode;
 
@@ -47,5 +47,6 @@ struct ospf6
 extern struct ospf6 *ospf6;
 
 void ospf6_top_init(bool);
+void ospf6_change_restart_mode(bool);
 
 #endif

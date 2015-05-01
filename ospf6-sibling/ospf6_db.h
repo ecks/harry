@@ -10,6 +10,7 @@ extern int ospf6_db_put_hello(struct ospf6_header * oh, unsigned int xid);
 extern int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid);
 extern char * ospf6_db_get(struct ospf6_header * oh, unsigned int xid, unsigned int bucket); // fills header
 extern int ospf6_db_fill_body(char * buffer, void * body); // fills the body
+extern unsigned int ospf6_db_last_key(unsigned int bucket);
 extern struct keys * ospf6_db_list_keys(unsigned int bucket);
 extern struct keys * ospf6_db_range_keys(unsigned int bucket, unsigned int start_xid, unsigned int end_xid);
 extern int ospf6_db_get_current_xid(unsigned int bucket);

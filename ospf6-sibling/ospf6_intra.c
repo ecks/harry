@@ -13,6 +13,7 @@
 #include "routeflow-common.h"
 #include "prefix.h"
 #include "if.h"
+#include "riack.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_proto.h"

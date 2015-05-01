@@ -18,6 +18,8 @@
 #include "vector.h"
 #include "command.h"
 #include "rconn.h"
+#include "riack.h"
+#include "db.h"
 #include "router.h"
 #include "sib_router.h"
 #include "rfpbuf.h"
@@ -63,6 +65,8 @@ new_sib_router(struct sib_router **, struct vconn *, const char *, struct router
 
 uint64_t hostnum;
 
+riack_client * r_client = NULL;
+
 DEFUN(hostnumber,
       hostnumber_cmd,
       "hostnum NUM",
@@ -71,6 +75,17 @@ DEFUN(hostnumber,
   hostnum = (uint64_t)strtol(argv[0], NULL, 10);
 
   return CMD_SUCCESS;
+}
+
+DEFUN(riack_host,
+      riack_host_cmd,
+      "riack host A.B.C.D",
+      "Riack host Address\n"
+      V4NOTATION_STR)
+{
+  int port = 8087;
+
+  r_client = db_init((char *)argv[0], port);
 }
 
 int main(int argc, char *argv[])
@@ -83,6 +98,7 @@ int main(int argc, char *argv[])
   struct pvconn * nb_pvconn;   // north-bound interface connection
   struct pvconn * sib_pvconn;  // sibling channel interface
   char * sisis_addr;
+
   int retval;
   int i;
 
@@ -101,7 +117,7 @@ int main(int argc, char *argv[])
 
   controller_debug_init();
   install_element(CONFIG_NODE, &hostnumber_cmd);
-
+  install_element(CONFIG_NODE, &riack_host_cmd);
   vty_read_config(config_file, config_default);
 
   zlog_notice("<---- Controller starting: %d ---->", getpid());
@@ -202,7 +218,7 @@ new_router(struct router ** rt, struct vconn *vconn, const char *name)
   
     rconn = rconn_create();
     rconn_connect_unreliably(rconn, vconn, NULL);
-    *rt = router_create(rconn);
+    *rt = router_create(rconn, r_client);
 
     // schedule an event to call router_run
     thread_add_event(master, router_run, *rt, 0);

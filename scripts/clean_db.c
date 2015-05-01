@@ -20,10 +20,9 @@ int main(int argc, char * argv[])
   char * host = "10.100.2.1";
   int port = 8087;
   int i;
-  struct RIACK_CLIENT * riack_client;
+  riack_client * riack_client;
 
-  RIACK_STRING key, bucket_str;
-  struct RIACK_GET_OBJECT obj;
+  riack_string key, bucket_str;
 
   struct keys * keys;
 
@@ -66,7 +65,7 @@ int main(int argc, char * argv[])
     key.len = strlen(key.value);
 
     // delete the object from riack database
-    if(riack_delete(riack_client, bucket_str, key, 0) == RIACK_SUCCESS)
+    if(riack_delete(riack_client, &bucket_str, &key, 0) == RIACK_SUCCESS)
     {
        
     }

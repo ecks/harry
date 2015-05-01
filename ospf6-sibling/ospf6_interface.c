@@ -16,6 +16,7 @@
 #include "thread.h"
 #include "if.h"
 #include "prefix.h"
+#include "riack.h"
 #include "ospf6_top.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -397,7 +398,7 @@ int interface_up(struct thread * thread)
   /* Start state catchup if running in restart mode */
   if(ospf6->restart_mode)
   {
-    ospf6_restart_init(oi);
+    ospf6_restart_init(oi, false);
   }
 
   /* Update interface route */

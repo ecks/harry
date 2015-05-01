@@ -20,6 +20,7 @@
 #include "if.h"
 #include "debug.h"
 #include "thread.h"
+#include "riack.h"
 #include "ospf6_top.h"
 #include "ospf6_route.h"
 #include "ospf6_interface.h"

@@ -20,6 +20,7 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "if.h"
+#include "riack.h"
 #include "ospf6_route.h"
 #include "ctrl_client.h"
 #include "ospf6_top.h"
@@ -748,8 +749,6 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
   {
     ospf6_db_put_hello(oh, xid);
-
-    ospf6_replica_check_for_slowness();
   }
   // mutex unlock
 
@@ -1279,5 +1278,18 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
       break;
   }
 
+  if(!ospf6->restart_mode)
+  {
+    unsigned int my_id = ospf6_replica_get_id();
+
+  // we are purposely slowing down the third process
+//    if(my_id == 2)
+//    {
+//      sleep(10);
+//    }
+
+    // check to see whether we need to catch up with other siblings
+    ospf6_replica_check_for_slowness(oi);
+  }
   return 0;
 }

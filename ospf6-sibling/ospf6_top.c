@@ -17,6 +17,7 @@
 #include "vty.h"
 #include "command.h"
 #include "if.h"
+#include "db.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_area.h"
@@ -75,14 +76,7 @@ static struct ospf6 * ospf6_create(void)
 
   list_init(&o->area_list);
  
-  // this should be in separate function
-  riack_init();
-  o->riack_client = riack_new_client(0);
-  if(riack_connect(o->riack_client, host, port, 0) != RIACK_SUCCESS) 
-  {   
-    printf("Failed to connect to riak server\n");
-    riack_free(o->riack_client);
-  }
+  o->riack_client = db_init(host, port);
 
   o->restart_mode = my_restart_mode;
 
@@ -175,6 +169,22 @@ DEFUN(no_ospf6_interface_area,
   return CMD_SUCCESS;
 }
 
+DEFUN(riack_host,
+      riack_host_cmd,
+      "riack host A.B.C.D",
+      "Riack host address"
+      V4NOTATION_STR)
+{
+  struct ospf6 * o;
+  riack_client * riack_client = NULL;
+  int port = 8087;
+  int ret;
+
+  o = (struct ospf6 *)vty->index;
+
+  o->riack_client = db_init((char *)argv[0], port);
+}
+
 /* OSPF configuration write function. */
 static int
 config_write_ospf6(struct vty * vty)
@@ -191,6 +201,14 @@ static struct cmd_node ospf6_node =
   "%s(config-ospf6)# ",
   1 /* VTYSH */
 };
+
+void ospf6_change_restart_mode(bool restart_mode)
+{
+  struct ospf6 * o;
+
+  o = (struct ospf6 *)ospf6;
+  o->restart_mode = restart_mode;  
+}
 
 void ospf6_top_init(bool restart_mode)
 {

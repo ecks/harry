@@ -22,7 +22,9 @@
 #include "debug.h"
 #include "if.h"
 #include "sib_router.h"
+#include "riack.h"
 #include "router.h"
+#include "db.h"
 
 static void router_send_features_request(struct router *);
 static void router_send_stats_routes_request(struct router *rt);
@@ -38,7 +40,7 @@ static void router_process_route(struct router * rt, void * rr_);
  * 'cfg'.
  * 'rconn' is used to send out an OpenFlow features request. */
 struct router *
-router_create(struct rconn *rconn)
+router_create(struct rconn *rconn, riack_client * r_client)
 {
   struct router * rt;
   size_t i;
@@ -46,6 +48,7 @@ router_create(struct rconn *rconn)
   rt = malloc(sizeof *rt);
   rt->rconn = rconn;
   rt->state = R_CONNECTING;
+  rt->r_client = r_client;
 
   list_init(&rt->port_list);
 
@@ -214,7 +217,7 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
       if(rt->state == R_ROUTING)
       {
         // try to get a unique xid
-        xid = etcd_get_unique_xid();
+        xid = db_get_unique_id(rt->r_client);
 
         if(IS_CONTROLLER_DEBUG_MSG)
         {

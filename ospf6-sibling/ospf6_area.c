@@ -15,6 +15,7 @@
 #include "command.h"
 #include "debug.h"
 #include "thread.h"
+#include "riack.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"

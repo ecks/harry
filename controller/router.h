@@ -22,6 +22,7 @@ struct router {
   enum router_state state;
   struct list port_list;
   struct list * iflist;
+  riack_client * r_client;
 };
 
 struct iflist_
@@ -31,7 +32,7 @@ struct iflist_
 };
 
 
-struct router * router_create(struct rconn *);
+struct router * router_create(struct rconn *, riack_client * riack_client);
 void router_forward(struct router * r, struct rfpbuf * msg);
 int router_run(struct thread *);
 void router_wait(struct router *);

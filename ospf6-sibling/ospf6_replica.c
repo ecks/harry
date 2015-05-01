@@ -25,8 +25,8 @@
 #include "rfpbuf.h"
 #include "rfp-msgs.h"
 #include "thread.h"
-#include "ospf6_replica.h"
 #include "ospf6_interface.h"
+#include "ospf6_replica.h"
 #include "ospf6_route.h"
 #include "sibling_ctrl.h"
 
@@ -745,7 +745,7 @@ unsigned int ospf6_replica_get_leader_id()
   exit(1);
 }
 
-void ospf6_replica_check_for_slowness()
+void ospf6_replica_check_for_slowness(struct ospf6_interface * oi)
 {
   unsigned int my_id;
   int my_xid;
@@ -759,17 +759,32 @@ void ospf6_replica_check_for_slowness()
   my_xid = ospf6_db_get_current_xid(my_id);
 
   struct sibling * sibl;
+  if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+  {
+    zlog_debug("xid of myself: %d", my_xid);
+  }
+  
   LIST_FOR_EACH(sibl, struct sibling, node, &ospf6_replica->replicas)
   {
     if(sibl->id != my_id)
     {
+
+//      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+//      {
+//        zlog_debug("sibling id: %d", sibl->id);
+//      }
+//
       // current sibling is different
       xid_of_other = ospf6_db_get_current_xid(sibl->id);
       id_diff = xid_of_other - my_xid;
-      if(id_diff < 0)
+      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
       {
-        continue; 
+        zlog_debug("xid of other: %d", xid_of_other);
       }
+//      if(id_diff < 0)
+//      {
+//        continue; 
+//      }
 
       if(id_diff > threshold)
       {
@@ -779,7 +794,11 @@ void ospf6_replica_check_for_slowness()
   }
   if(((float)slower/OSPF6_NUM_SIBS) > 0.5)
   {
-    zlog_debug("I am too slow, will need to catch up to others");
+    zlog_debug("I am too slow, will need to catch up to others"); 
+
+    bool restart_mode = true;
+    ospf6_change_restart_mode(restart_mode);
+    ospf6_restart_init(oi, true);
   }
 }
 

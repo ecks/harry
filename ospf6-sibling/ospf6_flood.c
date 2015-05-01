@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "routeflow-common.h"
 #include "if.h"
+#include "riack.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"

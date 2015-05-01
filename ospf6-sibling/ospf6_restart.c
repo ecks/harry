@@ -27,9 +27,10 @@
 bool measurement_started = false;
 bool measurement_stopped = false;
 
+static void * ospf6_catchup_start(void * arg);
 static void * ospf6_restart_start(void * arg);
 
-void ospf6_restart_init(struct ospf6_interface * oi)
+void ospf6_restart_init(struct ospf6_interface * oi, bool catchup)
 {
   pthread_t * thread = calloc(1, sizeof(pthread_t));
 
@@ -40,7 +41,10 @@ void ospf6_restart_init(struct ospf6_interface * oi)
 
   pthread_mutex_init(&restart_msg_q_mutex, NULL);
 
-  pthread_create(thread, NULL, ospf6_restart_start, oi);
+  if(catchup)
+    pthread_create(thread, NULL, ospf6_catchup_start, oi);
+  else
+    pthread_create(thread, NULL, ospf6_restart_start, oi);
 }
 
 void process_restarted_msg(unsigned int bid, unsigned int xid, struct ospf6_interface * oi)
@@ -88,6 +92,129 @@ void process_restarted_msg(unsigned int bid, unsigned int xid, struct ospf6_inte
   ospf6_receive(oi->ctrl_client, oh, xid, oi);
 
   rfpbuf_delete(msg);
+}
+
+void * ospf6_catchup_start(void * arg)
+{
+  unsigned int replica_id;
+  unsigned int leader_id;
+  unsigned int xid;
+  unsigned int leader_xid;
+  unsigned int last_key_to_process;
+  unsigned int first_xid_rcvd;
+
+  struct rfpbuf * own_msg;
+  struct list * restart_msg_queue;
+  struct rfp_header * rh;
+  struct ospf6_header * oh;
+  struct interface * ifp;
+  struct ospf6_interface * oi;
+
+  struct keys * keys;
+
+  int i;
+
+  oi = (struct ospf6_interface *)arg;
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("In ospf6_catchup_start");
+  }
+
+  replica_id = ospf6_replica_get_id();
+
+  last_key_to_process = ospf6_db_last_key(replica_id);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Last key to process: %d", last_key_to_process);
+  }
+
+
+  if(!ospf6->ready_to_checkpoint)
+  {
+    ospf6->ready_to_checkpoint = true;
+  }
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("We are ready to checkpoint");
+  }
+
+  // try to acquire the lock, block if not ready yet
+  pthread_mutex_lock(&first_xid_mutex);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Before mutex_lock");
+  }
+  
+  first_xid_rcvd = sibling_ctrl_first_xid_rcvd();
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("After mutex_lock");
+  }
+
+  pthread_mutex_unlock(&first_xid_mutex);
+
+  leader_id = ospf6_replica_get_leader_id();
+
+  leader_xid = ospf6_db_get_current_xid(leader_id);
+ 
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Leader xid: %d", leader_xid);
+  }
+
+ 
+  // get all the keys from next after last processed key until the first received xid
+  // this may not work, will need to test it
+  keys = ospf6_db_range_keys(leader_id, last_key_to_process+1, leader_xid);
+
+  for(i = 0; i < keys->num_keys; i++)
+  {
+    if(OSPF6_SIBLING_DEBUG_RESTART) {
+      zlog_debug("key to process that is coming from the leader: %s", keys->key_str_ptrs[i]);
+    }
+
+    xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
+    process_restarted_msg(leader_id, xid, oi);
+  }
+
+
+ // no longer need the keys structure, free it again
+  db_free_keys(keys);
+
+  restart_msg_queue = sibling_ctrl_restart_msg_queue();
+
+  pthread_mutex_lock(&restart_msg_q_mutex);
+  LIST_FOR_EACH(own_msg, struct rfpbuf, list_node, restart_msg_queue)
+  {
+    rh = rfpbuf_at_assert(own_msg, 0, sizeof(struct rfp_header));
+    oh = (struct ospf6_header *)((void *)rh + sizeof(struct rfp_header));
+    xid = ntohl(rh->xid);
+
+    if(!(xid < leader_xid))
+    {
+      ospf6_receive(oi->ctrl_client, oh, xid, oi);
+    }
+  }
+  pthread_mutex_unlock(&restart_msg_q_mutex);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("We are done processing in restart mode");
+  }
+
+  // flip the switch, we are no longer in restart mode
+  pthread_mutex_lock(&restart_mode_mutex);
+  if(ospf6->restart_mode)
+    ospf6->restart_mode = false; 
+  pthread_mutex_unlock(&restart_mode_mutex);
+
+  return NULL;
+
 }
 
 void * ospf6_restart_start(void * arg)
