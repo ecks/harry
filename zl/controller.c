@@ -312,8 +312,8 @@ recv_ipv6_route_set_request(struct conn * conn, const struct sender * sender,
   process_ipv6_route_set(conn, route, nexthop_addr);
 
   // the routes are set, so free memory
-  free(route->p);
-  free(route);
+//  free(route->p);
+//  free(route);
   free(nexthop_addr);
 
   return 0;
