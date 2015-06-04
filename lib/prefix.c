@@ -20,6 +20,44 @@ static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 #define PNBBY 8
 #endif /* PNBBY */
 
+
+/*
+ * Return 0 if the network prefixes represented by the struct prefix
+ * arguments are the same prefix, and 1 otherwise.  Network prefixes
+ * are considered the same if the prefix lengths are equal and the
+ * network parts are the same.  Host bits (which are considered masked
+ * by the prefix length) are not significant.  Thus, 10.0.0.1/8 and
+ * 10.0.0.2/8 are considered equivalent by this routine.  Note that
+ * this routine has the same return sense as strcmp (which is different
+ * from prefix_same).
+ */
+int
+prefix_cmp (const struct prefix *p1, const struct prefix *p2)
+{
+  int offset;
+  int shift;
+
+  /* Set both prefix's head pointer. */
+  const u_char *pp1 = (const u_char *)&p1->u.prefix;
+  const u_char *pp2 = (const u_char *)&p2->u.prefix;
+
+  if (p1->family != p2->family || p1->prefixlen != p2->prefixlen)
+    return 1;
+
+  offset = p1->prefixlen / 8;
+  shift = p1->prefixlen % 8;
+
+  if (shift)
+    if (maskbit[shift] & (pp1[offset] ^ pp2[offset]))
+      return 1;
+
+  while (offset--)
+    if (pp1[offset] != pp2[offset])
+      return 1;
+
+  return 0;
+}
+
 /* When string format is invalid return 0. */
 int
 str2prefix_ipv4 (const char *str, struct prefix_ipv4 *p)
@@ -191,7 +229,7 @@ prefix_match (const struct prefix *n, const struct prefix *p)
  * as '==' (which is different from prefix_cmp).
  */
 int
-prefix_same (struct prefix *p1, struct prefix *p2)
+prefix_same (const struct prefix *p1, const struct prefix *p2)
 {
   if (p1->family == p2->family && p1->prefixlen == p2->prefixlen)
     {

@@ -44,6 +44,6 @@ struct ospf6_vertex
 #define VERTEX_IS_TYPE(t, v) \
   ((v)->type == OSPF6_VERTEX_TYPE_ ## t ? 1 : 0)
 
-extern void ospf6_spf_schedule(struct ospf6_area * oa);
+extern void ospf6_spf_schedule(struct ospf6_area * oa, unsigned int hostnum);
 
 #endif

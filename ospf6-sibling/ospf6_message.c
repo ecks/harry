@@ -1193,7 +1193,7 @@ static void ospf6_lsupdate_recv(struct ctrl_client * ctrl_client,
       break;
     }
 
-    ospf6_receive_lsa (on, (struct ospf6_lsa_header *) p);
+    ospf6_receive_lsa (on, (struct ospf6_lsa_header *) p, ctrl_client->hostnum);
     num--;
   }
 

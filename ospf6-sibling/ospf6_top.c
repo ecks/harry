@@ -57,8 +57,6 @@ static void ospf6_top_route_hook_remove(struct ospf6_route * route)
 static struct ospf6 * ospf6_create(void)
 {
   struct ospf6 * o;
-  char * host = "10.100.2.1";
-  int port = 8087;
 
   o = calloc(1, sizeof(struct ospf6));
 
@@ -76,8 +74,6 @@ static struct ospf6 * ospf6_create(void)
 
   list_init(&o->area_list);
  
-  o->riack_client = db_init(host, port);
-
   o->restart_mode = my_restart_mode;
 
   if(!o->restart_mode)
@@ -183,6 +179,8 @@ DEFUN(riack_host,
   o = (struct ospf6 *)vty->index;
 
   o->riack_client = db_init((char *)argv[0], port);
+
+  return CMD_SUCCESS;
 }
 
 /* OSPF configuration write function. */
@@ -223,4 +221,5 @@ void ospf6_top_init(bool restart_mode)
   install_element(OSPF6_NODE, &ospf6_router_id_cmd);
   install_element(OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
+  install_element(OSPF6_NODE, &riack_host_cmd);
 }

@@ -83,6 +83,9 @@ struct ospf6_lsa
 
   /* lsa instance */
   struct ospf6_lsa_header *header;
+
+  /* host name info */
+  unsigned int hostnum;
 };
 
 #define OSPF6_LSA_HEADERONLY 0x01

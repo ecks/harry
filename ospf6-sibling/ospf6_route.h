@@ -105,6 +105,9 @@ struct ospf6_route
 
   /* link state id for advertising */
   u_int32_t linkstate_id;
+
+  /* host name info */
+  unsigned int hostnum;
 };
 
 #define OSPF6_DEST_TYPE_NETWORK    2

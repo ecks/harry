@@ -38,6 +38,12 @@ struct ospf6_area
   struct list node;
 };
 
+struct ospf6_area_hostnum
+{
+  struct ospf6_area * oa;
+  unsigned int hostnum;
+};
+
 #define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_STUB       0x08
 

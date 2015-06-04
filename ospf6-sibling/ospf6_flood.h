@@ -25,5 +25,5 @@ extern void ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa);
 /* receive & install */
 extern void ospf6_install_lsa (struct ospf6_lsa *lsa);
 extern void ospf6_lsa_purge(struct ospf6_lsa * lsa);
-extern void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header);
+extern void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header, unsigned int hostnum);
 #endif

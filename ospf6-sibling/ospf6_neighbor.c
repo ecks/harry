@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +13,7 @@
 #include "thread.h"
 #include "util.h"
 #include "dblist.h"
+#include "prefix.h"
 #include "routeflow-common.h"
 #include "debug.h"
 #include "if.h"
@@ -25,6 +28,8 @@
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_flood.h"
+#include "ospf6_route.h"
+#include "ctrl_client.h"
 
 /* global ospf6d variable */
 struct ospf6 *ospf6;
@@ -52,7 +57,12 @@ static void ospf6_neighbor_state_change(u_char next_state, struct ospf6_neighbor
 
   if (prev_state == OSPF6_NEIGHBOR_FULL || next_state == OSPF6_NEIGHBOR_FULL)
   {
-    OSPF6_ROUTER_LSA_SCHEDULE (on->ospf6_if->area);
+    struct ospf6_area_hostnum * ah = calloc(1, sizeof(struct ospf6_area_hostnum));
+
+    ah->oa = on->ospf6_if->area;
+    ah->hostnum = on->ospf6_if->ctrl_client->hostnum;
+
+    OSPF6_ROUTER_LSA_SCHEDULE (ah);
     if(on->ospf6_if->state == OSPF6_INTERFACE_DR)
     {
 //       OSPF6_NETWORK_LSA_SCHEDULE (on->ospf6_if);

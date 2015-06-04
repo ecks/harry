@@ -35,12 +35,19 @@ int ospf6_router_lsa_originate (struct thread *thread)
   u_int32_t router;
   int count;
   struct ospf6_lsa * lsa;
+
   struct ospf6_area * oa;
+  unsigned int hostnum;
+  struct ospf6_area_hostnum * ah;
+
   u_int32_t link_state_id = 0;
   struct ospf6_interface * oi;
   struct ospf6_neighbor * on, * drouter = NULL;
 
-  oa = (struct ospf6_area *) THREAD_ARG(thread);
+  ah = (struct ospf6_area_hostnum *) THREAD_ARG(thread);
+  oa = ah->oa;
+  hostnum = ah->hostnum;
+
   oa->thread_router_lsa = NULL;
 
   memset(buffer, 0, sizeof(buffer));
@@ -113,6 +120,9 @@ int ospf6_router_lsa_originate (struct thread *thread)
 
       /* create LSA */
       lsa = ospf6_lsa_create (lsa_header);
+
+      /* set hostnum */
+      lsa->hostnum = hostnum;
 
       /* Originate */
       ospf6_lsa_originate_area (lsa, oa);
@@ -197,6 +207,9 @@ int ospf6_router_lsa_originate (struct thread *thread)
 
     /* create LSA */
     lsa = ospf6_lsa_create (lsa_header);
+
+    /* set hostnum */
+    lsa->hostnum = hostnum;
 
     /* Originate */
     ospf6_lsa_originate_area (lsa, oa);
@@ -598,7 +611,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa * lsa)
 
 }
 
-void ospf6_intra_route_calculation(struct ospf6_area * oa)
+void ospf6_intra_route_calculation(struct ospf6_area * oa, unsigned int hostnum)
 {
   struct ospf6_route * route;
   u_int16_t type;
@@ -635,6 +648,7 @@ void ospf6_intra_route_calculation(struct ospf6_area * oa)
     else if(CHECK_FLAG (route->flag, OSPF6_ROUTE_ADD) ||
             CHECK_FLAG (route->flag, OSPF6_ROUTE_CHANGE))
     {
+      route->hostnum = hostnum;
       if(hook_add)
         (*hook_add) (route);
     }

@@ -147,27 +147,32 @@ int if_address_add_v6(struct ctrl_client * ctrl_client, struct rfpbuf * buffer)
   if(ifc == NULL)
     return 1;
 
-//  struct connected * ifc = calloc(1, sizeof(struct connected));
-//  ifc->address = calloc(1, sizeof(struct prefix));
-//  memcpy(&ifc->address->u.prefix, &address->p, 16); 
-//  ifc->address->prefixlen = address->prefixlen;
-//  ifc->address->family = AF_INET6;
-
-//  list_init(&ifc->node);
-
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    char prefix_str[INET6_ADDRSTRLEN];
-    if(inet_ntop(AF_INET6, &(p.u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN) != 1)
+    char prefix_str[INET6_ADDRSTRLEN+3]; // three extra chars for slash + two digits
+    if(prefix2str(ifc->address, prefix_str, INET6_ADDRSTRLEN) != 1)
     {   
-      zlog_debug("v6 addr: %s/%d", prefix_str, ifc->address->prefixlen);
+      zlog_debug("v6 addr: %s", prefix_str, ifc->address->prefixlen);
     }   
   }
 
-  // add addresss to list of connected 
-//  list_push_back(&ifp->connected, &ifc->node);
-//  ifc->ifp = ifp;
+//  check here for:
+//    1. prefix matches
+//    2. extract hostnum from host portion of address
+//    3. if hostnum matches, this is the internal interface that should be recorded
 
+  char inter_target_str[INET6_ADDRSTRLEN+3]; // three extra chars for slash + two digits
+  struct prefix inter_target_p;
+
+  sprintf(inter_target_str, "2001:db8:beef:10::%x/64", ctrl_client->hostnum);
+  str2prefix(inter_target_str, &inter_target_p);
+  
+  // link up the internal connected address with a pointer at ctrl_client
+  if(prefix_same(ifc->address, &inter_target_p))
+  {
+    ctrl_client->inter_con = ifc;
+  }
+  
   // since connected address is AF_INET6, needs to be updated
   ospf6_interface_connected_route_update(ifc->ifp);
 
@@ -178,9 +183,31 @@ void sibling_ctrl_route_set(struct ospf6_route * route)
 {
   struct ctrl_client * ctrl_client;
 
+  struct ctrl_client * hostnum_ctrl_client;
+
   LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
   {
-    ctrl_client_route_set(ctrl_client, route);  
+//    if hostnum matches, then send as is
+//    otherwise look at the ctrl that matches, and set the next hop to internal interface
+
+    if(route->hostnum == ctrl_client->hostnum)
+    {
+      ctrl_client_route_set(ctrl_client, route);  
+    }
+    else
+    {
+      LIST_FOR_EACH(hostnum_ctrl_client, struct ctrl_client, node, &ctrl_clients)
+      {
+        if(route->hostnum == hostnum_ctrl_client->hostnum)
+        {
+          memcpy(&route->nexthop[0].address, &hostnum_ctrl_client->inter_con->address->u.prefix, sizeof(struct in6_addr)); // copy the nexthop info first, this is the nexthop of the original route
+          route->nexthop[0].ifindex = ctrl_client->inter_con->ifp->ifindex;                     // ifindex to get there
+          ctrl_client_route_set(ctrl_client, route);  
+        }
+//      route->prefix.prefixlen = ctrl_client->inter_con->address->prefixlen;
+//      memcpy(&route->prefix.u.prefix, &ctrl_client->inter_con->address->u.prefix, sizeof(struct in6_addr));
+      }
+    }
   }
 }
 
@@ -425,6 +452,7 @@ void sibling_ctrl_add_ctrl_client(unsigned int hostnum, char * ifname, char * ar
 
   ctrl_client = ctrl_client_new();
   ctrl_client->hostnum = hostnum;
+  ctrl_client->inter_con = NULL;
 
   list_push_back(&ctrl_clients, &ctrl_client->node);
 

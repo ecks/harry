@@ -65,11 +65,11 @@ struct ospf6_intra_prefix_lsa
   /* followed by ospf6 prefix(es) */
 };
   
-#define OSPF6_ROUTER_LSA_SCHEDULE(oa) \
+#define OSPF6_ROUTER_LSA_SCHEDULE(ah) \
   do { \
-    if (! (oa)->thread_router_lsa) \
-      (oa)->thread_router_lsa = \
-        thread_add_event (master, ospf6_router_lsa_originate, oa, 0); \
+    if (! (ah->oa)->thread_router_lsa) \
+      (ah->oa)->thread_router_lsa = \
+        thread_add_event (master, ospf6_router_lsa_originate, ah, 0); \
   } while (0)
 #define OSPF6_NETWORK_LSA_SCHEDULE(oi) \
   do { \
@@ -104,6 +104,6 @@ extern int ospf6_intra_prefix_lsa_originate_transit(struct thread *);
 
 extern void ospf6_intra_prefix_lsa_add(struct ospf6_lsa * lsa);
 extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa * lsa);
-extern void ospf6_intra_route_calculation(struct ospf6_area * oa);
+extern void ospf6_intra_route_calculation(struct ospf6_area * oa, unsigned int hostnum);
 
 #endif

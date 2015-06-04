@@ -568,7 +568,7 @@ static void ospf6_acknowledge_lsa (struct ospf6_lsa *lsa, int ismore_recent,
 }
 
 /* RFC2328 section 13 The Flooding Procedure */
-void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header)
+void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * lsa_header, unsigned int hostnum)
 {
   struct ospf6_lsa * new = NULL, * old = NULL, * rem = NULL;
   int ismore_recent;
@@ -577,6 +577,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor * from, struct ospf6_lsa_header * l
   ismore_recent = 1;
 
   new = ospf6_lsa_create(lsa_header);
+  new->hostnum = hostnum;
 
   if(IS_OSPF6_SIBLING_DEBUG_FLOOD) 
   {

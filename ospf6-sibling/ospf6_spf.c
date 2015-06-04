@@ -259,7 +259,8 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
 
 static int
 ospf6_spf_install (struct ospf6_vertex *v,
-                       struct ospf6_route_table *result_table)
+                       struct ospf6_route_table *result_table, 
+                       unsigned int hostnum)
 {
   struct ospf6_route *route;
   int i, j;
@@ -332,6 +333,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
   route->path.options[0] = v->options[0];
   route->path.options[1] = v->options[1];
   route->path.options[2] = v->options[2];
+  route->hostnum = hostnum; // number corresponding to host, 0 if hostnum is unknown
 
   for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
        i < OSPF6_MULTI_PATH_LIMIT; i++)
@@ -363,7 +365,7 @@ ospf6_spf_table_finish (struct ospf6_route_table *result_table)
 /* RFC2740 3.8.1.  Calculating the shortest path tree for an area */
 void ospf6_spf_calculation(u_int32_t router_id,
                            struct ospf6_route_table * result_table,
-                           struct ospf6_area * oa)
+                           struct ospf6_area * oa, unsigned int hostnum)
 {
   struct pqueue * candidate_list;
   struct ospf6_vertex * root, * v, * w;
@@ -414,7 +416,7 @@ void ospf6_spf_calculation(u_int32_t router_id,
     v = pqueue_dequeue (candidate_list);
 
     /* installing may result in merging or rejecting of the vertex */
-    if (ospf6_spf_install (v, result_table) < 0)
+    if (ospf6_spf_install (v, result_table, hostnum) < 0)
       continue;
 
     /* For each LS description in the just-added vertex V's LSA */
@@ -469,27 +471,38 @@ void ospf6_spf_calculation(u_int32_t router_id,
 
 static int ospf6_spf_calculation_thread(struct thread * t)
 {
+  struct ospf6_area_hostnum * ah;
   struct ospf6_area *oa;
+  unsigned int hostnum;
   struct timeval start, end;
 
-  oa = (struct ospf6_area *) THREAD_ARG(t);
+  ah = (struct ospf6_area_hostnum *) THREAD_ARG(t);
+
+  oa = ah->oa;
+  hostnum = ah->hostnum;
+
   oa->thread_spf_calculation = NULL;
 
   /* execute SPF calculation */
   zebralite_gettime(ZEBRALITE_CLK_MONOTONIC, &start);
-  ospf6_spf_calculation(oa->ospf6->router_id, oa->spf_table, oa);
+  ospf6_spf_calculation(oa->ospf6->router_id, oa->spf_table, oa, hostnum);
   zebralite_gettime(ZEBRALITE_CLK_MONOTONIC, &end);
 
-  ospf6_intra_route_calculation(oa);
+  ospf6_intra_route_calculation(oa, hostnum);
 
   return 0;
 }
 
-void ospf6_spf_schedule(struct ospf6_area * oa)
+void ospf6_spf_schedule(struct ospf6_area * oa, unsigned int hostnum)
 {
   if(oa->thread_spf_calculation)
     return;
 
+  struct ospf6_area_hostnum * ah = calloc(1, sizeof(struct ospf6_area_hostnum));
+
+  ah->oa = oa;
+  ah->hostnum = hostnum;
+
   oa->thread_spf_calculation =
-    thread_add_event(master, ospf6_spf_calculation_thread, oa, 0);
+    thread_add_event(master, ospf6_spf_calculation_thread, ah, 0);
 }

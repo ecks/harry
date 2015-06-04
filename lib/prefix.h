@@ -123,8 +123,12 @@ prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
     return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
 }
 
-void apply_mask(struct prefix * p);
-void apply_mask_ipv4 (struct prefix_ipv4 *p);
-void apply_mask_ipv6(struct prefix_ipv6 * p);
+extern int prefix_match (const struct prefix *, const struct prefix *);
+extern int prefix_same (const struct prefix *, const struct prefix *);
+extern int prefix_cmp (const struct prefix *, const struct prefix *);
+extern void prefix_copy (struct prefix *dest, const struct prefix *src);
+extern void apply_mask(struct prefix * p);
+extern void apply_mask_ipv4 (struct prefix_ipv4 *p);
+extern void apply_mask_ipv6(struct prefix_ipv6 * p);
 
 #endif

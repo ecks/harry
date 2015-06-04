@@ -32,6 +32,8 @@ struct ctrl_client
   struct thread * t_connected;   /* thread to call when already connected */
  
   char * interface_name;
+  struct connected * inter_con;
+
   enum ctrl_client_state state; 
 
   struct list * if_list;

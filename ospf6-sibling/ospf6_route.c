@@ -7,7 +7,6 @@
 #include <string.h>
 #include <assert.h>
 #include <netinet/in.h>
-
 #include "util.h"
 #include "dblist.h"
 #include "thread.h"
