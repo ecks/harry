@@ -301,14 +301,17 @@ set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr, struct l
     if((memcmp(&(route->p->prefix), &(rib_route->p->prefix), sizeof(struct in6_addr)) == 0) && 
        (route->p->prefixlen == rib_route->p->prefixlen))
     {
-      if(IS_ZEBRALITE_DEBUG_RIB)
-        zlog_debug("Found matching rib already in RIB, no need to add it to FIB");
+//      if(IS_ZEBRALITE_DEBUG_RIB)
+//        zlog_debug("Found matching rib already in RIB, no need to add it to FIB");
 
       // the routes are set, so free memory
-      free(route->p);
-      free(route);
+//      free(route->p);
+//      free(route);
 
-      return;
+      // implicitly delete the old route from the kernel fib and software rib
+      unset_route_v6(rib_route);
+
+      list_remove(&rib_route->node);
     }
   }
 
@@ -317,6 +320,12 @@ set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr, struct l
   list_push_back(ipv6_rib_routes, &route->node);
 
   install_route_v6(route, nexthop_addr);
+}
+
+void
+unset_route_v6(struct route_ipv6 * route)
+{
+  uninstall_route_v6(route);
 }
 
 /*

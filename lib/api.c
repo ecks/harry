@@ -78,3 +78,10 @@ int install_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr)
 
   return 0;
 }
+
+int uninstall_route_v6(struct route_ipv6 * route)
+{
+  netlink_route_unset((struct prefix *)route->p, route->ifindex);
+
+  return 0;
+}

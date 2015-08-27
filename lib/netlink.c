@@ -657,6 +657,50 @@ int netlink_route_set(struct prefix * p, unsigned int ifindex, struct in6_addr *
   return 0;
 }
 
+int netlink_route_unset(struct prefix * p, unsigned int ifindex)
+{
+  int ret;
+  int bytelen;
+  int save_errno;
+  struct sockaddr_nl snl;
+
+  struct
+  {
+    struct nlmsghdr nlh;
+    struct rtmsg r;
+    char buf[1024];
+  } req; 
+
+  memset(&snl, 0, sizeof snl);
+  snl.nl_family = AF_NETLINK;
+
+  memset(&req, 0, sizeof req);
+
+  bytelen = 16;
+
+  req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.nlh.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+  req.nlh.nlmsg_type = RTM_DELROUTE;
+  req.r.rtm_family = AF_INET6;
+  req.r.rtm_table = RT_TABLE_MAIN;
+  req.r.rtm_dst_len = p->prefixlen;
+  req.r.rtm_protocol = RTPROT_ZEBRA;
+  req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+  req.r.rtm_type = RTN_UNICAST;
+  
+  addattr_l(&req.nlh, sizeof(req), RTA_DST, &p->u.prefix, bytelen);
+  addattr32(&req.nlh, sizeof(req), RTA_OIF, ifindex);
+
+  ret = sendto(netlink_cmd.sock, (void *) &req, sizeof(req), 0,
+               (struct sockaddr *) &snl, sizeof(snl));
+  save_errno = errno;
+
+  if(ret < 0)
+    return -1;
+
+  return 0;
+}
+
 /* Thread to wait for and process rib changes on a socket. */
 void * netlink_wait_for_rib_changes(void * info)
 {

@@ -44,6 +44,7 @@ struct netlink_wait_for_rib_changes_info
 };
 
 extern int netlink_route_set(struct prefix * p, unsigned int ifindex, struct in6_addr * nexthop_addr);
+extern int netlink_route_unset(struct prefix * p, unsigned int ifindex);
 
 /* Thread to wait for and process rib changes on a socket. */
 void * netlink_wait_for_rib_changes(void *);
