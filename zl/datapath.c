@@ -301,8 +301,8 @@ set_route_v6(struct route_ipv6 * route, struct in6_addr * nexthop_addr, struct l
     if((memcmp(&(route->p->prefix), &(rib_route->p->prefix), sizeof(struct in6_addr)) == 0) && 
        (route->p->prefixlen == rib_route->p->prefixlen))
     {
-//      if(IS_ZEBRALITE_DEBUG_RIB)
-//        zlog_debug("Found matching rib already in RIB, no need to add it to FIB");
+      if(IS_ZEBRALITE_DEBUG_RIB)
+        zlog_debug("Updating previously added rib");
 
       // the routes are set, so free memory
 //      free(route->p);
