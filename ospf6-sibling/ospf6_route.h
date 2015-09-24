@@ -181,6 +181,8 @@ extern struct ospf6_route *ospf6_route_copy (struct ospf6_route *route);
 
 extern struct ospf6_route * ospf6_route_lookup (struct prefix *prefix,
                                                 struct ospf6_route_table *table);
+extern struct ospf6_route *ospf6_route_lookup_identical (struct ospf6_route *route,
+                                                struct ospf6_route_table *table);
 extern struct ospf6_route * ospf6_route_add(struct ospf6_route * route, 
                                             struct ospf6_route_table * table);
 extern void ospf6_route_remove (struct ospf6_route *route,

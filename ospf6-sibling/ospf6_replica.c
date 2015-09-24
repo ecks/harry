@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <riack.h>
+
 #include "util.h"
 #include "dblist.h"
 #include "debug.h"
@@ -28,6 +30,7 @@
 #include "ospf6_interface.h"
 #include "ospf6_replica.h"
 #include "ospf6_route.h"
+#include "ospf6_top.h"
 #include "sibling_ctrl.h"
 
 enum event {REPLICA_READ};
@@ -53,6 +56,7 @@ DEFUN(id,
       "Debug MSG events\n")
 {
   ospf6_replica->own_replica->id = (unsigned int) strtol(argv[0], NULL, 10);
+  ospf6_replica->own_replica->id_valid = true;
 
   return CMD_SUCCESS; 
 }
@@ -107,6 +111,15 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
       zlog_debug("Removed route: %s/%d [%u/%u]", prefix_str, route->p->prefixlen, route->distance, route->metric);
   }
  
+  // if the address that was removed corresponds to own replica, then exit
+  if(ospf6_replica_own(&route->p->prefix))
+  {
+    db_destroy(ospf6->riack_client);
+
+    // if the sibling that was removed corresponds to own replica, then exit
+    exit(1);
+  }
+
   sibling = find_replica_from_addr(&route->p->prefix);
 
   // Free memory
@@ -124,7 +137,7 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
     if(ospf6_replica->own_replica->leader)
     {
       // try to restart the replica
-      ospf6_replica_restart(sibling->id);
+//      ospf6_replica_restart(sibling->id);
     }
   }
 }
@@ -136,6 +149,7 @@ static struct sibling * ospf6_create_replica(struct in6_addr * addr, bool own)
   memcpy(sibling->sibling_addr, addr, sizeof(struct in6_addr));
   sibling->leader = false;
   sibling->valid = true;
+  sibling->id_valid = false;  // at memomry allocation, id is not valid
  
   if(own)
   {
@@ -232,6 +246,19 @@ static struct sibling * find_replica_from_addr(struct in6_addr * addr)
   return NULL;
 }
 
+bool ospf6_replica_all_id_valid()
+{
+  struct sibling * sibling_iter;
+
+  LIST_FOR_EACH(sibling_iter, struct sibling, node, &ospf6_replica->replicas)
+  {
+    if(!sibling_iter->id_valid)
+      return false;
+  }
+
+  return true;
+}
+
 int ospf6_leader_elect()
 {
   char sisis_addr[INET6_ADDRSTRLEN];
@@ -297,9 +324,9 @@ int ospf6_leader_elect()
           // create a sibling if already not created, not our own
           sibling = ospf6_update_replicas(&route_iter->p->prefix);
 
-          if(ts == own_ts && sibling->leader)
+          if(ts == own_ts && sibling->id_valid)
           {
-            // assume that if leader for a sibling is filled in,
+            // assume that if d for a sibling is filled in,
             // then it was received from the id message
             // we have the same timestamp, use ids for tie breaking
             if(sibling->id < own_replica->id)
@@ -328,6 +355,27 @@ int ospf6_leader_elect()
         }
       }
 
+      if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+      {
+        zlog_debug("Attempting to update sibling => Leader Election Complete");
+      }
+      
+      if(ospf6_replica_all_id_valid())
+      {
+        if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+        {
+          zlog_debug("All ids valid => Leader Election Complete");
+        }
+        sibling_ctrl_update_state(SCG_LEAD_ELECT_COMPL);
+      }
+      else
+      {
+        if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+        {
+          zlog_debug("Not all ids valid => Leader Election Complete failed");
+        }
+      }
+
       send_ids();
     }
     else
@@ -337,8 +385,11 @@ int ospf6_leader_elect()
   }
   else
   {
-    printf("Not enough siblings\n");
-    exit(1);
+    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    {
+      zlog_debug("Not enough siblings: %d", num_of_siblings);
+    }
+//    exit(1);
   }
 }
 
@@ -499,6 +550,7 @@ static void send_ids()
 
 }
 
+
 static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id)
 {
   struct sockaddr_in6 * ip6addr;
@@ -514,6 +566,7 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
       inet_ntop(AF_INET6, sibling->sibling_addr, s_addr, INET6_ADDRSTRLEN);
 
       sibling->id = id;
+      sibling->id_valid = true;
 
       sibling->leader = leader == 1 ? true : false;
 
@@ -566,12 +619,26 @@ static void fill_id(struct sockaddr * addr, unsigned int leader, unsigned int id
     }
   }
 
-  // bug 
   if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
   {
-    zlog_debug("About to update sibling => Leader Election Complete");
+    zlog_debug("Attempting to update sibling => Leader Election Complete");
   }
-  sibling_ctrl_update_state(SCG_LEAD_ELECT_COMPL);
+
+  if(ospf6_replica_all_id_valid() && past_leader_elect_start())
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    {
+      zlog_debug("All ids valid and leader election has been started => Leader Election Complete");
+    }
+     sibling_ctrl_update_state(SCG_LEAD_ELECT_COMPL);
+  }
+  else
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
+    {
+      zlog_debug("Not all ids valid or leader election has not been started => Leader Election Complete failed");
+    }
+  }
 }
 
 static int ospf6_replica_read(struct thread * t)

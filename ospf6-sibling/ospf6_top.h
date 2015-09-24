@@ -41,6 +41,10 @@ struct ospf6
   bool restart_mode;
 
   bool ready_to_checkpoint;
+
+  bool checkpoint_enabled;
+
+  bool checkpoint_egress_xid;
 };
 
 /* global pointer for OSPF top data structure */

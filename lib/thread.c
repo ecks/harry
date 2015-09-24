@@ -491,15 +491,16 @@ struct thread * thread_fetch(struct thread_master * m, struct thread * fetch)
       (!timer_wait || (timeval_cmp (*timer_wait, *timer_wait_bg) > 0)))
     timer_wait = timer_wait_bg;
 
-    printf("about to call select\n");
+    zlog_debug("about to call select");
     num = select(FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
-    printf("called select\n");
+    zlog_debug("called select");
 
     zebralite_get_relative(NULL);
     thread_timer_process (&m->timer, &relative_time);
 
     if(num < 0)
     {
+      zlog_debug("select num: %d", num); 
       perror("select");
     }
  

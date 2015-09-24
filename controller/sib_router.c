@@ -373,6 +373,11 @@ vote_majority()
         struct ospf6_hello * a_hello = (struct ospf6_hello *)((void *)a->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
         struct ospf6_hello * b_hello = (struct ospf6_hello *)((void *)b->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
 
+        struct ospf6_lsreq_entry * a_lsreq = (struct ospf6_lsreq_entry *)((void *)a->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
+        struct ospf6_lsreq_entry * b_lsreq = (struct ospf6_lsreq_entry *)((void *)b->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
+
+        struct ospf6_lsa * a_lsa = (struct ospf6_lsa *)((void *)a->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
+        struct ospf6_lsa * b_lsa = (struct ospf6_lsa *)((void *)b->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
         zlog_debug("a and b not equal");
         seen_before = false;
       }

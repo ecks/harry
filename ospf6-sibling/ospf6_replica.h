@@ -8,6 +8,7 @@ struct sibling
   // would need to modify the algorithm otherwise
   bool leader;
   bool valid; // when sibling is not valid, it needs to be deleted
+  bool id_valid;  // has the id been initialized, either through config file or from message received
   unsigned int sock;
   unsigned int id;
   struct list node;

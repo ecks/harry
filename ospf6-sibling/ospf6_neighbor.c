@@ -100,8 +100,11 @@ int hello_received(struct thread * thread)
 
   printf("Hello Received\n");
 
-  // TODO: reset Inactivity Timer
-  
+  /* reset Inactivity Timer */
+  THREAD_OFF (on->inactivity_timer);
+  on->inactivity_timer = thread_add_timer (master, inactivity_timer, on,
+                                           on->ospf6_if->dead_interval);
+ 
   if(on->state <= OSPF6_NEIGHBOR_DOWN)
       ospf6_neighbor_state_change(OSPF6_NEIGHBOR_INIT, on);
 
@@ -375,6 +378,30 @@ int oneway_received(struct thread * thread)
   return 0;
 }
 
+int inactivity_timer(struct thread * thread)
+{
+  struct ospf6_neighbor * on;
+
+  on = (struct ospf6_neighbor *) THREAD_ARG(thread);
+  assert(on);
+
+  if(IS_OSPF6_SIBLING_DEBUG_NEIGHBOR)
+    zlog_debug ("Neighbor Event %s: *InactivityTimer*", on->name);
+
+  on->inactivity_timer = NULL;
+  on->drouter = on->prev_drouter = 0;
+  on->bdrouter = on->prev_bdrouter = 0;
+
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_DOWN, on);
+  thread_add_event (master, neighbor_change, on->ospf6_if, 0);
+
+  // remove myself from neighbor list
+  list_remove(&on->node);
+  ospf6_neighbor_delete (on);
+
+  return 0;
+}
+
 struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, struct ospf6_interface *oi)
 {
   struct ospf6_neighbor * on; 
@@ -420,4 +447,43 @@ struct ospf6_neighbor * ospf6_neighbor_create(u_int32_t router_id, struct ospf6_
    list_push_back(&oi->neighbor_list, &on->node);
 
   return on;
+}
+
+void
+ospf6_neighbor_delete(struct ospf6_neighbor * on)
+{
+  struct ospf6_lsa * lsa;
+
+  ospf6_lsdb_remove_all(on->summary_list);
+  ospf6_lsdb_remove_all (on->request_list);
+  for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
+       lsa = ospf6_lsdb_next (lsa))
+    {
+      ospf6_decrement_retrans_count (lsa);
+      ospf6_lsdb_remove (lsa, on->retrans_list);
+    }
+
+  ospf6_lsdb_remove_all (on->dbdesc_list);
+  ospf6_lsdb_remove_all (on->lsreq_list);
+  ospf6_lsdb_remove_all (on->lsupdate_list);
+  ospf6_lsdb_remove_all (on->lsack_list);
+  
+  ospf6_lsdb_delete (on->summary_list);
+  ospf6_lsdb_delete (on->request_list);
+  ospf6_lsdb_delete (on->retrans_list);
+  
+  ospf6_lsdb_delete (on->dbdesc_list);
+  ospf6_lsdb_delete (on->lsreq_list);
+  ospf6_lsdb_delete (on->lsupdate_list);
+  ospf6_lsdb_delete (on->lsack_list);
+    
+  THREAD_OFF (on->inactivity_timer);
+  
+  THREAD_OFF (on->thread_send_dbdesc);
+  THREAD_OFF (on->thread_send_lsreq); 
+  THREAD_OFF (on->thread_send_lsupdate);
+  THREAD_OFF (on->thread_send_lsack);
+
+  free(on);
+  on = NULL;
 }

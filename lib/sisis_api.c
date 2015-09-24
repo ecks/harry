@@ -64,6 +64,13 @@ void * sisis_recv_loop(void *);
 pthread_mutex_t awaiting_acks_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 struct sisis_request_ack_info awaiting_acks_pool[AWAITING_ACK_POOL_SIZE] = { { 0, 0, PTHREAD_MUTEX_INITIALIZER, 0} };
 
+// Our initial sisis registration parameters
+uint64_t g_ptype;
+uint64_t g_ptype_version;
+uint64_t g_host_num;
+uint64_t g_pid;
+uint64_t g_timestamp;
+
 /**
  * Sets up socket to SIS-IS listener.
  */
@@ -614,7 +621,18 @@ void sisis_register_host(char * sisis_addr, uint64_t host_num, uint64_t ptype, u
     exit(1);    
   }
 
+  g_ptype = ptype;
+  g_ptype_version = ptype_version;
+  g_host_num = host_num;
+  g_pid = pid;
+  g_timestamp = timestamp;
+
   printf("Opening socket at %s.\n", sisis_addr);
+}
+
+void sisis_unregister_host()
+{
+  sisis_unregister(NULL, (uint64_t)g_ptype, (uint64_t)g_ptype_version, (uint64_t)g_host_num, (uint64_t)g_pid, (uint64_t)g_timestamp);
 }
 
 /**

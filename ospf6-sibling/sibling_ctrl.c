@@ -7,6 +7,8 @@
 #include <string.h>
 #include <netinet/in.h>
 
+#include <riack.h>
+
 #include "util.h"
 #include "debug.h"
 #include "dblist.h"
@@ -20,7 +22,10 @@
 #include "ospf6_interface.h" 
 #include "ospf6_area.h"
 #include "ospf6_route.h"
+#include "ospf6_top.h"
+#include "ospf6_db.h"
 #include "ospf6_replica.h"
+#include "ospf6_restart.h"
 #include "ospf6_message.h"
 #include "ctrl_client.h"
 #include "sibling_ctrl.h"
@@ -30,13 +35,13 @@ struct list restart_msg_queue;
 
 enum sibling_ctrl_state
 {
-  SC_INIT,                         /* Sibling Ctrl has been initialized */
-  SC_LEAD_ELECT_START,             /* Leader Election Algorithm has been triggered */
-  SC_ALL_INT_UP,                   /* All the External Interfaces are up */
-  SC_LEAD_ELECT_COMPL,             /* Leader Election has been completed, however all interfaces are not up yet */
-  SC_ALL_INT_UP_LEAD_ELECT_START,  /* All interfaces are up, leader election algorithm has been triggered */
-  SC_READY_TO_SEND_LEAD_ELECT_START,/* Leader re-election due to a failed sibling, just perform leader election */
-  SC_READY_TO_SEND                 /* Start sending OSPF6 messages, beginning with Hello messages */
+  SC_INIT = 0,                         /* Sibling Ctrl has been initialized */
+  SC_LEAD_ELECT_START = 1,             /* Leader Election Algorithm has been triggered */
+  SC_ALL_INT_UP = 2,                   /* All the External Interfaces are up */
+  SC_LEAD_ELECT_COMPL = 3,             /* Leader Election has been completed, however all interfaces are not up yet */
+  SC_ALL_INT_UP_LEAD_ELECT_START = 4,  /* All interfaces are up, leader election algorithm has been triggered */
+  SC_READY_TO_SEND_LEAD_ELECT_START = 5,/* Leader re-election due to a failed sibling, just perform leader election */
+  SC_READY_TO_SEND = 6                /* Start sending OSPF6 messages, beginning with Hello messages */
 };
 
 enum sibling_ctrl_state state;
@@ -200,14 +205,28 @@ void sibling_ctrl_route_set(struct ospf6_route * route)
       {
         if(route->hostnum == hostnum_ctrl_client->hostnum)
         {
-          memcpy(&route->nexthop[0].address, &hostnum_ctrl_client->inter_con->address->u.prefix, sizeof(struct in6_addr)); // copy the nexthop info first, this is the nexthop of the original route
-          route->nexthop[0].ifindex = ctrl_client->inter_con->ifp->ifindex;                     // ifindex to get there
-          ctrl_client_route_set(ctrl_client, route);  
+          struct ospf6_route * route_copy = ospf6_route_copy(route);
+
+          memcpy(&route_copy->nexthop[0].address, &hostnum_ctrl_client->inter_con->address->u.prefix, sizeof(struct in6_addr)); // copy the nexthop info first, this is the nexthop of the original route
+          route_copy->nexthop[0].ifindex = ctrl_client->inter_con->ifp->ifindex;                     // ifindex to get there
+          ctrl_client_route_set(ctrl_client, route_copy);  
+
+          ospf6_route_delete(route_copy);
         }
 //      route->prefix.prefixlen = ctrl_client->inter_con->address->prefixlen;
 //      memcpy(&route->prefix.u.prefix, &ctrl_client->inter_con->address->u.prefix, sizeof(struct in6_addr));
       }
     }
+  }
+}
+
+void sibling_ctrl_route_unset(struct ospf6_route * route)
+{
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ctrl_client_route_unset(ctrl_client, route);
   }
 }
 
@@ -298,6 +317,33 @@ void schedule_hellos_on_interfaces()
   scheduled_hellos = true;
 }
  
+// helper function - synchronize current xid with leader
+void synchronize_current_xid()
+{
+  struct ctrl_client * ctrl_client;
+
+  unsigned int leader_id = ospf6_replica_get_leader_id();
+
+  int egress_leader_xid = db_get_replica_xid(ospf6->riack_client, leader_id);
+
+  if(OSPF6_SIBLING_DEBUG_RESTART)
+  {
+    zlog_debug("Leader xid: %d", egress_leader_xid);
+  }
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ctrl_client->current_xid = egress_leader_xid;
+  }
+}
+
+bool past_leader_elect_start()
+{
+  if(state == SC_LEAD_ELECT_START || state == SC_ALL_INT_UP_LEAD_ELECT_START || state == SC_READY_TO_SEND_LEAD_ELECT_START)
+    return true;
+  return false; 
+}
+
 void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
 {
   bool all_interface_up;
@@ -338,7 +384,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     {
       if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
-        zlog_debug("Sibling ctrl entered invalid state");
+        zlog_debug("Sibling ctrl entered invalid state == current_state: %d, state_update_req: %d", state, state_update_req);
       }
     }
   }
@@ -380,7 +426,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     {
       if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
-        zlog_debug("Sibling ctrl entered invalid state");
+        zlog_debug("Sibling ctrl entered invalid state == current_state: %d, state_update_req: %d", state, state_update_req);
       }
     }
  
@@ -391,6 +437,13 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     {
       state = SC_LEAD_ELECT_COMPL;
 
+      if(ospf6->restart_mode)
+      {
+        // only needed when not attached to external ospf6 
+        pthread_mutex_unlock(&first_xid_mutex);
+
+        synchronize_current_xid();
+      }
       /* Schedule Hello for all interfaces */
       schedule_hellos_on_interfaces();
     }
@@ -398,6 +451,13 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     {
       state = SC_READY_TO_SEND;
 
+      if(ospf6->restart_mode)
+      {
+        // only needed when not attached to external ospf6 
+        pthread_mutex_unlock(&first_xid_mutex);
+
+        synchronize_current_xid();
+      }
       /* Schedule Hello */
       schedule_hellos_on_interfaces();
     }
@@ -417,7 +477,7 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
     {
       if(IS_OSPF6_SIBLING_DEBUG_MSG)
       {
-        zlog_debug("Sibling ctrl entered invalid state");
+        zlog_debug("Sibling ctrl entered invalid state == current_state: %d, state_update_req: %d", state, state_update_req);
       }
     }
   }
@@ -596,6 +656,11 @@ int sibling_ctrl_first_xid_rcvd()
 struct list * sibling_ctrl_restart_msg_queue()
 {
   return &restart_msg_queue;
+}
+
+size_t sibling_ctrl_restart_msg_queue_num_msgs()
+{
+  return list_size(&restart_msg_queue);
 }
 
 int sibling_ctrl_push_to_restart_msg_queue(struct rfpbuf * msg_rcvd)

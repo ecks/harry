@@ -99,6 +99,9 @@ int sisis_register(unsigned int ptype, unsigned int host_num, unsigned int pid, 
  */
 void sisis_register_host(char * sisis_addr, uint64_t host_num, uint64_t ptype, uint64_t ptype_version);
 
+// helper function to unregister previously registered address
+void sisis_unregister_host();
+
 /**
  * Unregisters SIS-IS process.
  *

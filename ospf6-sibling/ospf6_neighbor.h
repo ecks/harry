@@ -50,6 +50,9 @@ struct ospf6_neighbor
   struct ospf6_lsdb *lsupdate_list;
   struct ospf6_lsdb *lsack_list;
 
+  /* Inactivity timer */
+  struct thread * inactivity_timer;
+
   /* Thread for sending message */
   struct thread *thread_send_dbdesc;
   struct thread *thread_send_lsreq;
@@ -78,9 +81,11 @@ extern int adj_ok(struct thread *);
 extern int seqnumber_mismatch(struct thread * thread);
 extern int bad_lsreq(struct thread * thread);
 extern int oneway_received(struct thread *);
+extern int inactivity_timer (struct thread *);
 
-struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, struct ospf6_interface *oi);
-
-struct ospf6_neighbor * ospf6_neighbor_create(u_int32_t router_id, struct ospf6_interface * oi);
-
+struct ospf6_neighbor * ospf6_neighbor_lookup(u_int32_t router_id, 
+                                              struct ospf6_interface *oi);
+struct ospf6_neighbor * ospf6_neighbor_create(u_int32_t router_id, 
+                                              struct ospf6_interface * oi);
+void ospf6_neighbor_delete (struct ospf6_neighbor *);
 #endif

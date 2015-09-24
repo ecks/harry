@@ -1,0 +1,3 @@
+{
+  "cmd": "ulimit -c unlimited; sudo /home/hasenov/zebralite/ospf6-sibling/ospf6-sibling -f /etc/zebralite/ospf6_sibling_1.conf -r"
+}

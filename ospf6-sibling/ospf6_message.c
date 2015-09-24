@@ -84,6 +84,33 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
     zlog_debug ("Trailing garbage exists");
 }
 
+void
+ospf6_lsreq_print (struct ospf6_header *oh)
+{
+  char id[16], adv_router[16];
+  char *p;
+
+  ospf6_header_print(oh);
+  assert (oh->type == OSPF6_MESSAGE_TYPE_LSREQ);
+  for (p = (char *) ((void *) oh + sizeof (struct ospf6_header));
+       p + sizeof (struct ospf6_lsreq_entry) <= OSPF6_MESSAGE_END (oh);
+       p += sizeof (struct ospf6_lsreq_entry))
+  {
+    struct ospf6_lsreq_entry *e = (struct ospf6_lsreq_entry *) p;
+    inet_ntop (AF_INET, &e->adv_router, adv_router, sizeof (adv_router));
+    inet_ntop (AF_INET, &e->id, id, sizeof (id));
+    zlog_debug ("    [%d Id:%s Adv:%s]",
+                  // ospf6_lstype_name (e->type), 
+                   e->type,
+                   id, 
+                   adv_router);
+  }
+
+  if (p != OSPF6_MESSAGE_END (oh))
+    zlog_debug ("Trailing garbage exists");
+
+}
+
 static void ospf6_fill_header(struct ospf6_interface * oi, struct ospf6_header * oh)
 {
   /* fill OSPF header */
@@ -150,6 +177,8 @@ int ospf6_hello_send(struct thread * thread)
 
   hello = rfpbuf_put_uninit(oi->ctrl_client->obuf, sizeof(struct ospf6_hello));
 
+  memset(hello, 0, sizeof(struct ospf6_hello));
+
   hello->interface_id = htonl(oi->interface->ifindex);
   hello->priority = oi->priority;
 //  hello->options[0] = oi->area->options[0];
@@ -207,7 +236,27 @@ int ospf6_hello_send(struct thread * thread)
 
   ospf6_fill_header(oi, oh);
 
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("Attempting to send the message");
+  }
+
   retval = ospf6_msg_send(oi);
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("Already sent the message");
+  }
+
+  if(ospf6->checkpoint_egress_xid)
+  {
+    db_set_replica_xid(ospf6->riack_client, ospf6_replica_get_id(), oi->ctrl_client->current_xid, ospf6->checkpoint_egress_xid);
+  }
+
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    zlog_debug("Set replica xid");
+  }
 
   return 0;
 }
@@ -246,6 +295,8 @@ int ospf6_dbdesc_send(struct thread * thread)
   oh = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_header));
   dbdesc = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_dbdesc));
 
+  memset(dbdesc, 0, sizeof(struct ospf6_dbdesc));
+
   /* if this is initial one, initialize sequence number for DbDesc */
   if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
   {    
@@ -282,6 +333,8 @@ int ospf6_dbdesc_send(struct thread * thread)
 
       // init msg_space
       p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_lsa_header));
+
+      memset(p, 0, sizeof(struct ospf6_lsa_header));
       memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
       p += sizeof (struct ospf6_lsa_header);
     }
@@ -294,13 +347,13 @@ int ospf6_dbdesc_send(struct thread * thread)
 
   ospf6_fill_header(on->ospf6_if, oh);
 
-  retval = ospf6_msg_send(on->ospf6_if);
-
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
     ospf6_dbdesc_print(oh);
   }
-  
+
+  retval = ospf6_msg_send(on->ospf6_if);
+
   return 0;
 }
 
@@ -404,6 +457,7 @@ int ospf6_lsreq_send(struct thread * thread)
     // init_msg_space
     p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_lsreq_entry));
     e = (struct ospf6_lsreq_entry *) p;
+    e->reserved = 0;  // must be zeroed
     e->type = lsa->header->type;
     e->id = lsa->header->id;
     e->adv_router = lsa->header->adv_router;
@@ -416,6 +470,12 @@ int ospf6_lsreq_send(struct thread * thread)
 
   ospf6_fill_header(on->ospf6_if, oh);
 
+  if(IS_OSPF6_SIBLING_DEBUG_MSG)
+  {
+    ospf6_lsreq_print(oh);
+  }
+
+  // note - after this call contents of message are lost
   retval = ospf6_msg_send(on->ospf6_if);
 
   return 0;
@@ -591,6 +651,10 @@ ospf6_lsack_send_neighbor (struct thread *thread)
 
     ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
     p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, sizeof(struct ospf6_lsa_header));
+    
+    // zero everything out
+    memset(p, 0, sizeof(struct ospf6_lsa_header));
+
     memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
     p += sizeof (struct ospf6_lsa_header);
 
@@ -746,7 +810,7 @@ static void ospf6_hello_recv(struct ctrl_client * ctrl_client, struct ospf6_head
   }
 
   // mutex lock
-  if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
+  if(ospf6->checkpoint_enabled && (!ospf6->restart_mode || ospf6->ready_to_checkpoint))
   {
     ospf6_db_put_hello(oh, xid);
   }
@@ -1055,7 +1119,7 @@ static void ospf6_dbdesc_recv(struct ctrl_client * ctrl_client,
   }
 
   // mutex lock
-  if(!ospf6->restart_mode || ospf6->ready_to_checkpoint)
+  if(ospf6->checkpoint_enabled && (!ospf6->restart_mode || ospf6->ready_to_checkpoint))
   {
     ospf6_db_put_dbdesc(oh, xid);
   }
@@ -1289,7 +1353,7 @@ int ospf6_receive(struct ctrl_client * ctrl_client,
 //    }
 
     // check to see whether we need to catch up with other siblings
-    ospf6_replica_check_for_slowness(oi);
+//    ospf6_replica_check_for_slowness(oi); // lets not check for slowness for now
   }
   return 0;
 }

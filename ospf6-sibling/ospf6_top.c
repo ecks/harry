@@ -51,7 +51,7 @@ static void ospf6_top_route_hook_add(struct ospf6_route * route)
 static void ospf6_top_route_hook_remove(struct ospf6_route * route)
 {
   // ospf6_abr_originate_summary (route);
-//  ospf6_zebra_route_update_remove (route);
+  sibling_ctrl_route_unset(route);
 }
 
 static struct ospf6 * ospf6_create(void)
@@ -76,10 +76,18 @@ static struct ospf6 * ospf6_create(void)
  
   o->restart_mode = my_restart_mode;
 
+  o->checkpoint_enabled = true;  // default is for checkpointing to be enabled
+
   if(!o->restart_mode)
+  {
     o->ready_to_checkpoint = true;
+    o->checkpoint_egress_xid = true;
+  }
   else
+  {
     o->ready_to_checkpoint = false;
+    o->checkpoint_egress_xid = false;
+  }
 
   return o;
 }
@@ -183,6 +191,32 @@ DEFUN(riack_host,
   return CMD_SUCCESS;
 }
 
+DEFUN(checkpointing,
+      checkpointing_cmd,
+      "checkpointing",
+      "Enable checkpointing\n")
+{
+  struct ospf6 * o;
+
+  o = (struct ospf6 *)vty->index;
+  o->checkpoint_enabled = true;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN(no_checkpointing,
+      no_checkpointing_cmd,
+      "no checkpointing",
+      "Disable checkpointing\n")
+{
+  struct ospf6 * o;
+
+  o = (struct ospf6 *)vty->index;
+  o->checkpoint_enabled = false;
+
+  return CMD_SUCCESS;
+}
+
 /* OSPF configuration write function. */
 static int
 config_write_ospf6(struct vty * vty)
@@ -222,4 +256,6 @@ void ospf6_top_init(bool restart_mode)
   install_element(OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
   install_element(OSPF6_NODE, &riack_host_cmd);
+  install_element(OSPF6_NODE, &checkpointing_cmd);
+  install_element(OSPF6_NODE, &no_checkpointing_cmd);
 }

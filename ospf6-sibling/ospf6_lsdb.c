@@ -33,6 +33,15 @@ struct ospf6_lsdb * ospf6_lsdb_create(void * data)
   return lsdb;
 }
 
+void
+ospf6_lsdb_delete(struct ospf6_lsdb * lsdb)
+{
+  ospf6_lsdb_remove_all(lsdb);
+  route_table_finish(lsdb->table);
+
+  free(lsdb);
+}
+
 static void ospf6_lsdb_set_key(struct prefix_ipv6 * key, void * value, int len)
 {
   assert (key->prefixlen % 8 == 0); 

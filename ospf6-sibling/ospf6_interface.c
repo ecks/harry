@@ -405,14 +405,14 @@ int interface_up(struct thread * thread)
   ospf6_interface_connected_route_update(oi->interface);
 
   // mutex lock
-  if(!ospf6->restart_mode) // the following if statement is prob not necessary
-  {
+//  if(!ospf6->restart_mode) // the following if statement is prob not necessary
+//  {
     /* Schedule Hello */
     // thread_add_event(master, ospf6_hello_send, oi, 0);
     // Dont send hellos yet, just update ctrl_client that interface is up
  
     ctrl_client_state_transition(oi->ctrl_client, CTRL_INTERFACE_UP);
-  }
+//  }
   // mutex unlock
  
   /* decide next interface state */
@@ -457,6 +457,32 @@ int neighbor_change(struct thread * thread)
       oi->state == OSPF6_INTERFACE_DR)
     ospf6_interface_state_change (dr_election (oi), oi); 
 
+
+  return 0;
+}
+
+int interface_down (struct thread *thread)
+{
+  struct ospf6_interface *oi;
+  struct ospf6_neighbor *on; 
+
+  oi = (struct ospf6_interface *) THREAD_ARG (thread);
+  assert (oi && oi->interface);
+
+  if (IS_OSPF6_SIBLING_DEBUG_INTERFACE)
+    zlog_debug ("Interface Event %s: [InterfaceDown]",
+                oi->interface->name);
+
+  /* TODO: Leave AllSPFRouters */
+//  if (oi->state > OSPF6_INTERFACE_DOWN)
+//    ospf6_leave_allspfrouters (oi->interface->ifindex);
+
+  ospf6_interface_state_change (OSPF6_INTERFACE_DOWN, oi); 
+
+  LIST_FOR_EACH(on, struct ospf6_neighbor, node, &oi->neighbor_list) 
+    ospf6_neighbor_delete (on);
+  
+//  list_delete_all_node (oi->neighbor_list);
 
   return 0;
 }

@@ -200,9 +200,9 @@ int ospf6_db_put_dbdesc(struct ospf6_header * oh, unsigned int xid)
   /* initialize memory buffers */
   bucket = calloc(ID_SIZE, sizeof(char));
   key = calloc(ID_SIZE, sizeof(char));
-  json_msg = calloc(DATA_SIZE*3, sizeof(char));
-  json_lsa_headers = calloc(DATA_SIZE*3, sizeof(char));
-  json_packed = calloc(DATA_SIZE*4, sizeof(char));
+  json_msg = calloc(DATA_SIZE*4, sizeof(char));
+  json_lsa_headers = calloc(DATA_SIZE*4, sizeof(char));
+  json_packed = calloc(DATA_SIZE*5, sizeof(char));
 
   json_header = ospf6_db_json_header(oh);
 

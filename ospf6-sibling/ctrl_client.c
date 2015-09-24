@@ -77,7 +77,8 @@ void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_cl
       if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
       {
         zlog_debug("Entered a bad state");
-        exit(1);
+        return;
+//        exit(1);
       }
     }
   }
@@ -103,8 +104,9 @@ void ctrl_client_state_transition(struct ctrl_client * ctrl_client, enum ctrl_cl
     {
       if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
       {
-        zlog_debug("Entered a bad state");
-        exit(1);
+        zlog_debug("Entered a bad state, current_state: %d, new_state: %d", ctrl_client->state, new_state);
+        return;
+//        exit(1);
       }
     }
      
@@ -500,13 +502,19 @@ static int ctrl_client_connected(struct thread * t)
 int ctrl_client_route_set(struct ctrl_client * ctrl_client, struct ospf6_route * route)
 {
   int retval;
-  char buf[INET6_ADDRSTRLEN];
+  char prefix_str[INET6_ADDRSTRLEN];
+  char nexthop_str[INET6_ADDRSTRLEN];
 
 
   if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
   {
-    inet_ntop(AF_INET6, &(route->prefix.u.prefix6.s6_addr), buf, INET6_ADDRSTRLEN);
-    zlog_debug("Route Set: %s", buf);
+    inet_ntop(AF_INET6, &(route->prefix.u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN);
+    zlog_debug("Route Set: %s for %i", prefix_str, ctrl_client->hostnum);
+    
+    inet_ntop(AF_INET6, &(route->nexthop[0].address), nexthop_str, INET6_ADDRSTRLEN);
+    zlog_debug("          Nexthop addr: %s", nexthop_str);
+
+    zlog_debug("          ifindex: %i", route->nexthop[0].ifindex);
   }
 
   /* Only the best path will be sent to zebra. */
@@ -529,6 +537,36 @@ int ctrl_client_route_set(struct ctrl_client * ctrl_client, struct ospf6_route *
 
   retval = ctrl_send_message(ctrl_client);
   ctrl_client->current_xid++;
+
+  return 0;
+}
+
+int ctrl_client_route_unset(struct ctrl_client * ctrl_client, struct ospf6_route * route)
+{
+  int retval;
+  char prefix_str[INET6_ADDRSTRLEN];
+  char nexthop_str[INET6_ADDRSTRLEN];
+
+  if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+  {
+    inet_ntop(AF_INET6, &(route->prefix.u.prefix6.s6_addr), prefix_str, INET6_ADDRSTRLEN);
+    zlog_debug("Route UnSet: %s for %i", prefix_str, ctrl_client->hostnum);
+
+    inet_ntop(AF_INET6, &(route->nexthop[0].address), nexthop_str, INET6_ADDRSTRLEN);
+    zlog_debug("          Nexthop addr: %s", nexthop_str);
+
+    zlog_debug("          ifindex: %i", route->nexthop[0].ifindex);
+   }
+
+  /* if removing is the best path and if there's another path,
+     treat this request as add the secondary path */
+  if(ospf6_route_is_best(route) && route->next && ospf6_route_is_same(route, route->next))
+  {
+    if(IS_OSPF6_SIBLING_DEBUG_CTRL_CLIENT)
+    {
+      zlog_debug("  Best-path removal resulted in Secondary addition");
+    }
+  }
 
   return 0;
 }

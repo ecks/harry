@@ -93,9 +93,11 @@ static void ospf6_area_route_hook_add (struct ospf6_route *route)
 static void
 ospf6_area_route_hook_remove (struct ospf6_route *route)
 {
-//  struct ospf6_route * copy;
+  struct ospf6_route * copy;
 
-//  copy = ospf6_route_lookup_i
+  copy = ospf6_route_lookup_identical(route, ospf6->route_table);
+  if(copy)
+    ospf6_route_remove(copy, ospf6->route_table);
 }
 
 /* Make new area structure */

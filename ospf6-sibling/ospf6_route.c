@@ -137,6 +137,21 @@ struct ospf6_route * ospf6_route_lookup (struct prefix *prefix,
   return route;
 }
 
+struct ospf6_route *
+ospf6_route_lookup_identical (struct ospf6_route *route,
+                                  struct ospf6_route_table *table)
+{
+  struct ospf6_route *target;
+
+  for (target = ospf6_route_lookup (&route->prefix, table);
+       target; target = target->next)
+  {    
+    if (ospf6_route_is_identical (target, route))
+      return target;
+  }    
+  return NULL;
+}
+
 #ifndef NDEBUG
 static void 
 route_table_assert (struct ospf6_route_table *table)

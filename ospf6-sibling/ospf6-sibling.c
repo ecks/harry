@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <netinet/in.h>
 #include <getopt.h>
+#include <signal.h>
 
 #include "routeflow-common.h"
 #include "util.h"
@@ -52,6 +53,16 @@ char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 struct thread_master * master;
 
+void terminate(int signal)
+{
+  zlog_debug("Terminate called...");
+
+  // Unregister
+  sisis_unregister_host();
+
+  // wait until the route is actually removed before exiting
+}
+
 int main(int argc, char *argv[])
 {
   int opt;
@@ -69,6 +80,8 @@ int main(int argc, char *argv[])
   uint64_t host_num = 1;
 
   bool restart_mode = false;
+
+  struct sigaction sa;
 
   /* Command line argument treatment. */
   while(1)
@@ -97,7 +110,15 @@ int main(int argc, char *argv[])
 
   ospf6_sibling_debug_init();
 
-  // TODO: signal_init
+  // signal_init - use sigaction
+  
+  sa.sa_handler = terminate;
+  sa.sa_flags = 0;
+  sigemptyset(&sa.sa_mask);
+
+  sigaction(SIGABRT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
 
   /* thread master */
   master = thread_master_create();
