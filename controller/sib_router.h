@@ -34,9 +34,17 @@ struct sib_router {
     // xid of the current egress msg
     unsigned int current_egress_xid;
 
+    bool waiting_on_first_egress_msg;
+
     struct list msgs_rcvd_queue;
+
+    bool is_leader;
 };
 
+#define VOTER_ANY 0
+#define VOTER_ALL 1
+
+void sib_router_init(struct router ** my_routers, int * my_n_routers_p, int num_sibs, int voter_type, riack_client * r_client);
 int sib_router_run(struct thread *);
 void sib_router_process_packet(struct sib_router *, struct rfpbuf *);
 void sib_router_forward_ospf6(struct rfpbuf * msg, unsigned int current_ingress_xid);

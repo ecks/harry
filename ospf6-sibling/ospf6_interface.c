@@ -89,7 +89,7 @@ struct ospf6_interface * ospf6_interface_create (struct interface *ifp)
   oi->priority = 1;
 
   oi->hello_interval = 10;
-  oi->dead_interval = 40;
+  oi->dead_interval = 600;
   oi->rxmt_interval = 5;
   oi->cost = 1;
   oi->state = OSPF6_INTERFACE_DOWN;

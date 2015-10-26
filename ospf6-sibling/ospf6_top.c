@@ -81,13 +81,15 @@ static struct ospf6 * ospf6_create(void)
   if(!o->restart_mode)
   {
     o->ready_to_checkpoint = true;
-    o->checkpoint_egress_xid = true;
+//    o->checkpoint_egress_xid = true;
   }
   else
   {
     o->ready_to_checkpoint = false;
-    o->checkpoint_egress_xid = false;
+//    o->checkpoint_egress_xid = false;
   }
+
+  o->restarted_first_egress_not_sent = false;
 
   return o;
 }

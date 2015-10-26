@@ -64,6 +64,9 @@ static void
 new_sib_router(struct sib_router **, struct vconn *, const char *, struct router **, int *);
 
 uint64_t hostnum;
+uint64_t num_sibs_conf;
+
+int voter_type;
 
 riack_client * r_client = NULL;
 
@@ -86,6 +89,30 @@ DEFUN(riack_host,
   int port = 8087;
 
   r_client = db_init((char *)argv[0], port);
+}
+
+DEFUN(num_sibs,
+      num_sibs_cmd,
+      "num sibs NUM",
+      "numbe of siblings necessary\n")
+{
+  num_sibs_conf = (uint64_t)strtol(argv[0], NULL, 10);  
+}
+
+DEFUN(voter_all,
+      voter_all_cmd,
+      "voter all",
+      "votes on all siblings")
+{
+  voter_type = VOTER_ALL;
+}
+
+DEFUN(voter_any,
+      voter_any_cmd,
+      "voter any",
+      "votes on any siblings that are present")
+{
+  voter_type = VOTER_ANY;
 }
 
 int main(int argc, char *argv[])
@@ -118,6 +145,9 @@ int main(int argc, char *argv[])
   controller_debug_init();
   install_element(CONFIG_NODE, &hostnumber_cmd);
   install_element(CONFIG_NODE, &riack_host_cmd);
+  install_element(CONFIG_NODE, &num_sibs_cmd);
+  install_element(CONFIG_NODE, &voter_any_cmd);
+  install_element(CONFIG_NODE, &voter_all_cmd);
   vty_read_config(config_file, config_default);
 
   zlog_notice("<---- Controller starting: %d ---->", getpid());
@@ -149,7 +179,7 @@ int main(int argc, char *argv[])
     nb_listeners[n_nb_listeners++] = nb_pvconn;
   }
 
-  sib_router_init(routers, &n_routers);
+  sib_router_init(routers, &n_routers, num_sibs_conf, voter_type, r_client);
 
   if(n_routers < MAX_ROUTERS)
   {
@@ -182,7 +212,6 @@ int main(int argc, char *argv[])
   {
     thread_call(&thread);
   }
-//  }
  
   return 0;
 }

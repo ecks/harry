@@ -40,10 +40,15 @@ extern struct thread_master * master;
 
 struct router ** routers = NULL;
 int * n_routers_p;
+int num_sibs_conf;
+int voter_type_conf;
 
 static struct sib_router * ospf6_siblings[MAX_OSPF6_SIBLINGS];
 int n_ospf6_siblings;
 int n_ospf6_siblings_routing; // number of ospf6 siblings that have transitioned to routing state
+
+struct sib_router * leader_sibling;
+riack_client * my_r_client;
 
 static struct sib_router * bgp_siblings[MAX_BGP_SIBLINGS];
 int n_bgp_siblings;
@@ -64,7 +69,7 @@ static void sib_router_if_addr_add(struct sib_router * sr, unsigned int xid);
 static void sib_router_send_leader_elect();
 static void state_transition(struct sib_router * sr, enum sib_router_state state);
 
-void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
+void sib_router_init(struct router ** my_routers, int * my_n_routers_p, int num_sibs, int voter_type, riack_client * r_client)
 {
   int retval;
   int i;
@@ -73,6 +78,8 @@ void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   struct pvconn * sib_ospf6_pvconn;  // sibling channel interface
   struct pvconn * sib_bgp_pvconn;    // sibling channel interface
 
+  leader_sibling = NULL;
+
   n_ospf6_siblings = 0;
 
   n_bgp_siblings = 0;
@@ -80,6 +87,8 @@ void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   n_sib_listeners = 0;
 
   n_ospf6_siblings_routing = 0;
+
+  my_r_client = r_client;
 
   retval = pvconn_open("ptcp6:6634", &sib_ospf6_pvconn, DSCP_DEFAULT);
   if(!retval)
@@ -110,6 +119,8 @@ void sib_router_init(struct router ** my_routers, int * my_n_routers_p)
   // copy over pointers to routers
   routers = my_routers;
   n_routers_p = my_n_routers_p;
+  num_sibs_conf = num_sibs;
+  voter_type_conf = voter_type;
 }
 
 static int sib_listener_accept(struct thread * t)
@@ -199,6 +210,11 @@ static void reuse_sib_router(struct sib_router * sr, struct vconn * vconn, const
 
   sib_router_reuse(sr, rconn);
 
+  if(CONTROLLER_DEBUG_MSG)
+  {
+    zlog_debug("New reusable sibling %s", sr->rconn->target);
+  }
+
   // schedule an event to call sib_router_run
   thread_add_event(master, sib_router_run, sr, 0);
 }
@@ -215,6 +231,7 @@ void sib_router_reuse(struct sib_router * sr, struct rconn * rconn)
   list_init(&sr->msgs_rcvd_queue);
 
   sr->current_egress_xid = 0;
+  sr->waiting_on_first_egress_msg = false;
 
   sr->current_ingress_xid = 0;
   sr->ingress_ack_timeout = 5;
@@ -243,12 +260,15 @@ sib_router_create(struct rconn *rconn)
   list_init(&rt->msgs_rcvd_queue);
 
   rt->current_egress_xid = 0;
+  rt->waiting_on_first_egress_msg = false;
 
   rt->current_ingress_xid = 0;
   rt->ingress_ack_timeout = 5;
 
   // indicates that the timeout_ingress thread is inactive
   rt->thread_timeout_ingress = NULL;
+
+  rt->is_leader = false;
   return rt;
 }
 
@@ -269,7 +289,7 @@ majority_have_msg_rcvd()
       i++;
     }
   }
-  if(((float)i/OSPF6_NUM_SIBS) > 0.5)
+  if(((float)i/num_sibs_conf) > 0.5)
   {
     return true;
   }
@@ -288,6 +308,24 @@ all_have_msg_rcvd()
   }
 
   return true;
+}
+
+static int
+num_waiting_on_first_egress_msg()
+{
+  int num = 0;
+
+  int i;
+
+  for(i = 0; i < n_ospf6_siblings; i++)
+  {
+    if(ospf6_siblings[i]->waiting_on_first_egress_msg)
+    {
+      num++;
+    }
+  }
+
+  return num;
 }
 
 static void append_msg_to_rcvd_queue(struct sib_router * sr, struct rfpbuf * msg)
@@ -311,6 +349,9 @@ vote_majority()
   int num_of_equal_msgs = 0;
   int i;
   int j;
+  int num_hosts;
+
+  unsigned int xid_of_msg_responsible;
 
   if(IS_CONTROLLER_DEBUG_MSG)
   { 
@@ -339,6 +380,7 @@ vote_majority()
   }
   // a should now be an actual message
   struct rfpbuf * a = rfpbuf_from_list(list_peek_front(&ospf6_siblings[j]->msgs_rcvd_queue));
+  num_of_equal_msgs++; // one message is equal to itself
 
   for(i = j + 1; i < n_ospf6_siblings; i++)
   {
@@ -348,7 +390,6 @@ vote_majority()
       {
         zlog_debug("sibling b is disconnected or has nothing in the queue");
       }
-      seen_before = false;
     }
     else
     {
@@ -379,19 +420,11 @@ vote_majority()
         struct ospf6_lsa * a_lsa = (struct ospf6_lsa *)((void *)a->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
         struct ospf6_lsa * b_lsa = (struct ospf6_lsa *)((void *)b->data + sizeof(struct rfp_header) + sizeof(struct ospf6_header));
         zlog_debug("a and b not equal");
-        seen_before = false;
       }
       else
       {
-        if(!seen_before)
-        {
-          num_of_equal_msgs = num_of_equal_msgs + 2;
-        }
-        else
-        {
-          num_of_equal_msgs++;
-        }
-        seen_before = true;
+        num_of_equal_msgs++;
+       
         a = b;
       }
     }
@@ -402,7 +435,34 @@ vote_majority()
     zlog_debug("num of equal msgs: %d", num_of_equal_msgs);
   }
 
-  if(((float)num_of_equal_msgs/OSPF6_NUM_SIBS) > 0.5)
+  if(voter_type_conf == VOTER_ALL)
+  {
+    num_hosts = num_sibs_conf;
+
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("In voter_all, num sibs: %d", num_sibs_conf);
+    }
+
+  }
+  else if(voter_type_conf == VOTER_ANY)
+  {
+    int num_waiting_on_first_egress = num_waiting_on_first_egress_msg();
+
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("In voter_any, num waiting on egress: %d, num routing: %d", num_waiting_on_first_egress, n_ospf6_siblings_routing);
+    }
+
+    num_hosts = n_ospf6_siblings_routing - num_waiting_on_first_egress_msg();
+  }
+
+  if(CONTROLLER_DEBUG_MSG)
+  {
+    zlog_debug("number of hosts: %d", num_hosts);
+  }
+
+  if(((float)num_of_equal_msgs/num_hosts) > 0.5)
   {
     if(CONTROLLER_DEBUG_MSG)
     {
@@ -427,6 +487,9 @@ vote_majority()
         struct rfp_header * rh = rfpbuf_at_assert(a, 0, a->size);
         zlog_debug("forward ospf6 packet: sibling => controller, xid %d", ntohl(rh->xid));
       }
+//      xid_of_msg_responsible = ntohl(rh->xid);
+//      xid_of_msg_responsible++;
+
       router_forward(routers[i], a);
     }
 
@@ -434,6 +497,20 @@ vote_majority()
     for(i = 0; i < n_ospf6_siblings; i++)
     {
       ospf6_siblings[i]->current_egress_xid++;
+    }
+
+    if(leader_sibling != NULL && leader_sibling->state != SIB_DISCONNECTED)
+    {
+      if(CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("About to set cur_xid to xid of leader: %d", leader_sibling->current_egress_xid);
+      }
+
+      db_set_egress_xid(my_r_client, leader_sibling->current_egress_xid);
+    }
+    else
+    {
+
     }
   }  
 }
@@ -603,7 +680,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
         append_msg_to_rcvd_queue(sr, msg);
         // first we check if all siblings are connected,
         // then we check if majority have received the messages
-        if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
+        if((n_ospf6_siblings == num_sibs_conf) &&
           (majority_have_msg_rcvd()))
         {
           // increment the current xid inside vote_majority
@@ -630,6 +707,26 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
 
     case RFPT_FORWARD_OSPF6:
       {
+        if(sr->waiting_on_first_egress_msg)
+        {
+          // if this is the first actual message we received, then we want to set the xid of the first received msg to that of the leader
+          if(CONTROLLER_DEBUG_MSG)
+          {
+            zlog_debug("First msg received: egress xid: %d", xid);
+          }
+
+          if(!sr->is_leader)
+          {
+          // set the xid to that of the leader
+            if(leader_sibling != NULL)
+            {
+//              sr->current_egress_xid = xid;
+              sr->current_egress_xid = leader_sibling->current_egress_xid;
+            }     
+          }
+//          sr->current_egress_xid = xid;
+          sr->waiting_on_first_egress_msg = false;
+        }
         if(xid == sr->current_egress_xid)
         {
           zlog_debug("forward ospf6 packet: xids %d matched from %s", xid, sr->rconn->target);
@@ -665,7 +762,7 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
           append_msg_to_rcvd_queue(sr, msg);
           // first we check if all siblings are connected,
           // then we check if majority have received the messages
-          if((n_ospf6_siblings == OSPF6_NUM_SIBS) &&
+          if((n_ospf6_siblings == num_sibs_conf) &&
              (majority_have_msg_rcvd()))
           {
             // increment the current xid inside vote_majority
@@ -716,6 +813,23 @@ sib_router_process_packet(struct sib_router * sr, struct rfpbuf * msg)
       }
       break;
 
+    case RFPT_REDISTRIBUTE_LEADER_ELECT:
+      ;
+      struct red_lead_elec * red_lead_elec;
+      red_lead_elec = (struct red_lead_elec *)((void *)rh + sizeof(struct rfp_header));
+      sr->is_leader =  red_lead_elec->is_leader == 1 ? true : false;
+
+      if(sr->is_leader)
+      {
+        leader_sibling = sr;
+      }
+
+      if(CONTROLLER_DEBUG_MSG)
+      {
+        zlog_debug("Received redistribute leader elect msg: %d from %s, leader is %s", red_lead_elec->is_leader, sr->rconn->target, leader_sibling->rconn->target);
+      }
+      break;
+
     default:
       printf("unknown packet\n");
   }
@@ -732,6 +846,13 @@ void
 sib_router_destroy(struct sib_router * sr)
 {
   state_transition(sr, SIB_DISCONNECTED);
+
+  if(CONTROLLER_DEBUG_MSG)
+  {
+    zlog_debug("Destroy called for %s", sr->name);
+  }
+
+  sr->waiting_on_first_egress_msg = false;
 
   // free the list
   while(!list_empty(&sr->msgs_rcvd_queue))
@@ -1012,6 +1133,7 @@ static void state_transition(struct sib_router * sr, enum sib_router_state state
       state == SIB_ROUTING)
   {
     n_ospf6_siblings_routing++;
+    sr->waiting_on_first_egress_msg = true;
   }
 
   // transition from routing to disconnected
@@ -1023,7 +1145,7 @@ static void state_transition(struct sib_router * sr, enum sib_router_state state
 
   sr->state = state;
 
-  if(n_ospf6_siblings_routing == OSPF6_NUM_SIBS)
+  if(n_ospf6_siblings_routing == num_sibs_conf)
   {
     sib_router_send_leader_elect();
   }

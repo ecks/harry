@@ -114,17 +114,17 @@ extern struct keys * db_list_keys(riack_client * riack_client, unsigned int buck
   return keys;
 }
 
-extern int db_get_unique_id(riack_client * riack_client)
+extern int db_get_unique_ingress_id(riack_client * riack_client)
 {
   riack_string bucket_type_str, bucket_str, key_str;
 
-  bucket_type_str.value = "strongly_consistent";
+  bucket_type_str.value = "strongly_consistent2";
   bucket_type_str.len = strlen(bucket_type_str.value);
 
   bucket_str.value = "ids";
   bucket_str.len = strlen(bucket_str.value);
 
-  key_str.value = "ingress_id";
+  key_str.value = "ingress_id2";
   key_str.len = strlen(key_str.value);
 
   return db_get_and_set(riack_client, &bucket_type_str, &bucket_str, &key_str);
@@ -196,18 +196,18 @@ int db_get_and_set(riack_client * riack_client, riack_string * bucket_type_str, 
   return 0;
 }
 
-int db_get_replica_xid(riack_client * riack_client, unsigned int replica_id)
+int db_get_egress_xid(riack_client * riack_client)
 {
   riack_string bucket_type_str, bucket_str, key_str;
 
   bucket_type_str.value = "strongly_consistent2";
   bucket_type_str.len = strlen(bucket_type_str.value);
 
-  bucket_str.value = calloc(30, sizeof(char));
-  sprintf(bucket_str.value, "%d", replica_id);
+  bucket_str.value = "ids";
+//  sprintf(bucket_str.value, "%d", replica_id);
   bucket_str.len = strlen(bucket_str.value);
 
-  key_str.value = "egress_xid";
+  key_str.value = "egress_id";
   key_str.len = strlen(key_str.value);
 
   riack_object object;
@@ -249,18 +249,16 @@ int db_get_replica_xid(riack_client * riack_client, unsigned int replica_id)
     curr_xid = (int)strtol(output_data, NULL, 10);
 
     // deallocate
-    free(bucket_str.value);
     free(object.vclock.clock);
 
     return curr_xid;
   }
   
-  free(bucket_str.value);
   return 0;
 }
 
 
-extern int db_set_replica_xid(riack_client * riack_client, unsigned int replica_id, unsigned int xid, bool checkpoint_egress_xid)
+extern int db_set_egress_xid(riack_client * riack_client, unsigned int xid)
 {
   zlog_debug("Entering db_set_replica_xid");
 
@@ -269,11 +267,11 @@ extern int db_set_replica_xid(riack_client * riack_client, unsigned int replica_
   bucket_type_str.value = "strongly_consistent2";
   bucket_type_str.len = strlen(bucket_type_str.value);
 
-  bucket_str.value = calloc(30, sizeof(char));
-  sprintf(bucket_str.value, "%d", replica_id); // need calloc beforehand
+  bucket_str.value = "ids";
+//  sprintf(bucket_str.value, "%d", replica_id); // need calloc beforehand
   bucket_str.len = strlen(bucket_str.value);
 
-  key_str.value = "egress_xid";
+  key_str.value = "egress_id";
   key_str.len = strlen(key_str.value);
 
   riack_object object;
@@ -284,7 +282,7 @@ extern int db_set_replica_xid(riack_client * riack_client, unsigned int replica_
   char * curr_xid_str, * output_data;
 
 
-  zlog_debug("db_set_replica_xid: before retrieving objects: replica id: %d, xid: %d, bucket_type_str: %s, bucket_str: %s, key_str: %s", replica_id, xid, bucket_type_str.value, bucket_str.value, key_str.value);
+  zlog_debug("db_set_replica_xid: before retrieving objects: xid: %d, bucket_type_str: %s, bucket_str: %s, key_str: %s", xid, bucket_type_str.value, bucket_str.value, key_str.value);
 
   if(riack_get_ext(riack_client, &bucket_str, &key_str, (riack_get_properties *)0, &bucket_type_str, &res_object, 0) != RIACK_SUCCESS)
   {
@@ -350,7 +348,6 @@ extern int db_set_replica_xid(riack_client * riack_client, unsigned int replica_
  
     zlog_debug("db_set_replica_xid: after putting objects ==> success");
 
-    free(bucket_str.value);
     free(object.vclock.clock);
 
     return 0;

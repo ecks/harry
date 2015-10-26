@@ -33,6 +33,7 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data);
 int ospf6_leader_elect();
 unsigned int ospf6_replica_get_id();
 unsigned int ospf6_replica_get_leader_id();
+bool ospf6_replica_own_leader();
 extern void ospf6_replica_check_for_slowness(struct ospf6_interface *);
 void ospf6_replicas_init(struct in6_addr * own_replica_addr, struct list * replicas);
 

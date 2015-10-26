@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <assert.h>
 #include <netinet/in.h>
+#include <time.h>
 
 #include "util.h"
 #include "routeflow-common.h"
@@ -27,6 +28,7 @@
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_restart.h"
 #include "ospf6_interface.h"
 #include "ospf6_area.h"
 #include "ospf6_message.h"
@@ -148,6 +150,8 @@ int ospf6_hello_send(struct thread * thread)
   struct ospf6_interface * oi;
   int retval;
 
+  struct timespec time;
+
   oi = (struct ospf6_interface *)THREAD_ARG(thread);
   struct rfp_header * rh;
   struct ospf6_header * oh;
@@ -160,6 +164,27 @@ int ospf6_hello_send(struct thread * thread)
     printf("Tried to send hello message on link that is down\n");
     return 0;
   }
+
+
+//  if(ospf6->restart_mode)
+//  {
+//    pthread_mutex_lock(&restarted_first_egress_not_sent);
+
+    if(ospf6->restarted_first_egress_not_sent)
+    {
+      pthread_mutex_lock(&restarted_first_egress_not_sent);
+
+      // reset the current xid on first message that is scheduled out
+      synchronize_current_xid();
+
+      clock_gettime(CLOCK_REALTIME, &time);
+      zlog_debug("[%ld.%09ld]: About to send first msg", time.tv_sec, time.tv_nsec);
+
+     pthread_mutex_unlock(&restarted_first_egress_not_sent);
+    }
+
+//    pthread_mutex_unlock(&restarted_first_egress_not_sent);
+//  }
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
@@ -248,10 +273,15 @@ int ospf6_hello_send(struct thread * thread)
     zlog_debug("Already sent the message");
   }
 
-  if(ospf6->checkpoint_egress_xid)
+  if(ospf6->restarted_first_egress_not_sent)
   {
-    db_set_replica_xid(ospf6->riack_client, ospf6_replica_get_id(), oi->ctrl_client->current_xid, ospf6->checkpoint_egress_xid);
+    ospf6->restarted_first_egress_not_sent = false;
   }
+
+//  if(ospf6->checkpoint_egress_xid)
+//  {
+//    db_set_egress_replica_xid(ospf6->riack_client, ospf6_replica_get_id(), oi->ctrl_client->current_xid, ospf6->checkpoint_egress_xid);
+//  }
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
@@ -321,7 +351,8 @@ int ospf6_dbdesc_send(struct thread * thread)
     for (lsa = ospf6_lsdb_head (on->dbdesc_list); lsa; 
          lsa = ospf6_lsdb_next (lsa))
     {    
-      ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+//      ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+      lsa->header->age = htons(0);
 
       /* MTU check */
       if (p - (u_char *)oh + sizeof (struct ospf6_lsa_header) >
@@ -535,7 +566,8 @@ int ospf6_lsupdate_send_neighbor(struct thread * thread)
      break;
    }
 
-   ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+//   ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
+   lsa->header->age = htons(0);
    p = rfpbuf_put_uninit(on->ospf6_if->ctrl_client->obuf, OSPF6_LSA_SIZE (lsa->header));
    memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));
    p += OSPF6_LSA_SIZE (lsa->header);

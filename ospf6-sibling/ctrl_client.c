@@ -602,3 +602,24 @@ ctrl_client_event(enum event event, struct ctrl_client * ctrl_client)
       break;
   }
 }
+
+void ctrl_client_redistribute_leader_elect(struct ctrl_client * ctrl_client, bool leader)
+{
+  int retval;
+  struct red_lead_elec * red_lead_elec;
+  uint8_t * is_leader_p;
+
+  // don't increment the xid on redistribution of leader elect msgs
+  ctrl_client->obuf = routeflow_alloc_xid(RFPT_REDISTRIBUTE_LEADER_ELECT, RFP10_VERSION, 
+                                          htonl(ctrl_client->current_xid), sizeof(struct rfp_header));
+
+  red_lead_elec = rfpbuf_put_uninit(ctrl_client->obuf, sizeof(struct red_lead_elec));;
+
+  red_lead_elec->is_leader = leader == true ? 1 : 0;
+
+  rfpmsg_update_length(ctrl_client->obuf);
+  retval = ctrl_send_message(ctrl_client);
+
+  rfpbuf_delete(ctrl_client->obuf);
+  ctrl_client->obuf = NULL;
+}

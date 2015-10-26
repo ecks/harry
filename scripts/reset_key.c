@@ -5,7 +5,21 @@
 #include <getopt.h>
 
 #include "riack.h"
-#include "db.h"
+
+extern riack_client * db_init(char * host, int port)
+{
+  riack_client * riack_client;
+
+  riack_init();
+  riack_client = riack_new_client(0);
+  if(riack_connect(riack_client, host, port, 0) != RIACK_SUCCESS)
+  {
+    printf("Failed to connect to riak server\n");
+    riack_free(riack_client);
+  }
+
+  return riack_client;
+}
 
 int ingress_reset(riack_client * riack_client)
 {
@@ -22,7 +36,7 @@ int ingress_reset(riack_client * riack_client)
   bucket_str.value = "ids";
   bucket_str.len = strlen(bucket_str.value);
 
-  key_str.value = "ingress_id";
+  key_str.value = "ingress_id2";
   key_str.len = strlen(key_str.value);
 
   if(riack_get_ext(riack_client, &bucket_str, &key_str, (riack_get_properties *)0, &bucket_type_str, &res_object, 0) != RIACK_SUCCESS)
@@ -72,7 +86,7 @@ int ingress_reset(riack_client * riack_client)
   }
 }
 
-int egress_reset(riack_client * riack_client, unsigned int sibling_id)
+int egress_reset(riack_client * riack_client)
 {
   riack_string bucket_type_str, bucket_str, key_str;
   riack_get_object * res_object;
@@ -85,11 +99,11 @@ int egress_reset(riack_client * riack_client, unsigned int sibling_id)
   bucket_type_str.value = "strongly_consistent2";
   bucket_type_str.len = strlen(bucket_type_str.value);
 
-  bucket_str.value = calloc(30, sizeof(char));
-  sprintf(bucket_str.value, "%d", sibling_id); // need calloc beforehand
+  bucket_str.value = "ids";
+//  sprintf(bucket_str.value, "%d", sibling_id); // need calloc beforehand
   bucket_str.len = strlen(bucket_str.value);
 
-  key_str.value = "egress_xid";
+  key_str.value = "egress_id";
   key_str.len = strlen(key_str.value);
 
   if(riack_get_ext(riack_client, &bucket_str, &key_str, (riack_get_properties *)0, &bucket_type_str, &res_object, 0) != RIACK_SUCCESS)
@@ -153,7 +167,7 @@ int main(int argc, char * argv[])
   riack_client = db_init(host, port);
 
   ingress_reset(riack_client); // reset db for ingress id
-  egress_reset(riack_client, 0); // reset db for egress xid sibling 0
-  egress_reset(riack_client, 1); // reset db for egress xid sibling 1
-  egress_reset(riack_client, 2); // reset db for egress xid sibling 2
+  egress_reset(riack_client); // reset db for egress xid sibling 0
+//  egress_reset(riack_client, 1); // reset db for egress xid sibling 1
+//  egress_reset(riack_client, 2); // reset db for egress xid sibling 2
 }

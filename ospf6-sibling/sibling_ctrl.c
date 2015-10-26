@@ -257,7 +257,7 @@ void sibling_ctrl_init()
   state = SC_INIT;
 }
 
-// helper function
+// global function
 bool check_all_interface_up()
 {
   bool all_interface_up = true;
@@ -322,13 +322,11 @@ void synchronize_current_xid()
 {
   struct ctrl_client * ctrl_client;
 
-  unsigned int leader_id = ospf6_replica_get_leader_id();
-
-  int egress_leader_xid = db_get_replica_xid(ospf6->riack_client, leader_id);
+  int egress_leader_xid = db_get_egress_xid(ospf6->riack_client);
 
   if(OSPF6_SIBLING_DEBUG_RESTART)
   {
-    zlog_debug("Leader xid: %d", egress_leader_xid);
+    zlog_debug("synchronize_current_xid: Leader xid: %d", egress_leader_xid);
   }
 
   LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
@@ -442,10 +440,15 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
         // only needed when not attached to external ospf6 
         pthread_mutex_unlock(&first_xid_mutex);
 
-        synchronize_current_xid();
+        // were going to synchronize xid and start scheduling hellos when we complete sibling restart 
+        ospf6->restarted_first_egress_not_sent = true; // added temporarily
+        schedule_hellos_on_interfaces(); // added temporarily
       }
-      /* Schedule Hello for all interfaces */
-      schedule_hellos_on_interfaces();
+      else
+      {
+        /* Schedule Hello for all interfaces */
+        schedule_hellos_on_interfaces();
+      }
     }
     else if(state == SC_ALL_INT_UP_LEAD_ELECT_START)
     {
@@ -456,10 +459,15 @@ void sibling_ctrl_update_state(enum sc_state_update_req state_update_req)
         // only needed when not attached to external ospf6 
         pthread_mutex_unlock(&first_xid_mutex);
 
-        synchronize_current_xid();
+        // were going to synchronize xid and start scheduling hellos when we complete sibling restart
+        ospf6->restarted_first_egress_not_sent = true; // added temporarily
+        schedule_hellos_on_interfaces(); // added temporarily
       }
-      /* Schedule Hello */
-      schedule_hellos_on_interfaces();
+      else
+      {
+        /* Schedule Hello */
+        schedule_hellos_on_interfaces();
+      }
     }
     else if(state == SC_READY_TO_SEND_LEAD_ELECT_START)
     {
@@ -666,4 +674,14 @@ size_t sibling_ctrl_restart_msg_queue_num_msgs()
 int sibling_ctrl_push_to_restart_msg_queue(struct rfpbuf * msg_rcvd)
 {
   list_push_back(&restart_msg_queue, &msg_rcvd->list_node);
+}
+
+void sibling_ctrl_redistribute_leader_elect(bool leader)
+{
+  struct ctrl_client * ctrl_client;
+
+  LIST_FOR_EACH(ctrl_client, struct ctrl_client, node, &ctrl_clients)
+  {
+    ctrl_client_redistribute_leader_elect(ctrl_client, leader);
+  }
 }

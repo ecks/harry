@@ -9,6 +9,8 @@ enum sc_state_update_req
 };
 
 void sibling_ctrl_init();
+void schedule_hellos_on_interfaces();
+void synchronize_current_xid();
 bool past_leader_elect_start();
 void sibling_ctrl_update_state(enum sc_state_update_req);
 timestamp_t sibling_ctrl_ingress_timestamp();
@@ -31,5 +33,6 @@ timestamp_t sibling_ctrl_first_timestamp_rcvd();
 struct list * sibling_ctrl_restart_msg_queue();
 size_t sibling_ctrl_restart_msg_queue_num_msgs();
 int sibling_ctrl_push_to_restart_msg_queue(struct rfpbuf * msg_rcvd);
+void sibling_ctrl_redistribute_leader_elect(bool leader);
 
 #endif

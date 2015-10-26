@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
@@ -40,6 +41,9 @@ void ospf6_restart_init(struct ospf6_interface * oi, bool catchup)
   pthread_mutex_init(&restart_mode_mutex, NULL);
 
   pthread_mutex_init(&restart_msg_q_mutex, NULL);
+
+  pthread_mutex_init(&restarted_first_egress_not_sent, NULL);
+  pthread_mutex_lock(&restarted_first_egress_not_sent);
 
   if(catchup)
     pthread_create(thread, NULL, ospf6_catchup_start, oi);
@@ -271,6 +275,12 @@ void * ospf6_restart_start(void * arg)
       zlog_debug("key to process that is coming from the replica: %s", keys->key_str_ptrs[i]);
     }
 
+    // want to ignore the current xid from messages to checkpoint
+    if(strncmp(keys->key_str_ptrs[i], CURRENT_XID, strlen(CURRENT_XID)) == 0)
+    {
+      continue;
+    }
+
     xid = (unsigned int) strtol(keys->key_str_ptrs[i], NULL, 10);
 
     process_restarted_msg(replica_id, xid, oi);
@@ -422,6 +432,10 @@ void * ospf6_restart_start(void * arg)
   {
     zlog_debug("We are no longer in restart mode");
   }
+
+  pthread_mutex_unlock(&restarted_first_egress_not_sent);
+//  ospf6->restarted_first_egress_not_sent = true;
+//  schedule_hellos_on_interfaces();
 
   return NULL;
 }

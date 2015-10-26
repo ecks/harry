@@ -21,8 +21,8 @@
 #include "rib.h"
 #include "debug.h"
 #include "if.h"
-#include "sib_router.h"
 #include "riack.h"
+#include "sib_router.h"
 #include "router.h"
 #include "db.h"
 
@@ -217,7 +217,7 @@ router_process_packet(struct router * rt, struct rfpbuf * msg)
       if(rt->state == R_ROUTING)
       {
         // try to get a unique xid
-        xid = db_get_unique_id(rt->r_client);
+        xid = db_get_unique_ingress_id(rt->r_client);
 
         if(IS_CONTROLLER_DEBUG_MSG)
         {

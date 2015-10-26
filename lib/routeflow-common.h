@@ -70,6 +70,7 @@ enum rfp_type {
     /* Data forwarding messages. */
     RFPT_FORWARD_OSPF6,
     RFPT_FORWARD_BGP,
+    RFPT_REDISTRIBUTE_LEADER_ELECT,
 };
 
 
@@ -206,6 +207,15 @@ struct rfp_ipv6_address {
   uint16_t prefixlen;
   uint32_t p[4];
 
+};
+
+struct red_lead_elec {
+  uint8_t is_leader; 
+};
+
+struct rfp_redistribute_leader_elect {
+  struct rfp_header header;
+  struct red_lead_elec red_lead_elec; 
 };
 
 /* OSPF6 Types */

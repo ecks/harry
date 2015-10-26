@@ -12,6 +12,8 @@
 #include <getopt.h>
 #include <signal.h>
 
+#include <time.h>
+
 #include "routeflow-common.h"
 #include "util.h"
 #include "dblist.h"
@@ -55,7 +57,20 @@ struct thread_master * master;
 
 void terminate(int signal)
 {
-  zlog_debug("Terminate called...");
+  struct timespec time; 
+  bool is_leader;
+
+  if(ospf6_replica_own_leader())
+  {
+    is_leader = true;
+  }
+  else
+  {
+    is_leader = false;
+  }
+
+  clock_gettime(CLOCK_REALTIME, &time);                                                                                                                                                                                                  
+  zlog_debug("[%ld.%09ld]: Terminate called..., leader: %s", time.tv_sec, time.tv_nsec, is_leader ? "true" : "false");
 
   // Unregister
   sisis_unregister_host();

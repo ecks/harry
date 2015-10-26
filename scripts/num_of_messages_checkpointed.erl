@@ -2,7 +2,7 @@
 -compile(export_all).
 
 start() ->
-  spawn(fun() -> start_server(9999) end).
+  start_server(9998).
 
 start_server(Port) ->
   {ok, Listen} = gen_tcp:listen(Port, [binary, {active, false}, {reuseaddr, true}]),
@@ -35,7 +35,8 @@ handle(Socket, Pid, Comp) ->
       {ok, Comp};
     {tcp, Socket, <<"num", _/binary>>} -> 
       {ok, Keys} = riakc_pb_socket:list_keys(Pid, <<"0">>),
-      gen_tcp:send(Socket, integer_to_list(length(Keys))),
+      Keys_filtered = lists:filter( fun(KeyInList) -> KeyInList /= <<"cur_xid">> end, Keys),
+      gen_tcp:send(Socket, integer_to_list(length(Keys_filtered))),
       gen_tcp:close(Socket),
       {ok, Comp}
   end.

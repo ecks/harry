@@ -60,5 +60,6 @@ extern int ctrl_client_if_addr_req(struct ctrl_client * ctrl_client);
 /* TCP socket connection to controller */
 extern int ctrl_client_socket(struct in6_addr * ctrl_addr,
                               struct in6_addr * sibling_addr);
+void ctrl_client_redistribute_leader_elect(struct ctrl_client * ctrl_client, bool leader);
 
 #endif

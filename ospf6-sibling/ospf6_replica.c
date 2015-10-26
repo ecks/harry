@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <riack.h>
 
@@ -102,6 +103,7 @@ int rib_monitor_add_ipv6_route(struct route_ipv6 * route, void * data)
 
 int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
 {
+  struct timespec time;                                                                                                                                                                                                                      
   struct sibling * sibling;
 
   if(IS_OSPF6_SIBLING_DEBUG_REPLICA)
@@ -116,6 +118,9 @@ int rib_monitor_remove_ipv6_route(struct route_ipv6 * route, void * data)
   {
     db_destroy(ospf6->riack_client);
 
+    clock_gettime(CLOCK_REALTIME, &time); 
+
+    zlog_debug("About to exit... [%ld.%09ld]", time.tv_sec, time.tv_nsec);
     // if the sibling that was removed corresponds to own replica, then exit
     exit(1);
   }
@@ -548,6 +553,7 @@ static void send_ids()
   rfpbuf_delete(ospf6_replica->obuf);
   ospf6_replica->obuf = NULL;
 
+  sibling_ctrl_redistribute_leader_elect(own_replica->leader);
 }
 
 
@@ -810,6 +816,11 @@ unsigned int ospf6_replica_get_leader_id()
 
   printf("Error!\n");
   exit(1);
+}
+
+bool ospf6_replica_own_leader()
+{
+  return ospf6_replica->own_replica->leader;
 }
 
 void ospf6_replica_check_for_slowness(struct ospf6_interface * oi)
