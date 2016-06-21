@@ -263,7 +263,9 @@ int ospf6_hello_send(struct thread * thread)
 
   if(IS_OSPF6_SIBLING_DEBUG_MSG)
   {
-    zlog_debug("Attempting to send the message");
+    clock_gettime(CLOCK_REALTIME, &time);
+
+    zlog_debug("[%ld.%09ld]: Attempting to send the message, xid: %d", time.tv_sec, time.tv_nsec, oi->ctrl_client->current_xid);
   }
 
   retval = ospf6_msg_send(oi);

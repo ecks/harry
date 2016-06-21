@@ -11,6 +11,8 @@
 #include "errno.h"
 #include "netinet/in.h"
 
+#include "time.h"
+
 #include "util.h"
 #include "socket-util.h"
 #include "routeflow-common.h"
@@ -31,7 +33,7 @@
 #include "router.h"
 #include "sib_router.h"
 
-#define MAX_OSPF6_SIBLINGS 3
+#define MAX_OSPF6_SIBLINGS 9
 #define MAX_BGP_SIBLINGS 3
 
 #define MAX_LISTENERS 16
@@ -278,10 +280,51 @@ sib_router_create(struct rconn *rconn)
 //  sib_router_send_features_request(rt);
 //}
 
+static int
+num_waiting_on_first_egress_msg()
+{
+  int num = 0;
+
+  int i;
+
+  for(i = 0; i < n_ospf6_siblings; i++)
+  {
+    if(ospf6_siblings[i]->waiting_on_first_egress_msg)
+    {
+      num++;
+    }
+  }
+
+  return num;
+}
+
 static bool 
 majority_have_msg_rcvd()
 {
   int i;
+  int num_hosts;
+
+  if(voter_type_conf == VOTER_ALL)
+  {
+    num_hosts = num_sibs_conf;
+
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("In voter_all, num sibs: %d", num_sibs_conf);
+    }
+  }
+  else if(voter_type_conf == VOTER_ANY)
+  {
+    int num_waiting_on_first_egress = num_waiting_on_first_egress_msg();
+
+    if(CONTROLLER_DEBUG_MSG)
+    {
+      zlog_debug("In voter_any, num waiting on egress: %d, num routing: %d", num_waiting_on_first_egress, n_ospf6_siblings_routing);
+    }
+
+    num_hosts = n_ospf6_siblings_routing - num_waiting_on_first_egress;
+  }
+
   for(i = 0; i < n_ospf6_siblings; i++)
   {
     if((ospf6_siblings[i]->state != SIB_DISCONNECTED) && (!list_empty(&ospf6_siblings[i]->msgs_rcvd_queue)))
@@ -289,7 +332,7 @@ majority_have_msg_rcvd()
       i++;
     }
   }
-  if(((float)i/num_sibs_conf) > 0.5)
+  if(((float)i/num_hosts) > 0.5)
   {
     return true;
   }
@@ -308,24 +351,6 @@ all_have_msg_rcvd()
   }
 
   return true;
-}
-
-static int
-num_waiting_on_first_egress_msg()
-{
-  int num = 0;
-
-  int i;
-
-  for(i = 0; i < n_ospf6_siblings; i++)
-  {
-    if(ospf6_siblings[i]->waiting_on_first_egress_msg)
-    {
-      num++;
-    }
-  }
-
-  return num;
 }
 
 static void append_msg_to_rcvd_queue(struct sib_router * sr, struct rfpbuf * msg)
@@ -350,6 +375,8 @@ vote_majority()
   int i;
   int j;
   int num_hosts;
+
+  struct timespec time;
 
   unsigned int xid_of_msg_responsible;
 
@@ -485,7 +512,10 @@ vote_majority()
       if(CONTROLLER_DEBUG_MSG)
       {
         struct rfp_header * rh = rfpbuf_at_assert(a, 0, a->size);
-        zlog_debug("forward ospf6 packet: sibling => controller, xid %d", ntohl(rh->xid));
+
+        clock_gettime(CLOCK_REALTIME, &time);
+
+        zlog_debug("[%ld.%09ld]: forward ospf6 packet: sibling => controller, xid %d", time.tv_sec, time.tv_nsec, ntohl(rh->xid));
       }
 //      xid_of_msg_responsible = ntohl(rh->xid);
 //      xid_of_msg_responsible++;

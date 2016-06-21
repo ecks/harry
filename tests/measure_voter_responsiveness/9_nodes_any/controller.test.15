@@ -1,0 +1,10 @@
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: xids 3 matched from fcff:1000:6040:0:40:6b19:b926:8671
+2015/11/24 16:59:08 CONTROLLER: [1448402348.213804047]: forward ospf6 packet: sibling => controller, xid 3
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6b39:b926:88c9, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6bb3:b926:8b21, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6bca:b926:8d7b, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6bde:b926:8fd4, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6bfc:b926:922f, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6c10:b926:9483, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6c24:b926:96dc, current egress xid: 4
+2015/11/24 16:59:08 CONTROLLER: forward ospf6 packet: rejected, xid 3 from fcff:1000:6040:0:40:6c38:b926:973f, current egress xid: 4

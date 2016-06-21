@@ -1,0 +1,7 @@
+{
+  "id": "sibling-6",
+  "cmd": "sudo /home/hasenov/zebralite/ospf6-sibling/ospf6-sibling -f /etc/zebralite/ospf6_sibling_6.conf",
+  "cpus": 0.11,
+  "mem": 16.0,
+  "instances": 1
+}
