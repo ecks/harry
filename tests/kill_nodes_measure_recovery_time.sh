@@ -34,7 +34,7 @@ do
   sleep 5
 
   # start up punter
-  tmux send -t punter.0 'sudo /home/hasenov/zebralite/punter/punter fe80::20c:29ff:fe12:f995' ENTER
+  tmux send -t punter.1 'sudo /home/hasenov/zebralite/punter/punter fe80::20c:29ff:fe12:f995' ENTER
 
   sleep 5
 
@@ -58,7 +58,7 @@ do
     num_checkpointed=`echo "num" | nc 10.0.0.141 9999`
   done
 
-  # kill sibling # 2
+  # kill sibling 
   ssh hasenov@10.0.0.141 'tmux send -t sblngs.0 "qstat | python ~/zebralite/scripts/parse_qstat.py -j 2 | xargs qdel" ENTER'
 
   ssh hasenov@10.0.0.141 'tmux send -t sblngs.0 "qstat | python ~/zebralite/scripts/parse_qstat.py -c 0 2 | nc localhost 9999" ENTER'

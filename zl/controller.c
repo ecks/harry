@@ -386,6 +386,9 @@ fwd_control_input(struct conn * conn, const struct sender *sender, struct rfpbuf
         return -EINVAL;
     }
 
+    // flush output
+    fflush(stdout);
+
     /* Handle it. */
     return handler(conn, sender, buf);
 } 
