@@ -1,4 +1,4 @@
-# zebralite - now known as HARRY (Highly Available Redundant Routing Yard)
+# HARRY (Highly Available Redundant Routing Yard)
 
 Description:
 
